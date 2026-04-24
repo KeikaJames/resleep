@@ -1,0 +1,593 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		04E958C599DAA111B1215FB4 /* WatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2EFDB265B5162D8C9ED34D7 /* WatchApp.swift */; };
+		0D770A7F5AF60CB436F421CE /* HistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E5DA0A1081E49D7C29A90A9 /* HistoryViewModel.swift */; };
+		250FDD7F07A93EC40A0A0A1C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E56AA2DECF82625E0A5F2CD0 /* SettingsView.swift */; };
+		3020DEA252732FE3DEE9E356 /* SleepTracker-Watch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 7F701B426F1A0365641CB052 /* SleepTracker-Watch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		3070795377156C508886A460 /* WatchHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34B75E3D5BD035F2D7CA0E36 /* WatchHomeView.swift */; };
+		446B81CFEEF83C02B91487DD /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDF1F4492A04C03721DE74DB /* SettingsViewModel.swift */; };
+		521028E584B4A0A3CEAA4CB6 /* SleepKit in Frameworks */ = {isa = PBXBuildFile; productRef = 30D4896B6A4EBCA89E000D8A /* SleepKit */; };
+		55967A599C7DC742E9336C2D /* EngineHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB15AC896FA8F84C47488DE /* EngineHost.swift */; };
+		67D61D6DD2510079A2FB6A8B /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A2FC8571D70F8DC2887C121 /* AppState.swift */; };
+		76E601F4FA5F621DDE71330A /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8EE2C1D0180CAD5C1EC50D9 /* HomeView.swift */; };
+		9DDAB712BEF46EF1D9155E11 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55CA5D0FF6BA21A463AFC824 /* HomeViewModel.swift */; };
+		A2614B11DE2CEE459BA5AB94 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6454F55556CD0F7DF03B9C47 /* HistoryView.swift */; };
+		A8117A99B15DB54AA440139E /* SleepKit in Frameworks */ = {isa = PBXBuildFile; productRef = 70D91BE8B3C5345392199BEF /* SleepKit */; };
+		C03CCE69319D48369D07D978 /* SleepTrackerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24B57287C7760F243850FB04 /* SleepTrackerApp.swift */; };
+		C6F0C361B2E316D9E99ED338 /* TelemetryRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7C4ADE4A32E9DE92C4DE8DF /* TelemetryRouter.swift */; };
+		DA8DDB653B7FCFA08A659B3F /* WatchHapticRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DDBBF386A44D753C13FF7B8 /* WatchHapticRunner.swift */; };
+		E842548252695419F551C571 /* WatchAppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2959B095D4707B46C2CFFF /* WatchAppState.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		181363C01DB0739751C79B3B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2438F37A12BD59A7D07E4828 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EA093EBB583CF72BA6F0699B;
+			remoteInfo = "SleepTracker-Watch";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		CCFF4263B76D602098AE44D0 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				3020DEA252732FE3DEE9E356 /* SleepTracker-Watch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		1B2959B095D4707B46C2CFFF /* WatchAppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAppState.swift; sourceTree = "<group>"; };
+		24B57287C7760F243850FB04 /* SleepTrackerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepTrackerApp.swift; sourceTree = "<group>"; };
+		34B75E3D5BD035F2D7CA0E36 /* WatchHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHomeView.swift; sourceTree = "<group>"; };
+		4D0CE237B45F318BBF470270 /* SleepKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SleepKit; path = SleepKit; sourceTree = SOURCE_ROOT; };
+		55CA5D0FF6BA21A463AFC824 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
+		5E5DA0A1081E49D7C29A90A9 /* HistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModel.swift; sourceTree = "<group>"; };
+		6454F55556CD0F7DF03B9C47 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		6DDBBF386A44D753C13FF7B8 /* WatchHapticRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHapticRunner.swift; sourceTree = "<group>"; };
+		7F701B426F1A0365641CB052 /* SleepTracker-Watch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "SleepTracker-Watch.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9A2FC8571D70F8DC2887C121 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		C2EFDB265B5162D8C9ED34D7 /* WatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchApp.swift; sourceTree = "<group>"; };
+		DA93BDB5A1A8954EF8179C30 /* SleepTracker-iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "SleepTracker-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E56AA2DECF82625E0A5F2CD0 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		E8EE2C1D0180CAD5C1EC50D9 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		EDF1F4492A04C03721DE74DB /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
+		F7C4ADE4A32E9DE92C4DE8DF /* TelemetryRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryRouter.swift; sourceTree = "<group>"; };
+		FFB15AC896FA8F84C47488DE /* EngineHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineHost.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		30820223B1EDFC392AE6BC13 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A8117A99B15DB54AA440139E /* SleepKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		755A568B346C9346BA735769 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				521028E584B4A0A3CEAA4CB6 /* SleepKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		227CA014F8A4B97AFD852911 /* Scenes */ = {
+			isa = PBXGroup;
+			children = (
+				30F43AAA2B1B9B29D10C8DBF /* History */,
+				4F2D55E210579C5D1DEFD7DB /* Home */,
+				C5558258E74A8BF285CFC275 /* Settings */,
+			);
+			path = Scenes;
+			sourceTree = "<group>";
+		};
+		22CB6D3BC34D226C0CF8653C /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				4D0CE237B45F318BBF470270 /* SleepKit */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		287FF6DC4E7B16785B01F085 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				1B2959B095D4707B46C2CFFF /* WatchAppState.swift */,
+				6DDBBF386A44D753C13FF7B8 /* WatchHapticRunner.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		29FE38B5B6020064A0082677 = {
+			isa = PBXGroup;
+			children = (
+				22CB6D3BC34D226C0CF8653C /* Packages */,
+				F4D24CE4092B1B8F19A68A01 /* SleepTracker-iOS */,
+				9FD5AC3E779633FC2B1DD1F5 /* SleepTracker-Watch */,
+				BBA52AA39BCE769E16831B3C /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		30F43AAA2B1B9B29D10C8DBF /* History */ = {
+			isa = PBXGroup;
+			children = (
+				6454F55556CD0F7DF03B9C47 /* HistoryView.swift */,
+				5E5DA0A1081E49D7C29A90A9 /* HistoryViewModel.swift */,
+			);
+			path = History;
+			sourceTree = "<group>";
+		};
+		3FC70C7D539489B8A0A9E706 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				FFB15AC896FA8F84C47488DE /* EngineHost.swift */,
+				F7C4ADE4A32E9DE92C4DE8DF /* TelemetryRouter.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		4F2D55E210579C5D1DEFD7DB /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				E8EE2C1D0180CAD5C1EC50D9 /* HomeView.swift */,
+				55CA5D0FF6BA21A463AFC824 /* HomeViewModel.swift */,
+			);
+			path = Home;
+			sourceTree = "<group>";
+		};
+		72BF3215FA55C59ACCDAB306 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				C2EFDB265B5162D8C9ED34D7 /* WatchApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		99B8FD49ABC7F0EE40E13BB5 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				9A2FC8571D70F8DC2887C121 /* AppState.swift */,
+				24B57287C7760F243850FB04 /* SleepTrackerApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		9FD5AC3E779633FC2B1DD1F5 /* SleepTracker-Watch */ = {
+			isa = PBXGroup;
+			children = (
+				72BF3215FA55C59ACCDAB306 /* App */,
+				A8EC990678E6E80CD0DBB2F4 /* Scenes */,
+				287FF6DC4E7B16785B01F085 /* Services */,
+			);
+			path = "SleepTracker-Watch";
+			sourceTree = "<group>";
+		};
+		A8EC990678E6E80CD0DBB2F4 /* Scenes */ = {
+			isa = PBXGroup;
+			children = (
+				34B75E3D5BD035F2D7CA0E36 /* WatchHomeView.swift */,
+			);
+			path = Scenes;
+			sourceTree = "<group>";
+		};
+		BBA52AA39BCE769E16831B3C /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DA93BDB5A1A8954EF8179C30 /* SleepTracker-iOS.app */,
+				7F701B426F1A0365641CB052 /* SleepTracker-Watch.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C5558258E74A8BF285CFC275 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				E56AA2DECF82625E0A5F2CD0 /* SettingsView.swift */,
+				EDF1F4492A04C03721DE74DB /* SettingsViewModel.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		F4D24CE4092B1B8F19A68A01 /* SleepTracker-iOS */ = {
+			isa = PBXGroup;
+			children = (
+				99B8FD49ABC7F0EE40E13BB5 /* App */,
+				227CA014F8A4B97AFD852911 /* Scenes */,
+				3FC70C7D539489B8A0A9E706 /* Services */,
+			);
+			path = "SleepTracker-iOS";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A5D0F4471585C907ABFC6438 /* SleepTracker-iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CDE3C320DE9B51C52D8C19E5 /* Build configuration list for PBXNativeTarget "SleepTracker-iOS" */;
+			buildPhases = (
+				9ECA7CF4874822B9054808F2 /* Sources */,
+				30820223B1EDFC392AE6BC13 /* Frameworks */,
+				CCFF4263B76D602098AE44D0 /* Embed Watch Content */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				085412D32728748A25865B41 /* PBXTargetDependency */,
+			);
+			name = "SleepTracker-iOS";
+			packageProductDependencies = (
+				70D91BE8B3C5345392199BEF /* SleepKit */,
+			);
+			productName = "SleepTracker-iOS";
+			productReference = DA93BDB5A1A8954EF8179C30 /* SleepTracker-iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		EA093EBB583CF72BA6F0699B /* SleepTracker-Watch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1D9A54D7BACBA120A7CE074C /* Build configuration list for PBXNativeTarget "SleepTracker-Watch" */;
+			buildPhases = (
+				8E62E5657072418ADE267B7C /* Sources */,
+				755A568B346C9346BA735769 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "SleepTracker-Watch";
+			packageProductDependencies = (
+				30D4896B6A4EBCA89E000D8A /* SleepKit */,
+			);
+			productName = "SleepTracker-Watch";
+			productReference = 7F701B426F1A0365641CB052 /* SleepTracker-Watch.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		2438F37A12BD59A7D07E4828 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					A5D0F4471585C907ABFC6438 = {
+						DevelopmentTeam = "${DEVELOPMENT_TEAM}";
+						ProvisioningStyle = Automatic;
+					};
+					EA093EBB583CF72BA6F0699B = {
+						DevelopmentTeam = "${DEVELOPMENT_TEAM}";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 2656A8DFCF6931E8C24E483E /* Build configuration list for PBXProject "SleepTracker" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 29FE38B5B6020064A0082677;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				0CB161CA87E6B4B59C4E6B2B /* XCLocalSwiftPackageReference "SleepKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = BBA52AA39BCE769E16831B3C /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				EA093EBB583CF72BA6F0699B /* SleepTracker-Watch */,
+				A5D0F4471585C907ABFC6438 /* SleepTracker-iOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8E62E5657072418ADE267B7C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				04E958C599DAA111B1215FB4 /* WatchApp.swift in Sources */,
+				E842548252695419F551C571 /* WatchAppState.swift in Sources */,
+				DA8DDB653B7FCFA08A659B3F /* WatchHapticRunner.swift in Sources */,
+				3070795377156C508886A460 /* WatchHomeView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9ECA7CF4874822B9054808F2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				67D61D6DD2510079A2FB6A8B /* AppState.swift in Sources */,
+				55967A599C7DC742E9336C2D /* EngineHost.swift in Sources */,
+				A2614B11DE2CEE459BA5AB94 /* HistoryView.swift in Sources */,
+				0D770A7F5AF60CB436F421CE /* HistoryViewModel.swift in Sources */,
+				76E601F4FA5F621DDE71330A /* HomeView.swift in Sources */,
+				9DDAB712BEF46EF1D9155E11 /* HomeViewModel.swift in Sources */,
+				250FDD7F07A93EC40A0A0A1C /* SettingsView.swift in Sources */,
+				446B81CFEEF83C02B91487DD /* SettingsViewModel.swift in Sources */,
+				C03CCE69319D48369D07D978 /* SleepTrackerApp.swift in Sources */,
+				C6F0C361B2E316D9E99ED338 /* TelemetryRouter.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		085412D32728748A25865B41 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EA093EBB583CF72BA6F0699B /* SleepTracker-Watch */;
+			targetProxy = 181363C01DB0739751C79B3B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		4F0A3D56158C960AD365246D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "${DEVELOPMENT_TEAM}";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		7EEE1C7D03A8061BF7DE1024 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "SleepTracker-iOS/Resources/SleepTracker.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_PREVIEWS = YES;
+				INFOPLIST_FILE = "SleepTracker-iOS/Resources/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "${BASE_BUNDLE_ID:-com.example.sleep}.ios";
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BB30E5245D502893419FF12D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ENABLE_PREVIEWS = YES;
+				INFOPLIST_FILE = "SleepTracker-Watch/Resources/Info.plist";
+				PRODUCT_BUNDLE_IDENTIFIER = "${BASE_BUNDLE_ID:-com.example.sleep}.ios.watchkitapp";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		CA4235AF5276047FFFFCB055 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ENABLE_PREVIEWS = YES;
+				INFOPLIST_FILE = "SleepTracker-Watch/Resources/Info.plist";
+				PRODUCT_BUNDLE_IDENTIFIER = "${BASE_BUNDLE_ID:-com.example.sleep}.ios.watchkitapp";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		DB39E5F56FB9A1E44F0F8FF2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "SleepTracker-iOS/Resources/SleepTracker.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_PREVIEWS = YES;
+				INFOPLIST_FILE = "SleepTracker-iOS/Resources/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "${BASE_BUNDLE_ID:-com.example.sleep}.ios";
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		FF01586E63934EE18D6C0654 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "${DEVELOPMENT_TEAM}";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1D9A54D7BACBA120A7CE074C /* Build configuration list for PBXNativeTarget "SleepTracker-Watch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BB30E5245D502893419FF12D /* Debug */,
+				CA4235AF5276047FFFFCB055 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		2656A8DFCF6931E8C24E483E /* Build configuration list for PBXProject "SleepTracker" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4F0A3D56158C960AD365246D /* Debug */,
+				FF01586E63934EE18D6C0654 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		CDE3C320DE9B51C52D8C19E5 /* Build configuration list for PBXNativeTarget "SleepTracker-iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7EEE1C7D03A8061BF7DE1024 /* Debug */,
+				DB39E5F56FB9A1E44F0F8FF2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		0CB161CA87E6B4B59C4E6B2B /* XCLocalSwiftPackageReference "SleepKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = SleepKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		30D4896B6A4EBCA89E000D8A /* SleepKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SleepKit;
+		};
+		70D91BE8B3C5345392199BEF /* SleepKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SleepKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 2438F37A12BD59A7D07E4828 /* Project object */;
+}

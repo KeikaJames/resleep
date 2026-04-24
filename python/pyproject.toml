@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sleep-training"
+version = "0.1.0"
+description = "Offline training + CoreML export for the Sleep Tracker tiny-transformer."
+requires-python = ">=3.11"
+readme = "README.md"
+license = { text = "Proprietary" }
+authors = [{ name = "Sleep Tracker Team" }]
+dependencies = [
+    "numpy>=1.26",
+    "torch>=2.2",
+    "pyyaml>=6.0",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+export = ["coremltools>=7.2"]
+dev    = ["ruff>=0.5", "pytest>=8.1"]
+
+[tool.setuptools]
+packages = ["training"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

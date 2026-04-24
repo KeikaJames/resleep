@@ -1,0 +1,50 @@
+# macOS / Xcode
+.DS_Store
+*.xcuserstate
+xcuserdata/
+DerivedData/
+*.xcscmblueprint
+*.xccheckout
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Package.resolved
+
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# Local data
+*.sqlite
+*.sqlite3
+*.db
+/tmp/
+local_data/
+
+# Generated FFI
+apple/SleepKit/Sources/SleepKit/Generated/
+rust/target-xcframework/
+*.xcframework/
+
+# Secrets (defensive)
+*.pem
+*.p12
+*.mobileprovision
