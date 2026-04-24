@@ -25,6 +25,11 @@ public final class InMemoryConnectivityManager: ConnectivityManagerProtocol, @un
         dispatchInbound(envelope)
     }
 
+    public func sendImmediateMessageAwaitingDelivery(_ envelope: MessageEnvelope) async throws {
+        guard isReachable else { throw ConnectivityError.notReachable }
+        dispatchInbound(envelope)
+    }
+
     public func sendGuaranteedMessage(_ envelope: MessageEnvelope) {
         dispatchInbound(envelope)
     }

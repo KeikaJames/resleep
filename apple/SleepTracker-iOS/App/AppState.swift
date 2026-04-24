@@ -19,7 +19,10 @@ public final class AppState: ObservableObject {
     public let heartRateStream: HeartRateStreaming
     public let workout: WorkoutSessionManager
     public let router: TelemetryRouter
-    public let alarm: SmartAlarmController
+    // `var` (not `let`) so SwiftUI can form a writable key-path binding
+    // via `$appState.alarm.xxx` against the underlying @Published fields
+    // on the controller. Reassignment is never actually done.
+    public var alarm: SmartAlarmController
     public let inferencePipeline: StageInferencePipeline
 
     public let engineFallbackReason: String?
@@ -39,10 +42,10 @@ public final class AppState: ObservableObject {
     public init(
         engine: SleepEngineClientProtocol,
         engineFallbackReason: String?,
-        localStore: LocalStoreProtocol = InMemoryLocalStore(),
-        insights: LocalInsightsServiceProtocol = LocalInsightsService(),
+        localStore: LocalStoreProtocol,
+        insights: LocalInsightsServiceProtocol,
         connectivity: ConnectivityManagerProtocol,
-        health: HealthPermissionServiceProtocol = HealthPermissionService(),
+        health: HealthPermissionServiceProtocol,
         heartRateStream: HeartRateStreaming,
         inferenceModel: StageInferenceModel? = nil,
         inferenceFallbackReason: String? = nil
@@ -91,7 +94,10 @@ public final class AppState: ObservableObject {
         return AppState(
             engine: engine,
             engineFallbackReason: reason,
+            localStore: InMemoryLocalStore(),
+            insights: LocalInsightsService(),
             connectivity: connectivity,
+            health: HealthPermissionService(),
             heartRateStream: stream
         )
     }
@@ -129,20 +135,29 @@ public final class AppState: ObservableObject {
         }
     }
 
-    /// Enters simulated mode: starts a watch-source session (phone-local for
-    /// scenarios that explicitly disable the watch) and begins scenario
-    /// replay. Cancels any in-flight scenario first, so repeated calls do
-    /// not duplicate ingestion loops.
+    /// Enters simulated mode. Forces a clean transition by stopping any
+    /// in-flight scenario *and* any currently-active live session so the
+    /// new scenario starts from zero state — no duplicated ingestion
+    /// loops, no stale pipeline buffers, no leaked alarm state.
     public func startSimulation(_ scenario: ScenarioType) async {
+        // 1. Kill any prior scenario replay (idempotent).
         scenarioRunner.stop()
-        if !workout.isTracking {
-            do {
-                let src: TrackingSource =
-                    (scenario == .watchUnavailable) ? .localPhone : .remoteWatch
-                try await workout.startTracking(source: src)
-            } catch {
-                return
-            }
+        // 2. If a session is running (live or simulated), tear it down so
+        //    the workout manager, alarm, and inference pipeline all reset.
+        if workout.isTracking {
+            _ = try? await workout.stopTracking()
+        }
+        alarm.clear()
+        inferencePipeline.reset()
+        // 3. Start a fresh session in the source the scenario expects.
+        let src: TrackingSource =
+            (scenario == .watchUnavailable) ? .localPhone : .remoteWatch
+        do {
+            try await workout.startTracking(source: src)
+        } catch {
+            runtimeMode = .live
+            activeScenario = nil
+            return
         }
         runtimeMode = .simulated
         activeScenario = scenario
@@ -156,8 +171,10 @@ public final class AppState: ObservableObject {
         scenarioRunner.stop()
         activeScenario = nil
         runtimeMode = .live
+        alarm.clear()
         if workout.isTracking {
             _ = try? await workout.stopTracking()
         }
+        inferencePipeline.reset()
     }
 }

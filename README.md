@@ -43,29 +43,51 @@ uses `InMemorySleepEngineClient` as the engine.
 
 ## Running
 
+### Opening the Xcode project
+
+The Xcode project is **generated** by [XcodeGen] from `apple/project.yml`.
+We do not commit the `.xcodeproj`; regenerate before opening:
+
+    ./scripts/generate_xcode_project.sh      # writes apple/SleepTracker.xcodeproj
+    ./scripts/open_xcode.sh                  # regenerates + opens the workspace
+
+`open_xcode.sh` always regenerates first, so editing `project.yml` and re-running
+the script is sufficient — there is no stale-project hazard.
+
+[XcodeGen]: https://github.com/yonki/XcodeGen
+
 ### iOS
 
-- Target: iPhone 15 Pro simulator / real device on iOS 17+.
-- Capabilities:
-  - HealthKit
-  - Background Modes (at minimum: `Background fetch`; for Watch workout
-    mirroring: `Remote notifications`).
-- Info.plist keys already set:
+- Scheme: `SleepTracker-iOS`, destination: any iOS 17+ simulator (e.g. iPhone 17)
+  or a real device.
+- Capabilities (already in `project.yml` / entitlements): HealthKit,
+  Background Modes.
+- Info.plist keys (auto-generated from `project.yml`):
   - `NSHealthShareUsageDescription`
   - `NSHealthUpdateUsageDescription`
   - `NSMotionUsageDescription`
+
+CLI build check:
+
+    DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+      xcrun xcodebuild build \
+      -project apple/SleepTracker.xcodeproj \
+      -scheme SleepTracker-iOS \
+      -destination 'platform=iOS Simulator,name=iPhone 17'
 
 ### watchOS
 
-- Target: Apple Watch paired with the iPhone used above.
-- Capabilities:
-  - HealthKit
-  - Background Modes → `Workout processing`
-- Info.plist keys:
-  - `NSHealthShareUsageDescription`
-  - `NSHealthUpdateUsageDescription`
-  - `NSMotionUsageDescription`
-  - `WKBackgroundModes` = `["workout-processing"]`
+- Scheme: `SleepTracker-Watch`, destination: any watchOS 10+ simulator
+  (e.g. Apple Watch Series 11 46mm).
+- Capabilities (in `project.yml`): HealthKit, Background Modes (`workout-processing`).
+
+CLI build check:
+
+    DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+      xcrun xcodebuild build \
+      -project apple/SleepTracker.xcodeproj \
+      -scheme SleepTracker-Watch \
+      -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)'
 
 ### Rust CLI
 
@@ -116,33 +138,14 @@ The Home screen's "Data source" badge shows which mode is active.
 
     ./scripts/test_all.sh
 
-## Files requiring manual Xcode target membership (if/when pbxproj is created)
+## Target membership
 
-The repo ships without a `.xcodeproj`; when you generate one (`xcodegen` or by
-hand in Xcode), add these files to the stated targets:
-
-- SleepTracker-iOS target:
-  - `apple/SleepTracker-iOS/App/SleepTrackerApp.swift`
-  - `apple/SleepTracker-iOS/App/AppState.swift`
-  - `apple/SleepTracker-iOS/Services/EngineHost.swift`
-  - `apple/SleepTracker-iOS/Services/TelemetryRouter.swift`
-  - `apple/SleepTracker-iOS/Scenes/Home/HomeView.swift`
-  - `apple/SleepTracker-iOS/Scenes/Home/HomeViewModel.swift`
-  - `apple/SleepTracker-iOS/Scenes/History/HistoryView.swift`
-  - `apple/SleepTracker-iOS/Scenes/History/HistoryViewModel.swift`
-  - `apple/SleepTracker-iOS/Scenes/Settings/SettingsView.swift`
-  - `apple/SleepTracker-iOS/Scenes/Settings/SettingsViewModel.swift`
-  - Resources: `apple/SleepTracker-iOS/Resources/Info.plist`,
-    `apple/SleepTracker-iOS/Resources/SleepTracker.entitlements`
-  - Package product: `SleepKit` (local Swift package).
-
-- SleepTracker-Watch target:
-  - `apple/SleepTracker-Watch/App/WatchApp.swift`
-  - `apple/SleepTracker-Watch/Services/WatchAppState.swift`
-  - `apple/SleepTracker-Watch/Services/WatchHapticRunner.swift`
-  - `apple/SleepTracker-Watch/Scenes/WatchHomeView.swift`
-  - Resources: `apple/SleepTracker-Watch/Resources/Info.plist`
-  - Package product: `SleepKit`.
+Target membership is fully declared in `apple/project.yml` and materialized by
+`./scripts/generate_xcode_project.sh` — **there is no manual step**. If you add
+a new source file under `apple/SleepTracker-iOS/…` or
+`apple/SleepTracker-Watch/…`, re-run the generator; XcodeGen globs the trees
+and wires it in automatically. SleepKit is consumed as a local Swift package
+product by both app targets.
 
 ## M4: Smart-alarm closed loop + continuous status sync
 
@@ -559,3 +562,42 @@ section, pick a scenario (e.g. `smartAlarmTriggerDismiss`) and tap
 - M7: alarm persistence across app restarts + optional phone audio fallback.
 - M8: real HRV pipeline (RR interval plumbing end-to-end).
 
+
+## M6.6: Runtime-launch audit and correctness fixes
+
+M6.6 locks runtime launch readiness. No new product features.
+
+### Behavioral fixes
+
+- **Watch fake-start**: if `HKWorkoutSession` start or motion start throws,
+  `WatchAppState.startTracking` no longer enters `isTracking = true`, does
+  not spin up a flush loop, and clears `currentSessionId`. Motion-only
+  failure (HR still OK) soft-degrades with a surfaced error rather than
+  silently claiming success.
+- **Immediate-message delivery semantics**:
+  `ConnectivityManager.sendImmediateMessage` is now explicitly
+  fire-and-forget — it no longer pretends to observe the async
+  `WCSession.sendMessage` error callback synchronously. Paths that
+  require true delivery confirmation (smart-alarm trigger) use the new
+  `sendImmediateMessageAwaitingDelivery(_:) async throws` variant, backed
+  by a guarded continuation.
+- **Simulation session contamination**: `AppState.startSimulation(_:)`
+  now force-stops any active session, clears alarm state, and resets the
+  inference pipeline before starting a fresh session for the chosen
+  scenario. Switching scenarios never stacks duplicate loops.
+- **Stale generated project**: `scripts/open_xcode.sh` regenerates the
+  Xcode project unconditionally before `open`, so editing `project.yml`
+  can never silently open a stale `.xcodeproj`.
+- **Watch debug indicator**: the watch now shows `LIVE mode` or
+  `SIM mode` in its debug strip, sourced from
+  `StatusSnapshotPayload.runtimeModeRaw` published by the phone.
+
+### Current limitations
+
+- We build watch & iOS app slices in CI (`xcodebuild build`) but have not
+  automated end-to-end launch under `simctl` — that is still a manual
+  in-Xcode verification for now.
+- Core ML on-device inference is iPhone-only; on watchOS the
+  `.mlpackage` path is disabled because `MLModel.compileModel(at:)` is
+  not available. Ship pre-compiled `.mlmodelc` if Watch-side inference
+  ever becomes necessary (not planned).

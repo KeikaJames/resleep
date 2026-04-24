@@ -128,16 +128,16 @@ public final class TelemetryRouter: ObservableObject {
 
     /// One-shot "start haptic" control to the Watch.
     ///
-    /// Returns `true` only if the immediate path succeeded — `transferUserInfo`
-    /// is too slow to be useful for an alarm, so when reachable is false we
-    /// report failure rather than queuing. Callers translate that into
-    /// `AlarmState.failedWatchUnreachable`.
+    /// Uses the awaiting-delivery path so the caller only receives `true`
+    /// after the OS confirms the message reached the Watch. If reachability
+    /// is false or the OS reports a transport error, returns `false` and
+    /// the alarm controller should mark the state `failedWatchUnreachable`.
     @discardableResult
-    public func sendTriggerAlarm(sessionId: String?) -> Bool {
+    public func sendTriggerAlarm(sessionId: String?) async -> Bool {
         guard let env = try? WatchMessage.triggerAlarm(sessionId: sessionId) else { return false }
         guard connectivity.isReachable else { return false }
         do {
-            try connectivity.sendImmediateMessage(env)
+            try await connectivity.sendImmediateMessageAwaitingDelivery(env)
             return true
         } catch {
             return false
@@ -160,7 +160,8 @@ public final class TelemetryRouter: ObservableObject {
                                    alarmState: AlarmState,
                                    alarmTarget: Date?,
                                    alarmWindowMinutes: Int?,
-                                   alarmTriggeredAt: Date?) {
+                                   alarmTriggeredAt: Date?,
+                                   runtimeModeRaw: String? = nil) {
         let snap = StatusSnapshotPayload(
             isTracking: isTracking,
             reachable: connectivity.isReachable,
@@ -171,7 +172,8 @@ public final class TelemetryRouter: ObservableObject {
             alarmStateRaw: alarmState.rawValue,
             alarmTargetTsMs: alarmTarget.map { UInt64($0.timeIntervalSince1970 * 1000) },
             alarmWindowMinutes: alarmWindowMinutes,
-            alarmTriggeredAtTsMs: alarmTriggeredAt.map { UInt64($0.timeIntervalSince1970 * 1000) }
+            alarmTriggeredAtTsMs: alarmTriggeredAt.map { UInt64($0.timeIntervalSince1970 * 1000) },
+            runtimeModeRaw: runtimeModeRaw
         )
         try? connectivity.updateStatusSnapshot(snap, sessionId: sessionId)
     }

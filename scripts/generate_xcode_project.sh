@@ -28,6 +28,10 @@ cd "${APPLE_DIR}"
 echo "[generate_xcode_project] running xcodegen in ${APPLE_DIR}"
 xcodegen generate --spec project.yml --project .
 
+# Touch the generated project so its mtime is guaranteed >= project.yml's.
+# This makes "is the project stale?" checks trivial for downstream tooling.
+touch "${APPLE_DIR}/SleepTracker.xcodeproj"
+
 # Rebuild the workspace so it references the freshly-generated .xcodeproj
 # plus the SleepKit local package. Keep the file under source control so the
 # repo remains openable in Xcode without regenerating.

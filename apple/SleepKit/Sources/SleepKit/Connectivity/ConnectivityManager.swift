@@ -26,7 +26,20 @@ public protocol ConnectivityManagerProtocol: AnyObject {
     var isWatchAppInstalled: Bool { get }
 
     func activate()
+
+    /// Dispatches an immediate message via `WCSession.sendMessage`. Performs
+    /// **pre-flight** checks only (supported + reachable). Because
+    /// `WCSession.sendMessage`'s error callback is asynchronous, this method
+    /// does *not* confirm actual delivery — it returns as soon as the
+    /// message has been handed to the OS. Callers that need delivery
+    /// confirmation must use ``sendImmediateMessageAwaitingDelivery(_:)``.
     func sendImmediateMessage(_ envelope: MessageEnvelope) throws
+
+    /// Dispatches an immediate message and awaits the OS delivery callback.
+    /// Throws `ConnectivityError.underlying` if WatchConnectivity reports a
+    /// transport error. Use for fire-critical paths like `triggerAlarm`.
+    func sendImmediateMessageAwaitingDelivery(_ envelope: MessageEnvelope) async throws
+
     func sendGuaranteedMessage(_ envelope: MessageEnvelope)
     func updateStatusSnapshot(_ snapshot: StatusSnapshotPayload, sessionId: String?) throws
 
@@ -77,15 +90,30 @@ public final class ConnectivityManager: ConnectivityManagerProtocol, @unchecked 
     public func sendImmediateMessage(_ envelope: MessageEnvelope) throws {
         guard client.isSupported else { throw ConnectivityError.notSupported }
         guard client.isReachable else { throw ConnectivityError.notReachable }
-        let dict = envelope.toDictionary()
-        var sendError: Error?
-        client.sendMessage(dict, replyHandler: nil) { err in
-            sendError = err
+        // Fire-and-forget. `WCSession.sendMessage` dispatches asynchronously;
+        // the error callback (if any) fires later on a background queue. We
+        // intentionally do NOT block here — callers that need delivery
+        // confirmation must call `sendImmediateMessageAwaitingDelivery`.
+        client.sendMessage(envelope.toDictionary(), replyHandler: nil) { err in
+            NSLog("[ConnectivityManager] sendMessage error: \(err.localizedDescription)")
         }
-        // `sendMessage` dispatches asynchronously; the error handler fires
-        // later, but pre-flight gating above covers the common cases. The
-        // error capture is best-effort for synchronous call sites.
-        if let sendError { throw ConnectivityError.underlying(sendError.localizedDescription) }
+    }
+
+    public func sendImmediateMessageAwaitingDelivery(_ envelope: MessageEnvelope) async throws {
+        guard client.isSupported else { throw ConnectivityError.notSupported }
+        guard client.isReachable else { throw ConnectivityError.notReachable }
+        let dict = envelope.toDictionary()
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+            let once = ContinuationGuard()
+            client.sendMessage(dict, replyHandler: { _ in
+                once.resume(with: .success(()), continuation: cont)
+            }, errorHandler: { err in
+                once.resume(
+                    with: .failure(ConnectivityError.underlying(err.localizedDescription)),
+                    continuation: cont
+                )
+            })
+        }
     }
 
     public func sendGuaranteedMessage(_ envelope: MessageEnvelope) {
@@ -148,5 +176,25 @@ public final class ConnectivityManager: ConnectivityManagerProtocol, @unchecked 
             }
             NSLog("[ConnectivityManager] activation state=\(state.rawValue)")
         }
+    }
+}
+
+// MARK: - Internal helpers
+
+/// `WCSession.sendMessage` delivers exactly one of {replyHandler,
+/// errorHandler}, but type-checkers and defensive coding prefer
+/// idempotent continuations. This guard ensures a continuation is
+/// resumed at most once even in pathological callback scenarios.
+private final class ContinuationGuard: @unchecked Sendable {
+    private let lock = NSLock()
+    private var resumed = false
+    func resume<T>(with result: Result<T, Error>,
+                   continuation: CheckedContinuation<T, Error>) {
+        lock.lock()
+        let alreadyResumed = resumed
+        resumed = true
+        lock.unlock()
+        guard !alreadyResumed else { return }
+        continuation.resume(with: result)
     }
 }

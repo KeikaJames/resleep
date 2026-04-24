@@ -26,6 +26,9 @@ final class WatchAppState: ObservableObject {
     @Published private(set) var isAlarmActive: Bool = false
     @Published private(set) var lastError: String?
     @Published private(set) var currentSessionId: String?
+    /// "live" or "simulated" as reported by the phone via status snapshots.
+    /// nil if we have never received one. Debug-oriented only.
+    @Published private(set) var runtimeModeRaw: String?
 
     let haptic = WatchHapticRunner()
 
@@ -97,15 +100,23 @@ final class WatchAppState: ObservableObject {
         guard !isTracking else { return }
         lastError = nil
         currentSessionId = sessionId
+        // Workout start is the hard dependency: HR sampling lives on the
+        // workout session. If it fails we must NOT enter tracking state,
+        // otherwise the UI would show "tracking" while no HR data flows.
         do {
             try await workout.start(sessionId: sessionId)
         } catch {
-            lastError = "workout start: \(error)"
+            lastError = "workout start failed: \(error)"
+            currentSessionId = nil
+            return
         }
+        // Motion is a soft dependency: accel windows are nice to have but
+        // HR alone still drives a useful session. Degrade with a clear
+        // error string rather than aborting the whole start.
         do {
             try motion.start()
         } catch {
-            lastError = "motion start: \(error)"
+            lastError = "motion degraded (HR only): \(error)"
         }
         isTracking = true
         startFlushLoop()
@@ -245,6 +256,7 @@ final class WatchAppState: ObservableObject {
             guard let snap = try? env.decode(StatusSnapshotPayload.self) else { return }
             if let raw = snap.currentStageRaw { currentStage = SleepStage(rawValue: raw) }
             currentConfidence = snap.currentConfidence
+            runtimeModeRaw = snap.runtimeModeRaw
             if let st = snap.alarmState {
                 alarmState = st
                 // Phone may transition to dismissed or idle while haptic is

@@ -43,7 +43,14 @@ public final class CoreMLStageInferenceModel: StageInferenceModel, @unchecked Se
             if modelURL.pathExtension == "mlmodelc" {
                 compiledURL = modelURL
             } else {
+                #if os(watchOS)
+                // `MLModel.compileModel(at:)` is unavailable on watchOS.
+                // Ship pre-compiled `.mlmodelc` for the Watch target if Core
+                // ML is ever needed there; in practice inference is iPhone-only.
+                throw StageInferenceError.platformUnsupported
+                #else
                 compiledURL = try MLModel.compileModel(at: modelURL)
+                #endif
             }
             loaded = try MLModel(contentsOf: compiledURL)
         } catch {

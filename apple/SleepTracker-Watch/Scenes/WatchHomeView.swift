@@ -86,6 +86,11 @@ struct WatchHomeView: View {
 
     private var debugStrip: some View {
         VStack(alignment: .leading, spacing: 2) {
+            if let mode = state.runtimeModeRaw {
+                Text(mode == "simulated" ? "SIM mode" : "LIVE mode")
+                    .font(.caption2)
+                    .foregroundStyle(mode == "simulated" ? .orange : .secondary)
+            }
             if let conf = state.currentConfidence {
                 Text(String(format: "conf %.2f", conf))
                     .font(.caption2).foregroundStyle(.secondary)

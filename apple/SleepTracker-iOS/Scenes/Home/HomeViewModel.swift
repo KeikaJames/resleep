@@ -74,7 +74,7 @@ final class HomeViewModel: ObservableObject {
         appState.alarm.setTriggerHandler { [weak appState] in
             guard let appState else { return false }
             let sid = appState.workout.currentSessionID
-            return appState.router.sendTriggerAlarm(sessionId: sid)
+            return await appState.router.sendTriggerAlarm(sessionId: sid)
         }
 
         // Arm the Rust engine if the user enabled the alarm; also echo the
@@ -162,7 +162,8 @@ final class HomeViewModel: ObservableObject {
             alarmState: appState.alarm.state,
             alarmTarget: appState.alarm.isEnabled ? appState.alarm.target : nil,
             alarmWindowMinutes: appState.alarm.isEnabled ? appState.alarm.windowMinutes : nil,
-            alarmTriggeredAt: appState.alarm.triggeredAt
+            alarmTriggeredAt: appState.alarm.triggeredAt,
+            runtimeModeRaw: appState.runtimeMode.rawValue
         )
     }
 }
