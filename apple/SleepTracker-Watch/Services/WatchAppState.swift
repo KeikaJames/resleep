@@ -86,7 +86,7 @@ final class WatchAppState: ObservableObject {
     // MARK: Public (UI) actions
 
     func manualStart() async {
-        let sid = currentSessionId ?? UUID().uuidString
+        let sid = UUID().uuidString
         await startTracking(sessionId: sid)
     }
 
@@ -126,8 +126,6 @@ final class WatchAppState: ObservableObject {
     private func stopTracking() async {
         guard isTracking else { return }
         stopAlarmLocally()
-        alarmState = .idle
-        smartAlarmArmed = false
         flushTask?.cancel()
         flushTask = nil
         motion.stop()
@@ -137,7 +135,28 @@ final class WatchAppState: ObservableObject {
         // final flush so the phone gets the tail of the session
         flush(force: true)
         isTracking = false
+        resetSessionScopedState()
         pushStatusSnapshot()
+    }
+
+    /// Clears every piece of per-session transient state so the next
+    /// session starts from zero. Intentionally does NOT touch
+    /// `phoneReachable` / `phoneAppInstalled` / `runtimeModeRaw` — those
+    /// are connectivity/phone-mirrored and survive across sessions.
+    private func resetSessionScopedState() {
+        currentSessionId = nil
+        pendingHeartRates.removeAll(keepingCapacity: false)
+        pendingAccelWindows.removeAll(keepingCapacity: false)
+        guaranteedQueue.removeAll(keepingCapacity: false)
+        pendingGuaranteedCount = 0
+        latestHeartRate = nil
+        latestHeartRateAt = nil
+        currentStage = nil
+        currentConfidence = nil
+        smartAlarmArmed = false
+        alarmState = .idle
+        isAlarmActive = false
+        lastBatchSentAt = nil
     }
 
     // MARK: Flush loop

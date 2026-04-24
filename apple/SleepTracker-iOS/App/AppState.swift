@@ -39,6 +39,12 @@ public final class AppState: ObservableObject {
     @Published public private(set) var activeScenario: ScenarioType?
     @Published public private(set) var lastScenarioMark: String?
 
+    // MARK: Session-hook lifecycle
+
+    /// 1 Hz status snapshot cadence — matches the watch-facing spec.
+    private let statusTickSec: Double = 1.0
+    private var statusTickTask: Task<Void, Never>?
+
     public init(
         engine: SleepEngineClientProtocol,
         engineFallbackReason: String?,
@@ -104,6 +110,62 @@ public final class AppState: ObservableObject {
 
     // MARK: - Simulation wiring
 
+    /// Installs the product-loop hooks that must be live during *any*
+    /// running session — live or simulated. Idempotent; safe to call twice
+    /// (e.g. on mode switch) because each sub-install replaces prior state.
+    ///
+    /// Hooks:
+    /// - Alarm trigger handler → `router.sendTriggerAlarm` (awaits app-level ack)
+    /// - Router `onAlarmDismissed` → `alarm.noteDismissedByWatch()`
+    /// - 1 Hz status-snapshot republication loop
+    public func installRunningSessionHooks() {
+        alarm.setTriggerHandler { [weak self] in
+            guard let self else { return false }
+            let sid = self.workout.currentSessionID
+            return await self.router.sendTriggerAlarm(sessionId: sid)
+        }
+        router.onAlarmDismissed = { [weak self] in
+            self?.alarm.noteDismissedByWatch()
+        }
+        startStatusTickLoop()
+    }
+
+    /// Tears down hooks installed by `installRunningSessionHooks()`. Does
+    /// not clear alarm user-config (target / windowMinutes / isEnabled).
+    public func teardownRunningSessionHooks() {
+        statusTickTask?.cancel()
+        statusTickTask = nil
+    }
+
+    private func startStatusTickLoop() {
+        statusTickTask?.cancel()
+        let period = statusTickSec
+        statusTickTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                await MainActor.run { self.publishSnapshot() }
+                try? await Task.sleep(nanoseconds: UInt64(period * 1_000_000_000))
+            }
+        }
+    }
+
+    /// Publishes the current engine/alarm/runtime state to the Watch. Also
+    /// called out-of-band by view-models on major transitions.
+    public func publishSnapshot() {
+        router.pushStatusSnapshot(
+            sessionId: workout.currentSessionID,
+            isTracking: workout.isTracking,
+            source: workout.source,
+            stage: workout.isTracking ? workout.currentStage : nil,
+            confidence: workout.isTracking ? workout.currentConfidence : nil,
+            alarmState: alarm.state,
+            alarmTarget: alarm.isEnabled ? alarm.target : nil,
+            alarmWindowMinutes: alarm.isEnabled ? alarm.windowMinutes : nil,
+            alarmTriggeredAt: alarm.triggeredAt,
+            runtimeModeRaw: runtimeMode.rawValue
+        )
+    }
+
     private func wireScenarioRunner() {
         scenarioRunner.onHeartRate = { [weak self] bpm, date in
             self?.workout.ingestRemoteHeartRate(bpm, at: date)
@@ -139,11 +201,17 @@ public final class AppState: ObservableObject {
     /// in-flight scenario *and* any currently-active live session so the
     /// new scenario starts from zero state — no duplicated ingestion
     /// loops, no stale pipeline buffers, no leaked alarm state.
+    ///
+    /// Installs the same product-loop hooks (trigger handler, dismiss
+    /// routing, 1 Hz status snapshots) that the live path uses, so a
+    /// simulated session exercises the full closed loop.
     public func startSimulation(_ scenario: ScenarioType) async {
         // 1. Kill any prior scenario replay (idempotent).
         scenarioRunner.stop()
         // 2. If a session is running (live or simulated), tear it down so
         //    the workout manager, alarm, and inference pipeline all reset.
+        //    Also cancels any in-flight status-tick task / hooks.
+        teardownRunningSessionHooks()
         if workout.isTracking {
             _ = try? await workout.stopTracking()
         }
@@ -162,6 +230,10 @@ public final class AppState: ObservableObject {
         runtimeMode = .simulated
         activeScenario = scenario
         lastScenarioMark = nil
+        // 4. Wire the product loop (trigger handler + dismiss route +
+        //    1 Hz snapshot republish) and kick the scenario runner.
+        installRunningSessionHooks()
+        publishSnapshot()
         scenarioRunner.start(scenario)
     }
 
@@ -172,9 +244,11 @@ public final class AppState: ObservableObject {
         activeScenario = nil
         runtimeMode = .live
         alarm.clear()
+        teardownRunningSessionHooks()
         if workout.isTracking {
             _ = try? await workout.stopTracking()
         }
         inferencePipeline.reset()
+        publishSnapshot()
     }
 }

@@ -15,7 +15,7 @@
 name: SleepTracker
 
 options:
-  bundleIdPrefix: ${BASE_BUNDLE_ID:-com.example.sleep}
+  bundleIdPrefix: com.example.sleep
   createIntermediateGroups: true
   generateEmptyDirectories: false
   deploymentTarget:
@@ -31,11 +31,10 @@ settings:
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
     # Unsigned by default so the project works without a provisioning team
-    # checked in. Override with `DEVELOPMENT_TEAM=XXXX xcodegen generate`
-    # (or set it in Xcode after opening the project).
+    # checked in. Set DEVELOPMENT_TEAM in Xcode if you want to deploy to
+    # a physical device.
     CODE_SIGN_STYLE: Automatic
     CODE_SIGN_IDENTITY: ""
-    DEVELOPMENT_TEAM: "${DEVELOPMENT_TEAM}"
 
 packages:
   SleepKit:
@@ -65,7 +64,7 @@ targets:
       - target: SleepTracker-Watch
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: ${BASE_BUNDLE_ID:-com.example.sleep}.ios
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.sleep.ios
         INFOPLIST_FILE: SleepTracker-iOS/Resources/Info.plist
         CODE_SIGN_ENTITLEMENTS: SleepTracker-iOS/Resources/SleepTracker.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
@@ -94,7 +93,7 @@ targets:
         product: SleepKit
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: ${BASE_BUNDLE_ID:-com.example.sleep}.ios.watchkitapp
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.sleep.ios.watchkitapp
         INFOPLIST_FILE: SleepTracker-Watch/Resources/Info.plist
         WATCHOS_DEPLOYMENT_TARGET: "10.0"
         ENABLE_PREVIEWS: YES

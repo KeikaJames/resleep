@@ -22,6 +22,20 @@ public final class TelemetryRouter: ObservableObject {
     /// Fires when the Watch tells us the alarm was dismissed.
     public var onAlarmDismissed: (@MainActor () -> Void)?
 
+    // MARK: Trigger-ack tracking (app-level delivery confirmation)
+
+    /// Bounded timeout (seconds) for the Watch's `alarmTriggered` ack. Two
+    /// seconds is generous for WatchConnectivity when reachable, and still
+    /// short enough to flip the alarm to `failedWatchUnreachable` before the
+    /// user experience degrades.
+    private let triggerAckTimeoutSec: TimeInterval = 2.0
+
+    /// Single one-shot continuation — smart-alarm is one-shot by product
+    /// design, so there is at most one trigger in flight at a time.
+    private var pendingTriggerAck: CheckedContinuation<Bool, Never>?
+    private var pendingTriggerSessionId: String?
+    private var pendingTriggerTimeout: Task<Void, Never>?
+
     // MARK: Dependencies
 
     private let connectivity: ConnectivityManagerProtocol
@@ -78,9 +92,12 @@ public final class TelemetryRouter: ObservableObject {
 
         case .ack:
             guard let ack = try? envelope.decode(AckPayload.self) else { return }
-            if ack.ackKind == "alarmTriggered" || ack.ackKind == "alarmDismissed" {
+            if ack.ackKind == "alarmTriggered" {
                 lastAlarmAckAt = Date()
-                if ack.ackKind == "alarmDismissed" { onAlarmDismissed?() }
+                resolvePendingTrigger(with: true, sessionId: envelope.sessionId)
+            } else if ack.ackKind == "alarmDismissed" {
+                lastAlarmAckAt = Date()
+                onAlarmDismissed?()
             }
         }
     }
@@ -128,19 +145,74 @@ public final class TelemetryRouter: ObservableObject {
 
     /// One-shot "start haptic" control to the Watch.
     ///
-    /// Uses the awaiting-delivery path so the caller only receives `true`
-    /// after the OS confirms the message reached the Watch. If reachability
-    /// is false or the OS reports a transport error, returns `false` and
-    /// the alarm controller should mark the state `failedWatchUnreachable`.
+    /// This used to rely on `WCSession.sendMessage`'s replyHandler for
+    /// delivery confirmation, but the real WCSession delegate on the Watch
+    /// does not implement the replyHandler-based `didReceiveMessage`. As of
+    /// M6.7 we use an **app-level ack**:
+    ///
+    /// 1. Fire-and-forget the `triggerAlarm` envelope.
+    /// 2. Await the Watch's `alarmTriggered` ack envelope (routed through
+    ///    `handle(_:)`).
+    /// 3. Time out after `triggerAckTimeoutSec` — the alarm controller
+    ///    then flips to `failedWatchUnreachable`.
+    ///
+    /// Returns `true` only when a matching ack arrived within the timeout.
     @discardableResult
     public func sendTriggerAlarm(sessionId: String?) async -> Bool {
         guard let env = try? WatchMessage.triggerAlarm(sessionId: sessionId) else { return false }
-        guard connectivity.isReachable else { return false }
+        // Pre-flight: require reachability for the low-latency path, but
+        // also enqueue a guaranteed copy so the alarm still reaches the
+        // Watch if WC briefly fluctuates mid-handshake.
+        let preflightOk: Bool
         do {
-            try await connectivity.sendImmediateMessageAwaitingDelivery(env)
-            return true
+            try connectivity.sendImmediateMessage(env)
+            preflightOk = true
         } catch {
-            return false
+            connectivity.sendGuaranteedMessage(env)
+            preflightOk = false
+        }
+        if !preflightOk { return false }
+
+        // Replace any in-flight trigger continuation with a fresh one.
+        cancelPendingTrigger(delivering: false)
+        let delivered = await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
+            self.pendingTriggerAck = cont
+            self.pendingTriggerSessionId = sessionId
+            let timeoutSec = self.triggerAckTimeoutSec
+            self.pendingTriggerTimeout = Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(timeoutSec * 1_000_000_000))
+                self?.resolvePendingTrigger(with: false, sessionId: nil)
+            }
+        }
+        return delivered
+    }
+
+    // MARK: Trigger-ack internals
+
+    private func resolvePendingTrigger(with delivered: Bool, sessionId: String?) {
+        // If an incoming ack carries a sessionId and it mismatches, ignore
+        // it — stale ack from a previous session.
+        if delivered,
+           let expected = pendingTriggerSessionId,
+           let got = sessionId,
+           expected != got {
+            return
+        }
+        guard let cont = pendingTriggerAck else { return }
+        pendingTriggerAck = nil
+        pendingTriggerSessionId = nil
+        pendingTriggerTimeout?.cancel()
+        pendingTriggerTimeout = nil
+        cont.resume(returning: delivered)
+    }
+
+    private func cancelPendingTrigger(delivering delivered: Bool) {
+        if let cont = pendingTriggerAck {
+            pendingTriggerAck = nil
+            pendingTriggerSessionId = nil
+            pendingTriggerTimeout?.cancel()
+            pendingTriggerTimeout = nil
+            cont.resume(returning: delivered)
         }
     }
 

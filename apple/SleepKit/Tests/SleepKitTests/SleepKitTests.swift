@@ -538,6 +538,53 @@ final class SleepKitTests: XCTestCase {
         }
         XCTAssertTrue(found, "apple/project.yml must be present for XcodeGen")
     }
+
+    // MARK: - M6.7: app-level alarmTriggered ack round-trip
+
+    /// The phone sends `triggerAlarm`; the watch loop-back emits an
+    /// `alarmTriggered` ack; the phone observes it. This is the contract
+    /// `TelemetryRouter.sendTriggerAlarm` now relies on (instead of the
+    /// WCSession replyHandler path).
+    func testAlarmTriggeredAckReachesPhone() throws {
+        let bus = MockConnectivityBus()
+        // Watch-side: when phone sends triggerAlarm, emit ack back.
+        bus.watch.setInboundHandler { env in
+            if env.kind == .control,
+               let ctrl = try? env.decode(ControlPayload.self),
+               ctrl.command == .triggerAlarm,
+               let ack = try? WatchMessage.ack(sessionId: env.sessionId,
+                                               ackKind: "alarmTriggered") {
+                try? bus.sendFromWatch(ack)
+            }
+        }
+        let received = TestActor()
+        bus.phone.setInboundHandler { received.put($0) }
+
+        let trigger = try WatchMessage.triggerAlarm(sessionId: "s1")
+        try bus.sendFromPhone(trigger)
+
+        let got = received.take()
+        XCTAssertEqual(got?.kind, .ack)
+        let ackPayload = try got?.decode(AckPayload.self)
+        XCTAssertEqual(ackPayload?.ackKind, "alarmTriggered")
+    }
+
+    /// If the watch never acks, the phone inbound handler never fires with
+    /// an alarmTriggered payload — which is exactly what
+    /// `TelemetryRouter.sendTriggerAlarm` interprets as "timed out" via
+    /// its 2 s continuation timer.
+    func testMissingAckMeansNoAckEnvelopeReachesPhone() throws {
+        let bus = MockConnectivityBus()
+        // Watch-side: silently drop triggerAlarm.
+        bus.watch.setInboundHandler { _ in }
+        let received = TestActor()
+        bus.phone.setInboundHandler { received.put($0) }
+
+        let trigger = try WatchMessage.triggerAlarm(sessionId: "s2")
+        try bus.sendFromPhone(trigger)
+
+        XCTAssertNil(received.take(), "no ack should be delivered when watch drops trigger")
+    }
 }
 
 // MARK: - Test helpers

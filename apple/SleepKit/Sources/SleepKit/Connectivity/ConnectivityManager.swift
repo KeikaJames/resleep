@@ -16,9 +16,13 @@ public enum ConnectivityError: Error, Sendable, Equatable {
 /// SleepKit.
 ///
 /// Three delivery paths are offered:
-/// - `sendImmediateMessage`  low-latency, requires reachability; fails fast.
+/// - `sendImmediateMessage`  low-latency, requires reachability; fire-and-forget.
 /// - `sendGuaranteedMessage` best-effort via `transferUserInfo`, OS queues.
 /// - `updateStatusSnapshot`  coalesced latest-wins snapshot via application context.
+///
+/// All three are fire-and-forget. Callers that need *delivery confirmation*
+/// (e.g. the smart-alarm trigger) must implement an app-level ack exchange
+/// over the same envelope protocol — the router layer does exactly that.
 public protocol ConnectivityManagerProtocol: AnyObject {
     var isSupported: Bool { get }
     var isReachable: Bool { get }
@@ -29,16 +33,12 @@ public protocol ConnectivityManagerProtocol: AnyObject {
 
     /// Dispatches an immediate message via `WCSession.sendMessage`. Performs
     /// **pre-flight** checks only (supported + reachable). Because
-    /// `WCSession.sendMessage`'s error callback is asynchronous, this method
-    /// does *not* confirm actual delivery — it returns as soon as the
-    /// message has been handed to the OS. Callers that need delivery
-    /// confirmation must use ``sendImmediateMessageAwaitingDelivery(_:)``.
+    /// `WCSession.sendMessage`'s error callback is asynchronous and because
+    /// our `WCSessionDelegate` does not implement the replyHandler variant
+    /// of `didReceiveMessage`, this method does *not* confirm actual
+    /// delivery. Callers that need confirmation must wait for an
+    /// app-level ack envelope (see `TelemetryRouter.sendTriggerAlarm`).
     func sendImmediateMessage(_ envelope: MessageEnvelope) throws
-
-    /// Dispatches an immediate message and awaits the OS delivery callback.
-    /// Throws `ConnectivityError.underlying` if WatchConnectivity reports a
-    /// transport error. Use for fire-critical paths like `triggerAlarm`.
-    func sendImmediateMessageAwaitingDelivery(_ envelope: MessageEnvelope) async throws
 
     func sendGuaranteedMessage(_ envelope: MessageEnvelope)
     func updateStatusSnapshot(_ snapshot: StatusSnapshotPayload, sessionId: String?) throws
@@ -93,26 +93,9 @@ public final class ConnectivityManager: ConnectivityManagerProtocol, @unchecked 
         // Fire-and-forget. `WCSession.sendMessage` dispatches asynchronously;
         // the error callback (if any) fires later on a background queue. We
         // intentionally do NOT block here — callers that need delivery
-        // confirmation must call `sendImmediateMessageAwaitingDelivery`.
+        // confirmation must await an app-level ack envelope.
         client.sendMessage(envelope.toDictionary(), replyHandler: nil) { err in
             NSLog("[ConnectivityManager] sendMessage error: \(err.localizedDescription)")
-        }
-    }
-
-    public func sendImmediateMessageAwaitingDelivery(_ envelope: MessageEnvelope) async throws {
-        guard client.isSupported else { throw ConnectivityError.notSupported }
-        guard client.isReachable else { throw ConnectivityError.notReachable }
-        let dict = envelope.toDictionary()
-        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            let once = ContinuationGuard()
-            client.sendMessage(dict, replyHandler: { _ in
-                once.resume(with: .success(()), continuation: cont)
-            }, errorHandler: { err in
-                once.resume(
-                    with: .failure(ConnectivityError.underlying(err.localizedDescription)),
-                    continuation: cont
-                )
-            })
         }
     }
 
@@ -180,21 +163,5 @@ public final class ConnectivityManager: ConnectivityManagerProtocol, @unchecked 
 }
 
 // MARK: - Internal helpers
-
-/// `WCSession.sendMessage` delivers exactly one of {replyHandler,
-/// errorHandler}, but type-checkers and defensive coding prefer
-/// idempotent continuations. This guard ensures a continuation is
-/// resumed at most once even in pathological callback scenarios.
-private final class ContinuationGuard: @unchecked Sendable {
-    private let lock = NSLock()
-    private var resumed = false
-    func resume<T>(with result: Result<T, Error>,
-                   continuation: CheckedContinuation<T, Error>) {
-        lock.lock()
-        let alreadyResumed = resumed
-        resumed = true
-        lock.unlock()
-        guard !alreadyResumed else { return }
-        continuation.resume(with: result)
-    }
-}
+// (Reserved for future helpers — the replyHandler-based continuation guard
+// was removed in M6.7 along with the misleading "awaiting delivery" path.)

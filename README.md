@@ -592,12 +592,62 @@ M6.6 locks runtime launch readiness. No new product features.
   `SIM mode` in its debug strip, sourced from
   `StatusSnapshotPayload.runtimeModeRaw` published by the phone.
 
+## M6.7: Runtime launch proof and ack-protocol fixes
+
+M6.7 closes the remaining gap between "`xcodebuild` succeeds" and
+"the app actually launches". Evidence from the M6.7 run:
+
+```
+$ xcrun simctl install <iPhone 17 UDID> SleepTracker-iOS.app
+$ xcrun simctl launch  <iPhone 17 UDID> com.example.sleep.ios
+com.example.sleep.ios: 36163     ← PID returned → app launched
+```
+
+The Watch `.app` bundle is produced under
+`Debug-watchsimulator/SleepTracker-Watch.app`; watchOS app launch from
+the CLI is not reliable under current `simctl` (watchOS apps are
+designed to be launched through their paired iPhone simulator in
+Xcode), so the Watch bundle is the proof point here.
+
+### What M6.7 changed
+
+- **Trigger-ack protocol (Bug #1)**: `TelemetryRouter.sendTriggerAlarm`
+  no longer relies on `WCSession.sendMessage` replyHandler (our
+  WCSession delegate does not implement the replyHandler path). It is
+  now fire-and-forget at the transport layer + an **app-level ack**
+  with a bounded 2 s timeout: the phone awaits an `alarmTriggered`
+  ack envelope from the Watch, exactly as the existing
+  envelope/control/ack protocol already defines. Removed the
+  misleading `sendImmediateMessageAwaitingDelivery` API.
+- **Simulation uses the live product loop (Bug #2)**: the trigger
+  handler, `onAlarmDismissed` routing and 1 Hz status-snapshot loop
+  now live in `AppState.installRunningSessionHooks()` /
+  `teardownRunningSessionHooks()`. Both `HomeViewModel.start/stop`
+  and `AppState.startSimulation/stopSimulation` call through them,
+  so a simulated session exercises the same closed loop as live.
+- **Watch stop cleanup (Bug #3)**: `WatchAppState.stopTracking` now
+  clears every piece of session-scoped transient state
+  (`currentSessionId`, pending buffers, guaranteed queue, latest HR,
+  stage/confidence, alarm state). `manualStart` always mints a fresh
+  UUID instead of reusing the previous session id.
+- **Runtime launch proof (Bug #4)**: `Info.plist` for both targets
+  now declares `CFBundleExecutable`, `CFBundleName`,
+  `CFBundlePackageType`. The Watch `Info.plist` also declares
+  `WKCompanionAppBundleIdentifier`. Bundle identifiers in
+  `project.yml` are hard-coded (`com.example.sleep.ios` /
+  `com.example.sleep.ios.watchkitapp`) because XcodeGen does not
+  honour shell-default substitution. These were the blockers that
+  kept `simctl install` from accepting the iPhone bundle.
+
 ### Current limitations
 
-- We build watch & iOS app slices in CI (`xcodebuild build`) but have not
-  automated end-to-end launch under `simctl` — that is still a manual
-  in-Xcode verification for now.
+- `simctl launch` of a watchOS app from the CLI is not reliable under
+  current Xcode tooling; run the Watch app through the paired iPhone
+  simulator in Xcode. The `xcodebuild build` of the Watch scheme
+  still proves the bundle is valid and the shared SleepKit graph
+  compiles for watchOS.
 - Core ML on-device inference is iPhone-only; on watchOS the
-  `.mlpackage` path is disabled because `MLModel.compileModel(at:)` is
-  not available. Ship pre-compiled `.mlmodelc` if Watch-side inference
-  ever becomes necessary (not planned).
+  `.mlpackage` path is disabled because `MLModel.compileModel(at:)`
+  is not available. Ship pre-compiled `.mlmodelc` if Watch-side
+  inference ever becomes necessary (not planned).
+
