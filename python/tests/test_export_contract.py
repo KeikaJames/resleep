@@ -13,18 +13,17 @@ PY_ROOT = HERE.parent
 if str(PY_ROOT) not in sys.path:
     sys.path.insert(0, str(PY_ROOT))
 
-from training.configs.tiny_transformer import (
-    FEATURE_DIM,
-    INPUT_NAME,
-    NUM_CLASSES,
-    OUTPUT_NAME,
-    RESOURCE_NAME,
-    SEQ_LEN,
-    TinyTransformerConfig,
-)
-
 
 def test_contract_matches_swift() -> None:
+    from training.configs.tiny_transformer import (
+        FEATURE_DIM,
+        INPUT_NAME,
+        NUM_CLASSES,
+        OUTPUT_NAME,
+        RESOURCE_NAME,
+        SEQ_LEN,
+    )
+
     assert INPUT_NAME == "features"
     assert OUTPUT_NAME == "logits"
     assert RESOURCE_NAME == "SleepStager"
@@ -34,6 +33,13 @@ def test_contract_matches_swift() -> None:
 
 
 def test_config_matches_contract() -> None:
+    from training.configs.tiny_transformer import (
+        FEATURE_DIM,
+        NUM_CLASSES,
+        SEQ_LEN,
+        TinyTransformerConfig,
+    )
+
     cfg = TinyTransformerConfig()
     assert cfg.seq_len == SEQ_LEN
     assert cfg.feature_dim == FEATURE_DIM
