@@ -21,8 +21,7 @@ fn main() {
     };
     std::fs::create_dir_all(&out_dir).expect("mkdir SWIFT_BRIDGE_OUT_DIR");
 
-    swift_bridge_build::parse_bridges(bridges)
-        .write_all_concatenated(&out_dir, "SleepCore");
+    swift_bridge_build::parse_bridges(bridges).write_all_concatenated(&out_dir, "SleepCore");
 
     println!("cargo:warning=swift-bridge output -> {}", out_dir.display());
 }
