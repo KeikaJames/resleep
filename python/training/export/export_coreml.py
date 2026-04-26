@@ -12,13 +12,7 @@ exercises the torch.jit.trace path, which is what CI runs.
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
-
-_HERE = Path(__file__).resolve().parent
-_PY_ROOT = _HERE.parent.parent  # python/
-if str(_PY_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PY_ROOT))
 
 import torch
 
