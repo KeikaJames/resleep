@@ -134,7 +134,7 @@ private struct SmartAlarmCard: View {
     var body: some View {
         Card {
             VStack(alignment: .leading, spacing: 12) {
-                CardHeader(title: "Smart Alarm", systemImage: "alarm")
+                CardHeader(title: "Smart Alarm")
 
                 Toggle("Enabled", isOn: $appState.alarm.isEnabled)
                     .tint(.accentColor)
@@ -208,7 +208,7 @@ private struct LastSummaryCard: View {
     var body: some View {
         Card {
             VStack(alignment: .leading, spacing: 12) {
-                CardHeader(title: "Last Session", systemImage: "moon.zzz")
+                CardHeader(title: "Last Session")
 
                 if let summary = appState.latestSummary {
                     HStack(alignment: .firstTextBaseline) {
@@ -273,7 +273,7 @@ private struct DeviceSyncCard: View {
     var body: some View {
         Card {
             VStack(spacing: 10) {
-                CardHeader(title: "Device & Sync", systemImage: "applewatch.radiowaves.left.and.right")
+                CardHeader(title: "Device & Sync")
 
                 Row(label: "Apple Watch",
                     value: appState.router.watchReachable ? "Reachable" : "Not reachable",
@@ -375,7 +375,7 @@ private struct DeveloperDebugCard: View {
                 }
                 .padding(.top, 8)
             } label: {
-                CardHeader(title: "Developer", systemImage: "wrench.and.screwdriver")
+                CardHeader(title: "Developer")
             }
         }
     }
@@ -396,17 +396,11 @@ private struct Card<Content: View>: View {
 
 private struct CardHeader: View {
     let title: String
-    let systemImage: String
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: systemImage)
-                .font(.footnote)
-                .foregroundStyle(.tertiary)
-            Text(title)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-        }
+        Text(title)
+            .font(.headline)
+            .foregroundStyle(.primary)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -466,15 +460,12 @@ private struct InterruptedSessionCard: View {
     var body: some View {
         Card {
             VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                    Text("Previous session interrupted")
-                        .font(.subheadline.weight(.semibold))
-                }
+                Text("Previous session interrupted")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
                 if let m = appState.interruptedSessionStart {
                     Text("Started \(formattedDate(m.startedAt)). The app was terminated before stop.")
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

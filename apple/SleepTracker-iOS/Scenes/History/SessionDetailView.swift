@@ -63,7 +63,7 @@ struct SessionDetailView: View {
     private var breakdownCard: some View {
         Card {
             VStack(alignment: .leading, spacing: 12) {
-                CardHeader(title: "Stages", systemImage: "chart.bar")
+                CardHeader(title: "Stages")
                 StageRow(label: "Awake", color: .red.opacity(0.7), seconds: summary.timeInWakeSec, total: summary.durationSec)
                 StageRow(label: "Light", color: .blue.opacity(0.5),  seconds: summary.timeInLightSec, total: summary.durationSec)
                 StageRow(label: "Deep",  color: .indigo,             seconds: summary.timeInDeepSec, total: summary.durationSec)
@@ -75,7 +75,7 @@ struct SessionDetailView: View {
     private var timelineCard: some View {
         Card {
             VStack(alignment: .leading, spacing: 8) {
-                CardHeader(title: "Timeline", systemImage: "waveform.path")
+                CardHeader(title: "Timeline")
                 if !realTimeline.isEmpty {
                     SleepTimelineView(entries: realTimeline)
                 } else if let entries = syntheticEntries() {
@@ -95,7 +95,7 @@ struct SessionDetailView: View {
     private var alarmCard: some View {
         Card {
             VStack(spacing: 10) {
-                CardHeader(title: "Smart Alarm", systemImage: "alarm")
+                CardHeader(title: "Smart Alarm")
                 Row(label: "Result", value: alarmResultText, valueColor: alarmResultColor)
                 if let alarmTarget {
                     Row(label: "Target",
@@ -109,7 +109,7 @@ struct SessionDetailView: View {
     private var notesCard: some View {
         Card {
             VStack(alignment: .leading, spacing: 6) {
-                CardHeader(title: "Notes", systemImage: "note.text")
+                CardHeader(title: "Notes")
                 Text("No notes yet.")
                     .font(.footnote)
                     .foregroundStyle(.tertiary)
@@ -178,13 +178,11 @@ private struct Card<Content: View>: View {
 
 private struct CardHeader: View {
     let title: String
-    let systemImage: String
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: systemImage).font(.footnote).foregroundStyle(.tertiary)
-            Text(title).font(.footnote.weight(.semibold))
-                .foregroundStyle(.secondary).textCase(.uppercase)
-        }
+        Text(title)
+            .font(.headline)
+            .foregroundStyle(.primary)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
