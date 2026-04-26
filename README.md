@@ -56,6 +56,51 @@ the script is sufficient — there is no stale-project hazard.
 
 [XcodeGen]: https://github.com/yonki/XcodeGen
 
+## Local data & persistence
+
+The iPhone app persists product data — sessions, summaries, alarm metadata,
+and timeline entries — to a versioned JSON file in the app's
+**Application Support** sandbox:
+
+    Application Support/SleepTracker/local_store.json
+
+Behaviour:
+
+- Writes are atomic (temp file → `replaceItemAt`); a crash mid-write cannot
+  corrupt prior state.
+- A corrupt file is **quarantined** to `local_store.corrupt-<timestamp>.json`
+  next to the live file and the app starts with an empty store; it does not
+  crash.
+- Tests and previews use the in-memory `InMemoryLocalStore`. The app default
+  is `PersistentLocalStore` via `EngineHost.makeLocalStore()`.
+
+### Clearing local sleep data
+
+Settings → **Local Data** → *Delete Local Sleep Data* removes every
+session, summary, and timeline entry stored on device. There is no
+cloud backup — the action cannot be undone.
+
+### Real vs approximate timeline
+
+`SessionDetailView` prefers the **persisted timeline** captured every 30 s
+during a session and folded into stage spans at stop time. If a session has
+no recorded timeline (older data, or sessions shorter than the first tick),
+the view falls back to a coarse 4-block timeline derived from the per-stage
+totals and labels it *Approximate timeline*.
+
+## UI smoke screenshot
+
+`scripts/capture_ui_smoke.sh` proves the app launches and renders Home:
+
+    ./scripts/capture_ui_smoke.sh
+    # → tmp/screenshots/home.png
+
+It generates the project, builds `SleepTracker-iOS`, boots an iPhone
+simulator (default `iPhone 17`, override with `SIM_NAME=...`), installs and
+launches the app, waits 5 seconds, and writes a PNG via `simctl io … screenshot`.
+The `tmp/` directory is gitignored.
+
+
 ### iOS
 
 - Scheme: `SleepTracker-iOS`, destination: any iOS 17+ simulator (e.g. iPhone 17)

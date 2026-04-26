@@ -42,12 +42,14 @@ struct HistoryView: View {
     @ViewBuilder
     private func detailFor(_ session: SleepSession) -> some View {
         if let summary = vm.summary(for: session.id) {
+            let rec = vm.record(for: session.id)
             SessionDetailView(
                 summary: summary,
                 startedAt: session.startedAt,
-                alarmState: .idle,
-                alarmTarget: nil,
-                alarmWindowMinutes: appState.alarm.windowMinutes
+                alarmState: rec?.alarm?.finalState ?? .idle,
+                alarmTarget: rec?.alarm?.target,
+                alarmWindowMinutes: rec?.alarm?.windowMinutes ?? appState.alarm.windowMinutes,
+                realTimeline: rec?.timeline ?? []
             )
         } else {
             ContentUnavailableView(

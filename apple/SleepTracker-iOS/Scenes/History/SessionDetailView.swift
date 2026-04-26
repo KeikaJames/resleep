@@ -11,6 +11,8 @@ struct SessionDetailView: View {
     let alarmState: AlarmState
     let alarmTarget: Date?
     let alarmWindowMinutes: Int
+    /// Real persisted timeline. Empty array → synthetic fallback (labelled).
+    var realTimeline: [TimelineEntry] = []
 
     var body: some View {
         ScrollView {
@@ -74,8 +76,13 @@ struct SessionDetailView: View {
         Card {
             VStack(alignment: .leading, spacing: 8) {
                 CardHeader(title: "Timeline", systemImage: "waveform.path")
-                if let entries = syntheticEntries() {
+                if !realTimeline.isEmpty {
+                    SleepTimelineView(entries: realTimeline)
+                } else if let entries = syntheticEntries() {
                     SleepTimelineView(entries: entries)
+                    Text("Approximate timeline")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 } else {
                     Text("Timeline not available for this session.")
                         .font(.footnote)

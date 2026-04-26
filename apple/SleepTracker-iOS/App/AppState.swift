@@ -45,6 +45,13 @@ public final class AppState: ObservableObject {
     private let statusTickSec: Double = 1.0
     private var statusTickTask: Task<Void, Never>?
 
+    /// Timeline sampling. Every `timelineTickSec` we record the current
+    /// (stage, time) into a flat buffer; at session-stop we collapse
+    /// consecutive same-stage runs into `TimelineEntry` spans.
+    private let timelineTickSec: Double = 30.0
+    private var timelineTickTask: Task<Void, Never>?
+    private var timelineSamples: [(SleepStage, Date)] = []
+
     public init(
         engine: SleepEngineClientProtocol,
         engineFallbackReason: String?,
@@ -100,7 +107,7 @@ public final class AppState: ObservableObject {
         return AppState(
             engine: engine,
             engineFallbackReason: reason,
-            localStore: InMemoryLocalStore(),
+            localStore: EngineHost.makeLocalStore(),
             insights: LocalInsightsService(),
             connectivity: connectivity,
             health: HealthPermissionService(),
@@ -128,6 +135,7 @@ public final class AppState: ObservableObject {
             self?.alarm.noteDismissedByWatch()
         }
         startStatusTickLoop()
+        startTimelineTickLoop()
     }
 
     /// Tears down hooks installed by `installRunningSessionHooks()`. Does
@@ -135,6 +143,88 @@ public final class AppState: ObservableObject {
     public func teardownRunningSessionHooks() {
         statusTickTask?.cancel()
         statusTickTask = nil
+        timelineTickTask?.cancel()
+        timelineTickTask = nil
+    }
+
+    private func startTimelineTickLoop() {
+        timelineTickTask?.cancel()
+        timelineSamples.removeAll()
+        let period = timelineTickSec
+        timelineTickTask = Task { [weak self] in
+            // Initial sample so even short sessions yield a first entry.
+            await MainActor.run {
+                guard let self, self.workout.isTracking else { return }
+                self.timelineSamples.append((self.workout.currentStage, Date()))
+            }
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: UInt64(period * 1_000_000_000))
+                if Task.isCancelled { return }
+                await MainActor.run {
+                    guard let self, self.workout.isTracking else { return }
+                    self.timelineSamples.append((self.workout.currentStage, Date()))
+                }
+            }
+        }
+    }
+
+    /// Collapses the current timeline-sample buffer into ordered, non-overlapping
+    /// `TimelineEntry` spans. Consecutive samples with the same stage are folded
+    /// into a single span. The final span ends at `endedAt`. Caller is expected
+    /// to invoke this *before* `teardownRunningSessionHooks()` so the latest
+    /// sample is still present.
+    public func drainTimelineEntries(endedAt: Date) -> [TimelineEntry] {
+        guard !timelineSamples.isEmpty else { return [] }
+        let samples = timelineSamples
+        timelineSamples.removeAll()
+        var out: [TimelineEntry] = []
+        var spanStart = samples[0].1
+        var spanStage = samples[0].0
+        for i in 1..<samples.count {
+            let (s, t) = samples[i]
+            if s != spanStage {
+                out.append(TimelineEntry(stage: spanStage, start: spanStart, end: t))
+                spanStart = t
+                spanStage = s
+            }
+        }
+        out.append(TimelineEntry(stage: spanStage, start: spanStart, end: endedAt))
+        return out.filter { $0.end > $0.start }
+    }
+
+    /// Persists a completed session — summary, alarm meta, source, runtime
+    /// mode, and timeline entries — through `localStore`. Updates
+    /// `latestSummary` on success.
+    public func archiveCompletedSession(
+        summary: SessionSummary,
+        startedAt: Date,
+        endedAt: Date,
+        timeline: [TimelineEntry],
+        alarm: StoredAlarmMeta?,
+        source: TrackingSource?,
+        runtimeMode: AppRuntimeMode
+    ) async {
+        let record = StoredSessionRecord(
+            id: summary.sessionId,
+            startedAt: startedAt,
+            endedAt: endedAt,
+            summary: summary,
+            alarm: alarm,
+            sourceRaw: source?.rawValue,
+            runtimeModeRaw: runtimeMode.rawValue,
+            notes: nil,
+            timeline: timeline
+        )
+        try? await localStore.recordSessionRecord(record)
+        latestSummary = summary
+    }
+
+    /// Restores `latestSummary` from disk. Safe to call repeatedly; only
+    /// overwrites if the store has a more recent completed session.
+    public func restoreLatestSession() async {
+        if let s = try? await localStore.latestCompletedSummary() {
+            latestSummary = s
+        }
     }
 
     private func startStatusTickLoop() {

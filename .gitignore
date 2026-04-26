@@ -37,7 +37,12 @@ venv/
 *.sqlite3
 *.db
 /tmp/
+tmp/
 local_data/
+
+# Generated Xcode project (XcodeGen is the source of truth)
+apple/SleepTracker.xcodeproj/
+apple/SleepTracker.xcworkspace/
 
 # Generated FFI
 apple/SleepKit/Sources/SleepKit/Generated/

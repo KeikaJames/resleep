@@ -87,13 +87,24 @@ final class HomeViewModel: ObservableObject {
     }
 
     private func stop(appState: AppState) async {
-        appState.teardownRunningSessionHooks()
-
         let sessionId = appState.workout.currentSessionID
 
         if appState.alarm.state == .triggered || appState.alarm.state == .failedWatchUnreachable {
             _ = appState.router.sendStopAlarm(sessionId: sessionId)
         }
+
+        // Snapshot alarm meta *before* clearing — so the persisted record
+        // retains the final state, target, window, triggered/dismissed times.
+        let alarmMeta = StoredAlarmMeta(
+            enabled: appState.alarm.isEnabled,
+            finalStateRaw: appState.alarm.state.rawValue,
+            targetTsMs: appState.alarm.isEnabled
+                ? Int64(appState.alarm.target.timeIntervalSince1970 * 1000)
+                : nil,
+            windowMinutes: appState.alarm.windowMinutes,
+            triggeredAtTsMs: appState.alarm.triggeredAt.map { Int64($0.timeIntervalSince1970 * 1000) },
+            dismissedAtTsMs: appState.alarm.watchAckedAt.map { Int64($0.timeIntervalSince1970 * 1000) }
+        )
         appState.alarm.clear()
 
         if appState.workout.source == .remoteWatch {
@@ -101,13 +112,29 @@ final class HomeViewModel: ObservableObject {
             try? await Task.sleep(nanoseconds: UInt64(stopFlushGraceSec * 1_000_000_000))
         }
 
+        // Drain timeline buffer *before* tearing down hooks (which also
+        // cancels the timeline tick task).
+        let endedAt = Date()
+        let timeline = appState.drainTimelineEntries(endedAt: endedAt)
+        let source = appState.workout.source
+        let runtimeMode = appState.runtimeMode
+
+        appState.teardownRunningSessionHooks()
+
         do {
             let summary = try await appState.workout.stopTracking()
             if let summary {
                 let startedAt = appState.workout.sessionStartedAt
                     ?? Date().addingTimeInterval(-TimeInterval(summary.durationSec))
-                try? await appState.localStore.recordLocalSummary(summary, startedAt: startedAt)
-                appState.latestSummary = summary
+                await appState.archiveCompletedSession(
+                    summary: summary,
+                    startedAt: startedAt,
+                    endedAt: endedAt,
+                    timeline: timeline,
+                    alarm: alarmMeta,
+                    source: source,
+                    runtimeMode: runtimeMode
+                )
             }
             appState.publishSnapshot()
         } catch {

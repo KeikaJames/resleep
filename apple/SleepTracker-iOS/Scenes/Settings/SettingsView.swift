@@ -4,6 +4,9 @@ import SleepKit
 struct SettingsView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var vm = SettingsViewModel()
+    @State private var showDeleteConfirm: Bool = false
+    @State private var deleteError: String?
+    @State private var deletedAt: Date?
 
     var body: some View {
         NavigationStack {
@@ -38,6 +41,25 @@ struct SettingsView: View {
                     }
                 }
 
+                Section {
+                    Button(role: .destructive) {
+                        showDeleteConfirm = true
+                    } label: {
+                        Label("Delete Local Sleep Data", systemImage: "trash")
+                    }
+                    if let deletedAt {
+                        Text("Cleared \(relativeDate(deletedAt))")
+                            .font(.footnote).foregroundStyle(.tertiary)
+                    }
+                    if let err = deleteError {
+                        Text(err).font(.footnote).foregroundStyle(.red)
+                    }
+                } header: {
+                    Text("Local Data")
+                } footer: {
+                    Text("Removes all sessions, summaries, and timeline entries stored on this device. This cannot be undone.")
+                }
+
                 Section("Developer") {
                     LabeledContent("Runtime",
                                    value: appState.runtimeMode == .simulated ? "Simulated" : "Live")
@@ -51,6 +73,18 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .confirmationDialog(
+                "Delete all local sleep data?",
+                isPresented: $showDeleteConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) {
+                    Task { await deleteAllLocalData() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Sessions, summaries, and timelines stored on this device will be removed.")
+            }
         }
     }
 
@@ -59,5 +93,16 @@ struct SettingsView: View {
         let fmt = RelativeDateTimeFormatter()
         fmt.unitsStyle = .abbreviated
         return fmt.localizedString(for: d, relativeTo: Date())
+    }
+
+    private func deleteAllLocalData() async {
+        do {
+            try await appState.localStore.clearAllLocalData()
+            appState.latestSummary = nil
+            deletedAt = Date()
+            deleteError = nil
+        } catch {
+            deleteError = "Delete failed: \(error)"
+        }
     }
 }

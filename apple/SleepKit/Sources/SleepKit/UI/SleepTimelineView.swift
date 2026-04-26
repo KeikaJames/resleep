@@ -1,15 +1,30 @@
 #if canImport(SwiftUI)
 import SwiftUI
 
-public struct TimelineEntry: Identifiable, Sendable, Equatable {
-    public let id = UUID()
+public struct TimelineEntry: Identifiable, Sendable, Equatable, Codable {
+    public let id: UUID
     public let stage: SleepStage
     public let start: Date
     public let end: Date
     public init(stage: SleepStage, start: Date, end: Date) {
+        self.id = UUID()
         self.stage = stage
         self.start = start
         self.end = end
+    }
+    private enum CodingKeys: String, CodingKey { case stage, start, end }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = UUID()
+        self.stage = try c.decode(SleepStage.self, forKey: .stage)
+        self.start = try c.decode(Date.self, forKey: .start)
+        self.end = try c.decode(Date.self, forKey: .end)
+    }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(stage, forKey: .stage)
+        try c.encode(start, forKey: .start)
+        try c.encode(end, forKey: .end)
     }
 }
 

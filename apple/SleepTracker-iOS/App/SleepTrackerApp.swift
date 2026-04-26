@@ -9,6 +9,7 @@ struct SleepTrackerApp: App {
         WindowGroup {
             RootTabView()
                 .environmentObject(appState)
+                .task { await appState.restoreLatestSession() }
         }
     }
 }

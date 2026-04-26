@@ -33,6 +33,11 @@ enum EngineHost {
         #endif
     }
 
+    @MainActor
+    static func makeLocalStore() -> LocalStoreProtocol {
+        return PersistentLocalStore(fileURL: PersistentLocalStore.defaultURL())
+    }
+
     private static func defaultDBPath() -> String {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
