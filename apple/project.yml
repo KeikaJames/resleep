@@ -71,8 +71,26 @@ targets:
         SUPPORTS_MACCATALYST: NO
         ENABLE_PREVIEWS: YES
     scheme:
-      testTargets: []
+      testTargets:
+        - SleepTracker-iOSTests
       gatherCoverageData: false
+
+  # ---------- iOS app-target unit tests (M6.7) ----------
+  SleepTracker-iOSTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: SleepTracker-iOSTests
+    dependencies:
+      - target: SleepTracker-iOS
+      - package: SleepKit
+        product: SleepKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.sleep.ios.tests
+        BUNDLE_LOADER: $(TEST_HOST)
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/SleepTracker-iOS.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SleepTracker-iOS
+        CODE_SIGNING_ALLOWED: NO
 
   # ---------- watchOS app (single-target, watchOS 10+) ----------
   SleepTracker-Watch:

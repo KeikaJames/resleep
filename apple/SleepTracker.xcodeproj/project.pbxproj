@@ -16,12 +16,14 @@
 		521028E584B4A0A3CEAA4CB6 /* SleepKit in Frameworks */ = {isa = PBXBuildFile; productRef = 30D4896B6A4EBCA89E000D8A /* SleepKit */; };
 		55967A599C7DC742E9336C2D /* EngineHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB15AC896FA8F84C47488DE /* EngineHost.swift */; };
 		67D61D6DD2510079A2FB6A8B /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A2FC8571D70F8DC2887C121 /* AppState.swift */; };
+		67F1F9DD8F27A9ED733FFCB5 /* SleepKit in Frameworks */ = {isa = PBXBuildFile; productRef = 46B12FD0E3E1EDE190AF6622 /* SleepKit */; };
 		76E601F4FA5F621DDE71330A /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8EE2C1D0180CAD5C1EC50D9 /* HomeView.swift */; };
 		9DDAB712BEF46EF1D9155E11 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55CA5D0FF6BA21A463AFC824 /* HomeViewModel.swift */; };
 		A2614B11DE2CEE459BA5AB94 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6454F55556CD0F7DF03B9C47 /* HistoryView.swift */; };
 		A8117A99B15DB54AA440139E /* SleepKit in Frameworks */ = {isa = PBXBuildFile; productRef = 70D91BE8B3C5345392199BEF /* SleepKit */; };
 		C03CCE69319D48369D07D978 /* SleepTrackerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24B57287C7760F243850FB04 /* SleepTrackerApp.swift */; };
 		C6F0C361B2E316D9E99ED338 /* TelemetryRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7C4ADE4A32E9DE92C4DE8DF /* TelemetryRouter.swift */; };
+		D1DB25EABA3EA38573CCD215 /* M67SimulationLoopsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC43802E2FF432029C78795 /* M67SimulationLoopsTests.swift */; };
 		DA8DDB653B7FCFA08A659B3F /* WatchHapticRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DDBBF386A44D753C13FF7B8 /* WatchHapticRunner.swift */; };
 		E842548252695419F551C571 /* WatchAppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2959B095D4707B46C2CFFF /* WatchAppState.swift */; };
 /* End PBXBuildFile section */
@@ -33,6 +35,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = EA093EBB583CF72BA6F0699B;
 			remoteInfo = "SleepTracker-Watch";
+		};
+		F21F0BF0D5EA2524F2981972 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2438F37A12BD59A7D07E4828 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A5D0F4471585C907ABFC6438;
+			remoteInfo = "SleepTracker-iOS";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -57,10 +66,12 @@
 		4D0CE237B45F318BBF470270 /* SleepKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SleepKit; path = SleepKit; sourceTree = SOURCE_ROOT; };
 		55CA5D0FF6BA21A463AFC824 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		5E5DA0A1081E49D7C29A90A9 /* HistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModel.swift; sourceTree = "<group>"; };
+		604CEC345B8A6FA1369067F6 /* SleepTracker-iOSTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = "SleepTracker-iOSTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		6454F55556CD0F7DF03B9C47 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		6DDBBF386A44D753C13FF7B8 /* WatchHapticRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHapticRunner.swift; sourceTree = "<group>"; };
 		7F701B426F1A0365641CB052 /* SleepTracker-Watch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "SleepTracker-Watch.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		9A2FC8571D70F8DC2887C121 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		9BC43802E2FF432029C78795 /* M67SimulationLoopsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = M67SimulationLoopsTests.swift; sourceTree = "<group>"; };
 		C2EFDB265B5162D8C9ED34D7 /* WatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchApp.swift; sourceTree = "<group>"; };
 		DA93BDB5A1A8954EF8179C30 /* SleepTracker-iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "SleepTracker-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E56AA2DECF82625E0A5F2CD0 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -84,6 +95,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				521028E584B4A0A3CEAA4CB6 /* SleepKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A383E1DE4085F8D63F3FA120 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				67F1F9DD8F27A9ED733FFCB5 /* SleepKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -122,6 +141,7 @@
 			children = (
 				22CB6D3BC34D226C0CF8653C /* Packages */,
 				F4D24CE4092B1B8F19A68A01 /* SleepTracker-iOS */,
+				DE6717BB58B9A647CBD39EAA /* SleepTracker-iOSTests */,
 				9FD5AC3E779633FC2B1DD1F5 /* SleepTracker-Watch */,
 				BBA52AA39BCE769E16831B3C /* Products */,
 			);
@@ -193,6 +213,7 @@
 			isa = PBXGroup;
 			children = (
 				DA93BDB5A1A8954EF8179C30 /* SleepTracker-iOS.app */,
+				604CEC345B8A6FA1369067F6 /* SleepTracker-iOSTests.xctest */,
 				7F701B426F1A0365641CB052 /* SleepTracker-Watch.app */,
 			);
 			name = Products;
@@ -205,6 +226,14 @@
 				EDF1F4492A04C03721DE74DB /* SettingsViewModel.swift */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		DE6717BB58B9A647CBD39EAA /* SleepTracker-iOSTests */ = {
+			isa = PBXGroup;
+			children = (
+				9BC43802E2FF432029C78795 /* M67SimulationLoopsTests.swift */,
+			);
+			path = "SleepTracker-iOSTests";
 			sourceTree = "<group>";
 		};
 		F4D24CE4092B1B8F19A68A01 /* SleepTracker-iOS */ = {
@@ -241,6 +270,26 @@
 			productReference = DA93BDB5A1A8954EF8179C30 /* SleepTracker-iOS.app */;
 			productType = "com.apple.product-type.application";
 		};
+		E0FBE61A09BEB48F8EA64369 /* SleepTracker-iOSTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 44F97E10728AE95CFDE720D6 /* Build configuration list for PBXNativeTarget "SleepTracker-iOSTests" */;
+			buildPhases = (
+				D5E3E28F1B8B8F57D97FFAEA /* Sources */,
+				A383E1DE4085F8D63F3FA120 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0B90D837A2CC784EF761EC7C /* PBXTargetDependency */,
+			);
+			name = "SleepTracker-iOSTests";
+			packageProductDependencies = (
+				46B12FD0E3E1EDE190AF6622 /* SleepKit */,
+			);
+			productName = "SleepTracker-iOSTests";
+			productReference = 604CEC345B8A6FA1369067F6 /* SleepTracker-iOSTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		EA093EBB583CF72BA6F0699B /* SleepTracker-Watch */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1D9A54D7BACBA120A7CE074C /* Build configuration list for PBXNativeTarget "SleepTracker-Watch" */;
@@ -272,6 +321,9 @@
 					A5D0F4471585C907ABFC6438 = {
 						ProvisioningStyle = Automatic;
 					};
+					E0FBE61A09BEB48F8EA64369 = {
+						ProvisioningStyle = Automatic;
+					};
 					EA093EBB583CF72BA6F0699B = {
 						ProvisioningStyle = Automatic;
 					};
@@ -296,6 +348,7 @@
 			targets = (
 				EA093EBB583CF72BA6F0699B /* SleepTracker-Watch */,
 				A5D0F4471585C907ABFC6438 /* SleepTracker-iOS */,
+				E0FBE61A09BEB48F8EA64369 /* SleepTracker-iOSTests */,
 			);
 		};
 /* End PBXProject section */
@@ -329,6 +382,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D5E3E28F1B8B8F57D97FFAEA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D1DB25EABA3EA38573CCD215 /* M67SimulationLoopsTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -337,9 +398,31 @@
 			target = EA093EBB583CF72BA6F0699B /* SleepTracker-Watch */;
 			targetProxy = 181363C01DB0739751C79B3B /* PBXContainerItemProxy */;
 		};
+		0B90D837A2CC784EF761EC7C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A5D0F4471585C907ABFC6438 /* SleepTracker-iOS */;
+			targetProxy = F21F0BF0D5EA2524F2981972 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		3355ACB882E88A64915A689F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.sleep.ios.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SleepTracker-iOS.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SleepTracker-iOS";
+			};
+			name = Debug;
+		};
 		4F0A3D56158C960AD365246D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -407,6 +490,23 @@
 				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Debug;
+		};
+		6284539C1A91781DFA38786F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.sleep.ios.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SleepTracker-iOS.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SleepTracker-iOS";
+			};
+			name = Release;
 		};
 		7EEE1C7D03A8061BF7DE1024 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -556,6 +656,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		44F97E10728AE95CFDE720D6 /* Build configuration list for PBXNativeTarget "SleepTracker-iOSTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3355ACB882E88A64915A689F /* Debug */,
+				6284539C1A91781DFA38786F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		CDE3C320DE9B51C52D8C19E5 /* Build configuration list for PBXNativeTarget "SleepTracker-iOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -576,6 +685,10 @@
 
 /* Begin XCSwiftPackageProductDependency section */
 		30D4896B6A4EBCA89E000D8A /* SleepKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SleepKit;
+		};
+		46B12FD0E3E1EDE190AF6622 /* SleepKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = SleepKit;
 		};

@@ -39,6 +39,17 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "E0FBE61A09BEB48F8EA64369"
+               BuildableName = "SleepTracker-iOSTests.xctest"
+               BlueprintName = "SleepTracker-iOSTests"
+               ReferencedContainer = "container:SleepTracker.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>
