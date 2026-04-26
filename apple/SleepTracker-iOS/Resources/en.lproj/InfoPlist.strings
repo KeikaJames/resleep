@@ -1,0 +1,6 @@
+/* Sleep Tracker — English InfoPlist localization */
+"CFBundleDisplayName" = "Sleep";
+"NSHealthShareUsageDescription" = "Sleep reads heart rate and HRV locally on-device to classify sleep stages. Data never leaves your device.";
+"NSHealthUpdateUsageDescription" = "Sleep can optionally write sleep analysis back to HealthKit.";
+"NSMicrophoneUsageDescription" = "If enabled, Sleep listens for breathing events on-device. Audio is never uploaded and not saved by default.";
+"NSMotionUsageDescription" = "Sleep uses motion to detect restlessness while you sleep.";

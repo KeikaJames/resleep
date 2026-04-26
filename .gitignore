@@ -44,6 +44,9 @@ local_data/
 apple/SleepTracker.xcodeproj/
 apple/SleepTracker.xcworkspace/
 
+# Per-developer signing / Bundle ID overrides
+apple/Configs/Local.xcconfig
+
 # Generated FFI
 apple/SleepKit/Sources/SleepKit/Generated/
 rust/target-xcframework/

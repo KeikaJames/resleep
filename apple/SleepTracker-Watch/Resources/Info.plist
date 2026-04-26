@@ -7,10 +7,17 @@
   <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
   <key>CFBundlePackageType</key><string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
   <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-  <key>CFBundleShortVersionString</key><string>0.1.0</string>
-  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
+  <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>en</string>
+    <string>zh-Hans</string>
+  </array>
+  <key>ITSAppUsesNonExemptEncryption</key><false/>
   <key>WKApplication</key><true/>
-  <key>WKCompanionAppBundleIdentifier</key><string>com.example.sleep.ios</string>
+  <key>WKCompanionAppBundleIdentifier</key><string>$(BASE_BUNDLE_ID).ios</string>
   <key>WKRunsIndependentlyOfCompanionApp</key><true/>
   <key>WKBackgroundModes</key>
   <array><string>workout-processing</string></array>

@@ -1,0 +1,5 @@
+/* Sleep Tracker (Watch) — English InfoPlist localization */
+"CFBundleDisplayName" = "Sleep";
+"NSHealthShareUsageDescription" = "Sleep reads heart rate locally on-device while you sleep.";
+"NSHealthUpdateUsageDescription" = "Sleep can optionally write sleep analysis back to HealthKit.";
+"NSMotionUsageDescription" = "Sleep uses motion to detect restlessness while you sleep.";

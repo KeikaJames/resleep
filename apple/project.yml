@@ -14,6 +14,13 @@
 
 name: SleepTracker
 
+# Project-level xcconfig that propagates BASE_BUNDLE_ID, DEVELOPMENT_TEAM,
+# MARKETING_VERSION, and CURRENT_PROJECT_VERSION. Per-developer overrides
+# can drop a Local.xcconfig next to Shared.xcconfig (gitignored).
+configFiles:
+  Debug: Configs/Shared.xcconfig
+  Release: Configs/Shared.xcconfig
+
 options:
   bundleIdPrefix: com.example.sleep
   createIntermediateGroups: true
@@ -28,11 +35,8 @@ settings:
   base:
     SWIFT_VERSION: "5.9"
     ENABLE_USER_SCRIPT_SANDBOXING: NO
-    MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
-    # Unsigned by default so the project works without a provisioning team
-    # checked in. Set DEVELOPMENT_TEAM in Xcode if you want to deploy to
-    # a physical device.
+    # MARKETING_VERSION / CURRENT_PROJECT_VERSION come from Shared.xcconfig
+    # so a single source of truth survives regeneration.
     CODE_SIGN_STYLE: Automatic
     CODE_SIGN_IDENTITY: ""
 
@@ -64,12 +68,13 @@ targets:
       - target: SleepTracker-Watch
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.sleep.ios
+        PRODUCT_BUNDLE_IDENTIFIER: $(BASE_BUNDLE_ID).ios
         INFOPLIST_FILE: SleepTracker-iOS/Resources/Info.plist
         CODE_SIGN_ENTITLEMENTS: SleepTracker-iOS/Resources/SleepTracker.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO
         ENABLE_PREVIEWS: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     scheme:
       testTargets:
         - SleepTracker-iOSTests
@@ -87,7 +92,7 @@ targets:
         product: SleepKit
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.sleep.ios.tests
+        PRODUCT_BUNDLE_IDENTIFIER: $(BASE_BUNDLE_ID).ios.tests
         BUNDLE_LOADER: $(TEST_HOST)
         TEST_HOST: $(BUILT_PRODUCTS_DIR)/SleepTracker-iOS.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SleepTracker-iOS
         CODE_SIGNING_ALLOWED: NO
@@ -111,10 +116,11 @@ targets:
         product: SleepKit
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.sleep.ios.watchkitapp
+        PRODUCT_BUNDLE_IDENTIFIER: $(BASE_BUNDLE_ID).ios.watchkitapp
         INFOPLIST_FILE: SleepTracker-Watch/Resources/Info.plist
         WATCHOS_DEPLOYMENT_TARGET: "10.0"
         ENABLE_PREVIEWS: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     scheme:
       gatherCoverageData: false
 

@@ -108,8 +108,15 @@ struct SettingsView: View {
                 }
 
                 Section("About") {
-                    LabeledContent("App version", value: "0.1.0")
+                    LabeledContent("App version", value: Self.versionString)
+                    LabeledContent("Build", value: Self.buildString)
                     LabeledContent("Engine", value: "InMemory (rule-based)")
+                    NavigationLink("Privacy Policy") {
+                        LegalDocumentView(title: "Privacy Policy", text: LegalCopy.privacy)
+                    }
+                    NavigationLink("Terms of Use") {
+                        LegalDocumentView(title: "Terms of Use", text: LegalCopy.terms)
+                    }
                 }
             }
             .navigationTitle("Settings")
@@ -163,6 +170,78 @@ struct SettingsView: View {
         clearedDiagAt = Date()
         await refreshDiagSummary()
     }
+
+    private static var versionString: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+    }
+
+    private static var buildString: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+    }
+}
+
+// MARK: - Legal document viewer
+
+private struct LegalDocumentView: View {
+    let title: String
+    let text: String
+
+    var body: some View {
+        ScrollView {
+            Text(text)
+                .font(.callout)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 18)
+                .textSelection(.enabled)
+        }
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private enum LegalCopy {
+    static let privacy = """
+    Sleep is offline-first. Everything you record stays on your device by default.
+
+    What stays local
+    • Heart rate, motion, and derived sleep stages.
+    • Session history and diagnostic logs.
+    • Any audio captured for breathing detection.
+
+    What we never do
+    • We never upload raw audio. The microphone, when enabled, runs on-device only.
+    • We do not include third-party analytics, advertising, or tracking SDKs.
+    • We do not run a backend for your data.
+
+    HealthKit
+    If you allow it, Sleep can read heart rate and HRV from HealthKit and write a sleep analysis sample back. You can revoke either at any time in the iOS Settings → Health → Data Access & Devices.
+
+    Diagnostics
+    A local diagnostic log records events such as session start/stop and Watch reachability so you can review what happened overnight. The log lives in this app's container and can be cleared from Settings → Diagnostics.
+
+    Children
+    Sleep is not directed at children under 13.
+
+    Contact
+    If you have questions, contact the developer through the App Store listing.
+    """
+
+    static let terms = """
+    Sleep is provided as-is for personal wellness use.
+
+    Not a medical device
+    Sleep does not diagnose, treat, cure, or prevent any disease or condition. The sleep stages, score, and alarm features are estimates based on consumer sensors. Do not rely on Sleep for any medical decision. If you have a sleep disorder or any health concern, consult a qualified clinician.
+
+    Use at your own risk
+    Sleep may produce inaccurate results, miss alarms, or stop tracking unexpectedly. Do not rely on the smart alarm if missing it would cause harm.
+
+    Your data
+    You are responsible for your device and your data. Sleep stores data locally; if you delete the app or your device, that data is lost.
+
+    Changes
+    These terms may change in future versions of Sleep. Continued use after an update means you accept the updated terms.
+    """
 }
 
 // MARK: - Diagnostics view

@@ -1,0 +1,39 @@
+// Shared.xcconfig — values inherited by every target.
+//
+// All values here can be overridden per-target by setting them in
+// project.yml, or per-developer by exporting them as env vars before
+// `xcodegen generate`. The default values are TestFlight-ready
+// placeholders; the only thing you MUST customize for App Store
+// submission is BASE_BUNDLE_ID + DEVELOPMENT_TEAM.
+
+// Marketing + build numbers — keep in sync with App Store Connect.
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+
+// Swift / deployment targets.
+SWIFT_VERSION = 5.9
+IPHONEOS_DEPLOYMENT_TARGET = 17.0
+WATCHOS_DEPLOYMENT_TARGET = 10.0
+
+// Reverse-DNS prefix; final bundle IDs are
+//   $(BASE_BUNDLE_ID).ios
+//   $(BASE_BUNDLE_ID).ios.watchkitapp
+// Override before generating: BASE_BUNDLE_ID=com.yourteam.sleep
+BASE_BUNDLE_ID = com.example.sleep
+
+// Set this on the host before generating to enable on-device deploys.
+//   DEVELOPMENT_TEAM=ABCDE12345 ./scripts/generate_xcode_project.sh
+DEVELOPMENT_TEAM =
+
+// Code signing.
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY =
+
+// Privacy / build hygiene.
+ENABLE_USER_SCRIPT_SANDBOXING = NO
+ALWAYS_SEARCH_USER_PATHS = NO
+CLANG_ENABLE_MODULES = YES
+SWIFT_TREAT_WARNINGS_AS_ERRORS = NO
+
+// Per-developer overrides (gitignored). The `?` makes the include optional.
+#include? "Local.xcconfig"

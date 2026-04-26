@@ -1,0 +1,15 @@
+// Copy this file to Local.xcconfig (which is gitignored) and fill in your
+// own Apple Developer team values. The XcodeGen-generated project will
+// pick these up on the next `xcodegen generate`.
+//
+// Example for a real submission:
+//
+//   BASE_BUNDLE_ID = com.keika.sleep
+//   DEVELOPMENT_TEAM = ABCDE12345
+//   MARKETING_VERSION = 0.2.0
+//   CURRENT_PROJECT_VERSION = 5
+
+BASE_BUNDLE_ID = com.example.sleep
+DEVELOPMENT_TEAM =
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
