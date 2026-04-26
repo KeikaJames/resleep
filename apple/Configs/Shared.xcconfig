@@ -7,7 +7,7 @@
 // submission is BASE_BUNDLE_ID + DEVELOPMENT_TEAM.
 
 // Marketing + build numbers — keep in sync with App Store Connect.
-MARKETING_VERSION = 0.1.0
+MARKETING_VERSION = 0.2.0
 CURRENT_PROJECT_VERSION = 1
 
 // Swift / deployment targets.

@@ -16,6 +16,7 @@ public final class AppState: ObservableObject {
     public let insights: LocalInsightsServiceProtocol
     public let connectivity: ConnectivityManagerProtocol
     public let health: HealthPermissionServiceProtocol
+    public let healthWriter: HealthKitSleepWriting
     public let heartRateStream: HeartRateStreaming
     public let workout: WorkoutSessionManager
     public let router: TelemetryRouter
@@ -68,6 +69,7 @@ public final class AppState: ObservableObject {
         connectivity: ConnectivityManagerProtocol,
         health: HealthPermissionServiceProtocol,
         heartRateStream: HeartRateStreaming,
+        healthWriter: HealthKitSleepWriting? = nil,
         inferenceModel: StageInferenceModel? = nil,
         inferenceFallbackReason: String? = nil,
         diagnostics: DiagnosticsStoreProtocol = InMemoryDiagnosticsStore(),
@@ -80,6 +82,7 @@ public final class AppState: ObservableObject {
         self.connectivity = connectivity
         self.health = health
         self.heartRateStream = heartRateStream
+        self.healthWriter = healthWriter ?? EngineHost.makeHealthKitSleepWriter()
         self.diagnostics = diagnostics
         self.markerStore = markerStore
 
@@ -231,6 +234,27 @@ public final class AppState: ObservableObject {
         )
         try? await localStore.recordSessionRecord(record)
         latestSummary = summary
+
+        // Optional Apple Health write-back. Honors the user's Settings toggle
+        // and silently degrades if HealthKit is unauthorized.
+        let shareEnabled = UserDefaults.standard.bool(forKey: "settings.shareWithHealthKit")
+        if shareEnabled, !timeline.isEmpty {
+            do {
+                try await healthWriter.writeTimeline(timeline, sessionId: summary.sessionId)
+                await diagnostics.append(
+                    DiagnosticEvent(type: .localStoreWrite,
+                                    sessionId: summary.sessionId,
+                                    message: "healthkit sleep samples written: \(timeline.count)")
+                )
+            } catch {
+                await diagnostics.append(
+                    DiagnosticEvent(type: .localStoreError,
+                                    sessionId: summary.sessionId,
+                                    message: "healthkit write skipped",
+                                    error: "\(error)")
+                )
+            }
+        }
     }
 
     /// Restores `latestSummary` from disk. Safe to call repeatedly; only

@@ -56,3 +56,7 @@ rust/target-xcframework/
 *.pem
 *.p12
 *.mobileprovision
+
+# Release B — model export
+.venv-export/
+python/runs/

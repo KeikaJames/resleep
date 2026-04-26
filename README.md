@@ -8,6 +8,15 @@ engine. Python lives only for training + `.mlpackage` export.
 Privacy defaults are conservative: no audio capture, no raw audio saved, no
 cloud services. Raw accel and HR samples never leave the device.
 
+**Current release: 0.2.0 (Release B — TestFlight private beta).** A real
+tiny-transformer Core ML model is bundled (`SleepStager.mlpackage`); finished
+sessions optionally write back to Apple Health as
+`HKCategoryTypeIdentifierSleepAnalysis` samples. See
+[docs/RELEASE_B_NOTES.md](docs/RELEASE_B_NOTES.md) for the model card and
+[docs/M8_TESTFLIGHT_CHECKLIST.md](docs/M8_TESTFLIGHT_CHECKLIST.md) for the
+upload path. Retrain + re-bundle with `./scripts/train_and_export_model.sh`
+(requires Python 3.11).
+
 ## Layout
 
     apple/            iOS + watchOS apps + shared SleepKit Swift package

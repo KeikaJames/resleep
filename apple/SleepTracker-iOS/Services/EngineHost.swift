@@ -48,6 +48,15 @@ enum EngineHost {
         return ActiveSessionMarkerStore(fileURL: ActiveSessionMarkerStore.defaultURL())
     }
 
+    @MainActor
+    static func makeHealthKitSleepWriter() -> HealthKitSleepWriting {
+        #if canImport(HealthKit) && os(iOS)
+        return HealthKitSleepWriter()
+        #else
+        return NoopHealthKitSleepWriter()
+        #endif
+    }
+
     private static func defaultDBPath() -> String {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
