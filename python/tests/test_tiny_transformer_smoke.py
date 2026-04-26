@@ -20,13 +20,13 @@ PY_ROOT = HERE.parent
 if str(PY_ROOT) not in sys.path:
     sys.path.insert(0, str(PY_ROOT))
 
-import torch
-
-from training.configs.tiny_transformer import TinyTransformerConfig
-from training.models.tiny_transformer import TinyTransformer
-
 
 def test_forward_pass() -> None:
+    import torch
+
+    from training.configs.tiny_transformer import TinyTransformerConfig
+    from training.models.tiny_transformer import TinyTransformer
+
     cfg = TinyTransformerConfig()
     assert cfg.feature_dim == len(cfg.feature_names), (
         "feature_dim must match the length of feature_names; "
@@ -41,11 +41,14 @@ def test_forward_pass() -> None:
 
 
 def test_synthetic_dataset_loads() -> None:
+    from training.configs.tiny_transformer import TinyTransformerConfig
     from training.data.dataset import SyntheticStageDataset
 
     cfg = TinyTransformerConfig()
     ds = SyntheticStageDataset(
-        n=4, seq_len=cfg.seq_len, feature_dim=cfg.feature_dim,
+        n=4,
+        seq_len=cfg.seq_len,
+        feature_dim=cfg.feature_dim,
         num_classes=cfg.num_classes,
     )
     feats, label = ds[0]
@@ -55,12 +58,15 @@ def test_synthetic_dataset_loads() -> None:
 
 
 def test_trace_matches_contract() -> None:
+    import torch
+
     from training.configs.tiny_transformer import (
         FEATURE_DIM,
         INPUT_NAME,
         NUM_CLASSES,
         OUTPUT_NAME,
         SEQ_LEN,
+        TinyTransformerConfig,
     )
     from training.export.export_coreml import trace_model
 
