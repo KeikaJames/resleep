@@ -16,7 +16,7 @@ struct HistoryView: View {
                     )
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 12) {
+                        LazyVStack(spacing: 14) {
                             ForEach(vm.sessions) { session in
                                 NavigationLink {
                                     detailFor(session)
@@ -27,8 +27,9 @@ struct HistoryView: View {
                                 .buttonStyle(.plain)
                             }
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                        .padding(.bottom, 32)
                     }
                     .background(Color(.systemGroupedBackground).ignoresSafeArea())
                 }
@@ -69,14 +70,15 @@ private struct SessionRow: View {
         HStack(alignment: .center, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(session.startedAt, format: .dateTime.weekday(.abbreviated).month().day())
-                    .font(.subheadline.weight(.medium))
+                    .font(.headline)
+                    .foregroundStyle(.primary)
                 if let end = session.endedAt {
                     Text("\(session.startedAt, style: .time) – \(end, style: .time)")
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundStyle(.tertiary)
                 } else {
                     Text("In progress")
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundStyle(.green)
                 }
             }
@@ -84,10 +86,10 @@ private struct SessionRow: View {
             if let summary {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(formatDuration(summary.durationSec))
-                        .font(.subheadline.weight(.semibold))
+                        .font(.title3.weight(.semibold))
                         .monospacedDigit()
                     Text("Score \(summary.sleepScore)")
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -95,11 +97,12 @@ private struct SessionRow: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.tertiary)
         }
-        .padding(14)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             Color(.secondarySystemGroupedBackground),
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
         )
     }
 }

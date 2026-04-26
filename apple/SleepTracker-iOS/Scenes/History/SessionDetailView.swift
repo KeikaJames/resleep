@@ -16,15 +16,16 @@ struct SessionDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(spacing: 28) {
                 headerCard
                 breakdownCard
                 timelineCard
                 alarmCard
                 notesCard
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 32)
         }
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Session")
@@ -35,26 +36,25 @@ struct SessionDetailView: View {
 
     private var headerCard: some View {
         Card {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 14) {
                 if let startedAt {
                     Text(startedAt, format: .dateTime.weekday(.wide).month().day())
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
                 }
-                HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(formatDuration(summary.durationSec))
-                            .font(.system(size: 34, weight: .semibold, design: .rounded))
-                            .monospacedDigit()
-                        Text("Total sleep").font(.caption).foregroundStyle(.tertiary)
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("\(summary.sleepScore)")
-                            .font(.system(size: 34, weight: .semibold, design: .rounded))
-                            .monospacedDigit()
-                        Text("Score").font(.caption).foregroundStyle(.tertiary)
-                    }
+                Text(formatDuration(summary.durationSec))
+                    .font(.system(size: 56, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.primary)
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text("Score")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text("\(summary.sleepScore)")
+                        .font(.title3.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(.primary)
                 }
             }
         }
@@ -169,10 +169,11 @@ private struct Card<Content: View>: View {
     @ViewBuilder var content: () -> Content
     var body: some View {
         content()
-            .padding(16)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 18)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(.secondarySystemGroupedBackground),
-                        in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 
@@ -180,9 +181,10 @@ private struct CardHeader: View {
     let title: String
     var body: some View {
         Text(title)
-            .font(.headline)
+            .font(.title3.weight(.bold))
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, 2)
     }
 }
 

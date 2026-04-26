@@ -14,7 +14,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: 28) {
                     if appState.interruptedSessionStart != nil {
                         InterruptedSessionCard()
                     }
@@ -31,8 +31,9 @@ struct HomeView: View {
                             .padding(.horizontal, 4)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 32)
             }
             .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Sleep")
@@ -51,25 +52,34 @@ private struct TonightStatusCard: View {
 
     var body: some View {
         Card {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 18) {
+                if let eyebrow = eyebrowLabel {
+                    Text(eyebrow)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .tracking(0.5)
+                }
+
+                Text(stageLabel)
+                    .font(.system(size: 56, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.primary)
+
+                HStack(spacing: 6) {
                     StatusDot(color: statusColor)
                     Text(statusTitle)
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
-                    Spacer()
-                    Text(sourceLabel)
-                        .font(.footnote)
-                        .foregroundStyle(.tertiary)
-                }
-
-                HStack(alignment: .firstTextBaseline) {
-                    Text(stageLabel)
-                        .font(.system(size: 40, weight: .semibold, design: .rounded))
+                    if !sourceLabel.isEmpty {
+                        Text("·").foregroundStyle(.tertiary)
+                        Text(sourceLabel)
+                            .font(.subheadline)
+                            .foregroundStyle(.tertiary)
+                    }
                     Spacer()
                     if appState.workout.isTracking {
-                        Text(String(format: "conf %.2f", appState.workout.currentConfidence))
-                            .font(.footnote)
+                        Text(String(format: "%.0f%%", appState.workout.currentConfidence * 100))
+                            .font(.subheadline.weight(.medium))
                             .foregroundStyle(.tertiary)
                             .monospacedDigit()
                     }
@@ -81,7 +91,7 @@ private struct TonightStatusCard: View {
                     Text(appState.workout.isTracking ? "Stop Tracking" : "Start Tracking")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 12)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(appState.workout.isTracking ? .red : .accentColor)
@@ -108,20 +118,29 @@ private struct TonightStatusCard: View {
     private var sourceLabel: String {
         if appState.runtimeMode == .simulated { return "Simulation" }
         switch appState.workout.source {
-        case .idle: return "—"
+        case .idle: return ""
         case .localPhone: return "iPhone fallback"
         case .remoteWatch: return "Apple Watch"
         }
     }
 
+    private var eyebrowLabel: String? {
+        if appState.workout.isTracking { return "Now tracking" }
+        if appState.latestSummary != nil { return "Last night" }
+        return "Tonight"
+    }
+
     private var stageLabel: String {
-        guard appState.workout.isTracking else { return "—" }
-        switch appState.workout.currentStage {
-        case .wake:  return "Awake"
-        case .light: return "Light"
-        case .deep:  return "Deep"
-        case .rem:   return "REM"
+        if appState.workout.isTracking {
+            switch appState.workout.currentStage {
+            case .wake:  return "Awake"
+            case .light: return "Light"
+            case .deep:  return "Deep"
+            case .rem:   return "REM"
+            }
         }
+        if appState.latestSummary != nil { return "Ended" }
+        return "Ready"
     }
 }
 
@@ -387,10 +406,11 @@ private struct Card<Content: View>: View {
     @ViewBuilder var content: () -> Content
     var body: some View {
         content()
-            .padding(16)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 18)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(.secondarySystemGroupedBackground),
-                        in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 
@@ -398,9 +418,10 @@ private struct CardHeader: View {
     let title: String
     var body: some View {
         Text(title)
-            .font(.headline)
+            .font(.title3.weight(.bold))
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, 2)
     }
 }
 
