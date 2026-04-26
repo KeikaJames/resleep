@@ -16,7 +16,7 @@ pub mod models;
 pub mod signal;
 
 pub use engine::config::EngineConfig;
-pub use engine::state::{SleepEngine, Stage, SessionSummary};
+pub use engine::state::{SessionSummary, SleepEngine, Stage};
 
 /// Crate-wide error type.
 #[derive(Debug, thiserror::Error)]

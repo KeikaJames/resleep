@@ -10,7 +10,11 @@ pub struct EngineConfig {
 }
 
 impl EngineConfig {
-    pub fn new(db_path: impl Into<String>, model_path: impl Into<String>, user_id: impl Into<String>) -> Self {
+    pub fn new(
+        db_path: impl Into<String>,
+        model_path: impl Into<String>,
+        user_id: impl Into<String>,
+    ) -> Self {
         Self {
             db_path: db_path.into(),
             model_path: model_path.into(),

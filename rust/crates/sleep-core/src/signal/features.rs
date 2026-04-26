@@ -97,7 +97,11 @@ fn stats_with_slope(series: &VecDeque<(u64, f32)>) -> (f32, f32, f32) {
         sxy += x * *v;
     }
     let denom = n * sxx - sx * sx;
-    let slope = if denom.abs() > f32::EPSILON { (n * sxy - sx * sy) / denom } else { 0.0 };
+    let slope = if denom.abs() > f32::EPSILON {
+        (n * sxy - sx * sy) / denom
+    } else {
+        0.0
+    };
     (mean, std, slope)
 }
 

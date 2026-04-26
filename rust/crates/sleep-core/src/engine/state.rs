@@ -90,7 +90,8 @@ impl SleepEngine {
             return Err(CoreError::SessionAlreadyRunning(s.id.clone()));
         }
         let id = Uuid::new_v4().to_string();
-        self.repo.insert_session(&id, started_at_ms, &self.cfg.user_id)?;
+        self.repo
+            .insert_session(&id, started_at_ms, &self.cfg.user_id)?;
         self.features.reset();
         self.current_stage = Stage::Wake;
         self.current_confidence = 0.0;
@@ -129,20 +130,34 @@ impl SleepEngine {
     }
 
     pub fn push_heart_rate(&mut self, bpm: f32, ts_ms: u64) -> Result<()> {
-        let Some(s) = self.session.as_mut() else { return Err(CoreError::NoActiveSession) };
+        let Some(s) = self.session.as_mut() else {
+            return Err(CoreError::NoActiveSession);
+        };
         s.last_sample_ms = ts_ms.max(s.last_sample_ms);
         self.features.push_hr(bpm, ts_ms);
-        self.repo.insert_sample(&s.id, ts_ms, crate::db::repo::SampleKind::HeartRate, &bpm.to_string())?;
+        self.repo.insert_sample(
+            &s.id,
+            ts_ms,
+            crate::db::repo::SampleKind::HeartRate,
+            &bpm.to_string(),
+        )?;
         self.recompute_stage(ts_ms);
         Ok(())
     }
 
     pub fn push_accelerometer(&mut self, x: f32, y: f32, z: f32, ts_ms: u64) -> Result<()> {
-        let Some(s) = self.session.as_mut() else { return Err(CoreError::NoActiveSession) };
+        let Some(s) = self.session.as_mut() else {
+            return Err(CoreError::NoActiveSession);
+        };
         s.last_sample_ms = ts_ms.max(s.last_sample_ms);
         self.features.push_accel(x, y, z, ts_ms);
         let json = format!(r#"{{"x":{x},"y":{y},"z":{z}}}"#);
-        self.repo.insert_sample(&s.id, ts_ms, crate::db::repo::SampleKind::Accelerometer, &json)?;
+        self.repo.insert_sample(
+            &s.id,
+            ts_ms,
+            crate::db::repo::SampleKind::Accelerometer,
+            &json,
+        )?;
         self.recompute_stage(ts_ms);
         Ok(())
     }
@@ -158,7 +173,9 @@ impl SleepEngine {
                 s.time_in_stage_sec[s.last_stage as usize] += delta;
                 s.last_stage = stage;
                 s.last_stage_ms = ts_ms;
-                let _ = self.repo.insert_stage_transition(&s.id, ts_ms, stage as i32, conf);
+                let _ = self
+                    .repo
+                    .insert_stage_transition(&s.id, ts_ms, stage as i32, conf);
             }
             self.current_stage = stage;
         }
@@ -177,7 +194,8 @@ impl SleepEngine {
     }
 
     pub fn check_alarm_trigger(&self, now_ms: u64) -> bool {
-        self.alarm.should_trigger(now_ms, self.current_stage, self.current_confidence)
+        self.alarm
+            .should_trigger(now_ms, self.current_stage, self.current_confidence)
     }
 }
 
@@ -192,6 +210,8 @@ fn compute_sleep_score(time_in_stage: &[i64; 4], duration_sec: i64) -> i32 {
     let deep_ratio = time_in_stage[Stage::Deep as usize] as f32 / duration_sec.max(1) as f32;
     let rem_ratio = time_in_stage[Stage::Rem as usize] as f32 / duration_sec.max(1) as f32;
     // Simple heuristic: weight efficiency heaviest, reward deep + rem.
-    let score = 60.0 * efficiency + 25.0 * deep_ratio.clamp(0.0, 0.4) / 0.4 + 15.0 * rem_ratio.clamp(0.0, 0.25) / 0.25;
+    let score = 60.0 * efficiency
+        + 25.0 * deep_ratio.clamp(0.0, 0.4) / 0.4
+        + 15.0 * rem_ratio.clamp(0.0, 0.25) / 0.25;
     score.round().clamp(0.0, 100.0) as i32
 }

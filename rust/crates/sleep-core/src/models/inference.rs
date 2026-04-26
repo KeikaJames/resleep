@@ -20,7 +20,9 @@ pub trait StageInference {
 pub struct RuleInference;
 
 impl RuleInference {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
 
 impl StageInference for RuleInference {

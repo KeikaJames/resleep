@@ -49,7 +49,7 @@ mod tests {
         let mut a = SmartAlarm::default();
         // target at t=10min, window=5min => window starts at t=5min
         a.arm(10 * 60 * 1000, 5);
-        assert!(!a.should_trigger(1 * 60 * 1000, Stage::Light, 0.9));
+        assert!(!a.should_trigger(60 * 1000, Stage::Light, 0.9));
     }
 
     #[test]

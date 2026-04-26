@@ -9,8 +9,12 @@
 //! Swift client (`RustSleepEngineClient`), which guarantees single-threaded
 //! access from `@MainActor`.
 
+#![allow(clippy::unnecessary_cast)]
+
 use crate::engine::config::EngineConfig as CoreConfig;
-use crate::engine::state::{SleepEngine as CoreEngine, SessionSummary as CoreSummary, Stage as CoreStage};
+use crate::engine::state::{
+    SessionSummary as CoreSummary, SleepEngine as CoreEngine, Stage as CoreStage,
+};
 
 #[swift_bridge::bridge]
 mod ffi {
@@ -41,23 +45,13 @@ mod ffi {
         fn end_session(&mut self) -> Result<FfiSessionSummary, String>;
 
         fn push_heart_rate(&mut self, bpm: f32, ts_ms: u64) -> Result<(), String>;
-        fn push_accelerometer(
-            &mut self,
-            x: f32,
-            y: f32,
-            z: f32,
-            ts_ms: u64,
-        ) -> Result<(), String>;
+        fn push_accelerometer(&mut self, x: f32, y: f32, z: f32, ts_ms: u64) -> Result<(), String>;
 
         // 0=wake, 1=light, 2=deep, 3=rem.
         fn current_stage(&self) -> u8;
         fn current_confidence(&self) -> f32;
 
-        fn arm_smart_alarm(
-            &mut self,
-            target_ms: u64,
-            window_minutes: u32,
-        ) -> Result<(), String>;
+        fn arm_smart_alarm(&mut self, target_ms: u64, window_minutes: u32) -> Result<(), String>;
         fn check_alarm_trigger(&self, now_ms: u64) -> bool;
     }
 }
@@ -93,13 +87,7 @@ impl FfiSleepEngine {
             .map_err(|e| e.to_string())
     }
 
-    fn push_accelerometer(
-        &mut self,
-        x: f32,
-        y: f32,
-        z: f32,
-        ts_ms: u64,
-    ) -> Result<(), String> {
+    fn push_accelerometer(&mut self, x: f32, y: f32, z: f32, ts_ms: u64) -> Result<(), String> {
         self.inner
             .push_accelerometer(x, y, z, ts_ms)
             .map_err(|e| e.to_string())
@@ -118,11 +106,7 @@ impl FfiSleepEngine {
         self.inner.current_confidence()
     }
 
-    fn arm_smart_alarm(
-        &mut self,
-        target_ms: u64,
-        window_minutes: u32,
-    ) -> Result<(), String> {
+    fn arm_smart_alarm(&mut self, target_ms: u64, window_minutes: u32) -> Result<(), String> {
         self.inner.arm_smart_alarm(target_ms, window_minutes);
         Ok(())
     }
