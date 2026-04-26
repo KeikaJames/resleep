@@ -22,11 +22,19 @@ impl SmartAlarm {
     }
 
     pub fn should_trigger(&self, now_ms: u64, stage: Stage, confidence: f32) -> bool {
-        if !self.armed { return false; }
-        let Some(target) = self.target_ms else { return false; };
-        if now_ms >= target { return true; }
+        if !self.armed {
+            return false;
+        }
+        let Some(target) = self.target_ms else {
+            return false;
+        };
+        if now_ms >= target {
+            return true;
+        }
         let window_start = target.saturating_sub(self.window_ms);
-        if now_ms < window_start { return false; }
+        if now_ms < window_start {
+            return false;
+        }
         // Prefer light/rem transitions; require some confidence.
         matches!(stage, Stage::Light | Stage::Rem) && confidence >= 0.5
     }
