@@ -1,19 +1,35 @@
 import SwiftUI
 import SleepKit
 
+/// Companion-only watch UI. The phone is the product; the watch is just a
+/// sensor + alarm actuator. Show only what the wrist actually needs at
+/// 3am: tracking state, phone link, current stage, alarm state, and a
+/// big Dismiss when the alarm is firing.
 struct WatchHomeView: View {
     @EnvironmentObject private var state: WatchAppState
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(spacing: 8) {
                 if state.isAlarmActive {
                     alarmBanner
                 }
-                header
-                metricsBlock
-                linkBlock
+                stateRow
+                stageRow
+                linkRow
+                if state.alarmState != .idle && !state.isAlarmActive {
+                    Text(alarmLabel(state.alarmState))
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 controlButton
+                if let mode = state.runtimeModeRaw {
+                    Text(mode == "simulated" ? "SIM" : "LIVE")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(mode == "simulated" ? .orange : .secondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
                 if let err = state.lastError {
                     Text(err).font(.caption2).foregroundStyle(.red)
                 }
@@ -23,82 +39,36 @@ struct WatchHomeView: View {
         .navigationTitle("Sleep")
     }
 
-    private var header: some View {
+    // MARK: Rows
+
+    private var stateRow: some View {
         HStack(spacing: 6) {
             Circle()
                 .fill(state.isTracking ? Color.green : Color.gray)
                 .frame(width: 8, height: 8)
             Text(state.isTracking ? "Tracking" : "Idle")
-                .font(.caption).bold()
+                .font(.caption.weight(.semibold))
             Spacer()
-            if let stage = state.currentStage {
-                Text(stage.displayName)
-                    .font(.caption2)
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(.gray.opacity(0.3), in: Capsule())
-            }
         }
     }
 
-    private var metricsBlock: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if let hr = state.latestHeartRate {
-                Text("\(Int(hr.rounded())) bpm").font(.title3).bold()
-            } else {
-                Text("— bpm").font(.title3).foregroundStyle(.secondary)
-            }
-            if let t = state.latestHeartRateAt {
-                Text("hr \(t.formatted(.relative(presentation: .numeric)))")
-                    .font(.caption2).foregroundStyle(.tertiary)
-            }
+    private var stageRow: some View {
+        HStack {
+            Text(stageLabel)
+                .font(.title3.weight(.semibold))
+            Spacer()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var linkBlock: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 4) {
-                Circle()
-                    .fill(state.phoneReachable ? Color.green : Color.orange)
-                    .frame(width: 6, height: 6)
-                Text(state.phoneReachable ? "Phone reachable" : "Phone offline")
-                    .font(.caption2)
-            }
-            if let t = state.lastBatchSentAt {
-                Text("last batch \(t.formatted(.relative(presentation: .numeric)))")
-                    .font(.caption2).foregroundStyle(.tertiary)
-            }
-            if state.pendingGuaranteedCount > 0 {
-                Text("pending \(state.pendingGuaranteedCount)")
-                    .font(.caption2).foregroundStyle(.orange)
-            }
-            if state.smartAlarmArmed {
-                Text("alarm armed").font(.caption2).foregroundStyle(.blue)
-            }
-            if state.alarmState != .idle && state.alarmState != .armed {
-                Text("alarm: \(state.alarmState.rawValue)")
-                    .font(.caption2).foregroundStyle(.orange)
-            }
-            debugStrip
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var debugStrip: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            if let mode = state.runtimeModeRaw {
-                Text(mode == "simulated" ? "SIM mode" : "LIVE mode")
-                    .font(.caption2)
-                    .foregroundStyle(mode == "simulated" ? .orange : .secondary)
-            }
-            if let conf = state.currentConfidence {
-                Text(String(format: "conf %.2f", conf))
-                    .font(.caption2).foregroundStyle(.secondary)
-            }
-            if let sid = state.currentSessionId {
-                Text("sess \(sid.prefix(6))")
-                    .font(.caption2).foregroundStyle(.tertiary)
-            }
+    private var linkRow: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(state.phoneReachable ? Color.green : Color.orange)
+                .frame(width: 6, height: 6)
+            Text(state.phoneReachable ? "Phone reachable" : "Phone offline")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Spacer()
         }
     }
 
@@ -111,9 +81,9 @@ struct WatchHomeView: View {
                 state.dismissAlarmFromWatch()
             } label: {
                 Text("Dismiss")
-                    .font(.body).bold()
+                    .font(.body.weight(.semibold))
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 10)
             }
             .buttonStyle(.borderedProminent)
             .tint(.white)
@@ -132,11 +102,34 @@ struct WatchHomeView: View {
             }
         } label: {
             Text(state.isTracking ? "Stop" : "Start")
-                .font(.caption).bold()
+                .font(.caption.weight(.semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
         }
         .buttonStyle(.borderedProminent)
         .tint(state.isTracking ? .red : .accentColor)
+    }
+
+    // MARK: Helpers
+
+    private var stageLabel: String {
+        guard state.isTracking else { return "—" }
+        guard let s = state.currentStage else { return "…" }
+        switch s {
+        case .wake:  return "Awake"
+        case .light: return "Light"
+        case .deep:  return "Deep"
+        case .rem:   return "REM"
+        }
+    }
+
+    private func alarmLabel(_ s: AlarmState) -> String {
+        switch s {
+        case .idle:                    return ""
+        case .armed:                   return "Alarm armed"
+        case .triggered:               return "Alarm triggered"
+        case .dismissed:               return "Alarm dismissed"
+        case .failedWatchUnreachable:  return "Alarm: link failure"
+        }
     }
 }

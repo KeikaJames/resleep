@@ -10,6 +10,7 @@
 		04E958C599DAA111B1215FB4 /* WatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2EFDB265B5162D8C9ED34D7 /* WatchApp.swift */; };
 		0D770A7F5AF60CB436F421CE /* HistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E5DA0A1081E49D7C29A90A9 /* HistoryViewModel.swift */; };
 		250FDD7F07A93EC40A0A0A1C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E56AA2DECF82625E0A5F2CD0 /* SettingsView.swift */; };
+		297C5591AF480F98D53E6981 /* SessionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BC7569987B783C88D62D95B /* SessionDetailView.swift */; };
 		3020DEA252732FE3DEE9E356 /* SleepTracker-Watch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 7F701B426F1A0365641CB052 /* SleepTracker-Watch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		3070795377156C508886A460 /* WatchHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34B75E3D5BD035F2D7CA0E36 /* WatchHomeView.swift */; };
 		446B81CFEEF83C02B91487DD /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDF1F4492A04C03721DE74DB /* SettingsViewModel.swift */; };
@@ -69,6 +70,7 @@
 		604CEC345B8A6FA1369067F6 /* SleepTracker-iOSTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = "SleepTracker-iOSTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		6454F55556CD0F7DF03B9C47 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		6DDBBF386A44D753C13FF7B8 /* WatchHapticRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHapticRunner.swift; sourceTree = "<group>"; };
+		7BC7569987B783C88D62D95B /* SessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionDetailView.swift; sourceTree = "<group>"; };
 		7F701B426F1A0365641CB052 /* SleepTracker-Watch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "SleepTracker-Watch.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		9A2FC8571D70F8DC2887C121 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		9BC43802E2FF432029C78795 /* M67SimulationLoopsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = M67SimulationLoopsTests.swift; sourceTree = "<group>"; };
@@ -152,6 +154,7 @@
 			children = (
 				6454F55556CD0F7DF03B9C47 /* HistoryView.swift */,
 				5E5DA0A1081E49D7C29A90A9 /* HistoryViewModel.swift */,
+				7BC7569987B783C88D62D95B /* SessionDetailView.swift */,
 			);
 			path = History;
 			sourceTree = "<group>";
@@ -375,6 +378,7 @@
 				0D770A7F5AF60CB436F421CE /* HistoryViewModel.swift in Sources */,
 				76E601F4FA5F621DDE71330A /* HomeView.swift in Sources */,
 				9DDAB712BEF46EF1D9155E11 /* HomeViewModel.swift in Sources */,
+				297C5591AF480F98D53E6981 /* SessionDetailView.swift in Sources */,
 				250FDD7F07A93EC40A0A0A1C /* SettingsView.swift in Sources */,
 				446B81CFEEF83C02B91487DD /* SettingsViewModel.swift in Sources */,
 				C03CCE69319D48369D07D978 /* SleepTrackerApp.swift in Sources */,
