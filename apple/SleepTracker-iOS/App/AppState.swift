@@ -28,7 +28,15 @@ public final class AppState: ObservableObject {
     public let engineFallbackReason: String?
     public let inferenceFallbackReason: String?
 
+    /// Local-only diagnostic event log. Append-only JSONL; safe if missing/corrupt.
+    public let diagnostics: DiagnosticsStoreProtocol
+    /// Active-session crash/interruption marker.
+    public let markerStore: ActiveSessionMarkerStoreProtocol
+
     @Published public var latestSummary: SessionSummary?
+    /// Set when the app launches and finds a stale active-session marker.
+    /// `nil` once the user finishes-and-saves or discards.
+    @Published public private(set) var interruptedSessionStart: ActiveSessionMarker?
 
     // MARK: Simulation
     /// Replay harness. Always instantiated so its `@Published` state is
@@ -61,7 +69,9 @@ public final class AppState: ObservableObject {
         health: HealthPermissionServiceProtocol,
         heartRateStream: HeartRateStreaming,
         inferenceModel: StageInferenceModel? = nil,
-        inferenceFallbackReason: String? = nil
+        inferenceFallbackReason: String? = nil,
+        diagnostics: DiagnosticsStoreProtocol = InMemoryDiagnosticsStore(),
+        markerStore: ActiveSessionMarkerStoreProtocol = InMemoryActiveSessionMarkerStore()
     ) {
         self.engine = engine
         self.engineFallbackReason = engineFallbackReason
@@ -70,6 +80,8 @@ public final class AppState: ObservableObject {
         self.connectivity = connectivity
         self.health = health
         self.heartRateStream = heartRateStream
+        self.diagnostics = diagnostics
+        self.markerStore = markerStore
 
         let resolvedModel: StageInferenceModel
         let resolvedReason: String?
@@ -111,7 +123,9 @@ public final class AppState: ObservableObject {
             insights: LocalInsightsService(),
             connectivity: connectivity,
             health: HealthPermissionService(),
-            heartRateStream: stream
+            heartRateStream: stream,
+            diagnostics: EngineHost.makeDiagnosticsStore(),
+            markerStore: EngineHost.makeActiveSessionMarkerStore()
         )
     }
 
@@ -320,6 +334,13 @@ public final class AppState: ObservableObject {
         runtimeMode = .simulated
         activeScenario = scenario
         lastScenarioMark = nil
+        // Persist active-session marker so an interruption is recoverable.
+        if let sid = workout.currentSessionID {
+            await writeActiveMarker(sessionId: sid,
+                                     startedAt: Date(),
+                                     source: src,
+                                     mode: .simulated)
+        }
         // 4. Wire the product loop (trigger handler + dismiss route +
         //    1 Hz snapshot republish) and kick the scenario runner.
         installRunningSessionHooks()
@@ -340,5 +361,146 @@ public final class AppState: ObservableObject {
         }
         inferencePipeline.reset()
         publishSnapshot()
+        await clearActiveMarker()
+    }
+
+    // MARK: - M7 lifecycle / diagnostics
+
+    /// Emit `appLaunch` and detect an interrupted session marker, if any.
+    /// Idempotent: callers may invoke once per process via `.task { ... }`.
+    public func appLaunch() async {
+        await diagnostics.append(DiagnosticEvent(type: .appLaunch))
+        await detectInterruptedSession()
+    }
+
+    public func appForeground() {
+        Task { [diagnostics] in
+            await diagnostics.append(DiagnosticEvent(type: .appForeground))
+        }
+    }
+
+    public func appBackground() {
+        Task { [diagnostics] in
+            await diagnostics.append(DiagnosticEvent(type: .appBackground))
+        }
+    }
+
+    /// Reads the marker; if present, publishes `interruptedSessionStart`
+    /// and emits `sessionInterruptedDetected`.
+    public func detectInterruptedSession() async {
+        if let m = await markerStore.read() {
+            interruptedSessionStart = m
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionInterruptedDetected,
+                                sessionId: m.sessionId,
+                                message: "marker found on launch")
+            )
+        }
+    }
+
+    /// Persists a best-effort `StoredSessionRecord` for the interrupted
+    /// session and clears the marker. No engine interaction; the engine
+    /// state from the previous process is gone.
+    public func finishInterruptedAndSave() async {
+        guard let m = interruptedSessionStart else { return }
+        let now = Date()
+        let durationSec = max(0, Int(now.timeIntervalSince(m.startedAt)))
+        // Best-effort empty summary; UI shows it as interrupted via notes.
+        let summary = SessionSummary(
+            sessionId: m.sessionId,
+            durationSec: durationSec,
+            timeInWakeSec: 0,
+            timeInLightSec: 0,
+            timeInDeepSec: 0,
+            timeInRemSec: 0,
+            sleepScore: 0
+        )
+        let alarmMeta: StoredAlarmMeta? = m.smartAlarmEnabled
+            ? StoredAlarmMeta(enabled: true,
+                              finalStateRaw: AlarmState.idle.rawValue,
+                              targetTsMs: m.alarmTargetTsMs,
+                              windowMinutes: m.alarmWindowMinutes ?? 0)
+            : nil
+        let rec = StoredSessionRecord(
+            id: m.sessionId,
+            startedAt: m.startedAt,
+            endedAt: now,
+            summary: summary,
+            alarm: alarmMeta,
+            sourceRaw: m.sourceRaw,
+            runtimeModeRaw: m.runtimeModeRaw,
+            notes: "Interrupted: app was terminated before stop. Best-effort recovered.",
+            timeline: []
+        )
+        do {
+            try await localStore.recordSessionRecord(rec)
+            latestSummary = summary
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionInterruptedFinished,
+                                sessionId: m.sessionId,
+                                message: "user finished+saved interrupted session")
+            )
+        } catch {
+            await diagnostics.append(
+                DiagnosticEvent(type: .localStoreError,
+                                sessionId: m.sessionId,
+                                error: "\(error)")
+            )
+        }
+        await markerStore.clear()
+        interruptedSessionStart = nil
+    }
+
+    public func discardInterruptedSession() async {
+        let sid = interruptedSessionStart?.sessionId
+        await markerStore.clear()
+        interruptedSessionStart = nil
+        await diagnostics.append(
+            DiagnosticEvent(type: .sessionInterruptedDiscarded, sessionId: sid)
+        )
+    }
+
+    /// Writes a marker for the currently running session. Caller passes the
+    /// session id (after `workout.startTracking`) and the runtime mode so we
+    /// can also recover whether the run was simulated.
+    public func writeActiveMarker(sessionId: String,
+                                   startedAt: Date,
+                                   source: TrackingSource,
+                                   mode: AppRuntimeMode) async {
+        let alarmTargetMs: Int64? = alarm.isEnabled
+            ? Int64(alarm.target.timeIntervalSince1970 * 1000)
+            : nil
+        let m = ActiveSessionMarker(
+            sessionId: sessionId,
+            startedAt: startedAt,
+            sourceRaw: source.rawValue,
+            runtimeModeRaw: mode.rawValue,
+            smartAlarmEnabled: alarm.isEnabled,
+            alarmTargetTsMs: alarmTargetMs,
+            alarmWindowMinutes: alarm.isEnabled ? alarm.windowMinutes : nil
+        )
+        await markerStore.write(m)
+    }
+
+    public func clearActiveMarker() async {
+        await markerStore.clear()
+    }
+
+    /// Generates an `UnattendedReport` for the latest stored session by
+    /// merging diagnostic events + persisted session record. Returns `nil`
+    /// when no session has been stored yet.
+    public func generateLatestUnattendedReport() async -> UnattendedReport? {
+        let events = await diagnostics.all()
+        let sessions = (try? await localStore.listSessions(limit: 1)) ?? []
+        guard let latestSession = sessions.first else {
+            // No persisted sessions yet — try to build a context-only report
+            // from events alone when we do have any.
+            if events.isEmpty { return nil }
+            return UnattendedReportBuilder.build(events: events)
+        }
+        let record = try? await localStore.record(for: latestSession.id)
+        return UnattendedReportBuilder.build(events: events,
+                                              record: record,
+                                              sessionId: latestSession.id)
     }
 }

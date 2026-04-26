@@ -80,6 +80,22 @@ Settings → **Local Data** → *Delete Local Sleep Data* removes every
 session, summary, and timeline entry stored on device. There is no
 cloud backup — the action cannot be undone.
 
+### Diagnostics & unattended overnight tests (M7)
+
+The app keeps a local **diagnostic event log** so unattended overnight
+runs can be inspected the next morning:
+
+    Application Support/SleepTracker/diagnostics.jsonl
+    Application Support/SleepTracker/diagnostics.jsonl.1   (rotated)
+    Application Support/SleepTracker/active_session.json   (only while a session is in progress)
+
+Behaviour:
+
+- Append-only JSONL, ~2 MB rotation, corrupt lines are skipped — never crashes the app.
+- Settings → **Diagnostics** shows the latest report summary, opens a full readable view, and supports Copy / Clear.
+- An `active_session.json` marker is written at session start and cleared at clean stop. If the app is force-killed overnight, the next launch shows a calm **Previous session interrupted** card on Home with **Finish & Save** / **Discard** actions.
+- See `docs/M7_UNATTENDED_DEVICE_QA.md` for the full unattended QA protocol.
+
 ### Real vs approximate timeline
 
 `SessionDetailView` prefers the **persisted timeline** captured every 30 s

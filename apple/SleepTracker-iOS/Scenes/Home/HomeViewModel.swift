@@ -60,12 +60,28 @@ final class HomeViewModel: ObservableObject {
             try await appState.workout.startTracking(source: source)
         } catch {
             lastError = "Start failed: \(error)"
+            await appState.diagnostics.append(
+                DiagnosticEvent(type: .sessionStop, message: "start failed", error: "\(error)")
+            )
             return
         }
 
         // Install trigger/dismiss/1Hz-status hooks — same set the simulation
         // path uses, so live and simulated exercise the identical product loop.
         appState.installRunningSessionHooks()
+
+        let startedAt = appState.workout.sessionStartedAt ?? Date()
+        if let sid = appState.workout.currentSessionID {
+            await appState.writeActiveMarker(sessionId: sid,
+                                              startedAt: startedAt,
+                                              source: source,
+                                              mode: appState.runtimeMode)
+            await appState.diagnostics.append(
+                DiagnosticEvent(type: .sessionStart,
+                                sessionId: sid,
+                                message: "source=\(source.rawValue)")
+            )
+        }
 
         // Arm the Rust engine if the user enabled the alarm; also echo the
         // arm to the Watch as a hint.
@@ -135,10 +151,25 @@ final class HomeViewModel: ObservableObject {
                     source: source,
                     runtimeMode: runtimeMode
                 )
+                await appState.diagnostics.append(
+                    DiagnosticEvent(type: .localStoreWrite,
+                                    sessionId: summary.sessionId,
+                                    message: "session record persisted")
+                )
             }
+            await appState.diagnostics.append(
+                DiagnosticEvent(type: .sessionStop, sessionId: sessionId)
+            )
+            await appState.clearActiveMarker()
             appState.publishSnapshot()
         } catch {
             lastError = "Stop failed: \(error)"
+            await appState.diagnostics.append(
+                DiagnosticEvent(type: .sessionStop,
+                                sessionId: sessionId,
+                                error: "\(error)")
+            )
+            await appState.clearActiveMarker()
         }
     }
 }

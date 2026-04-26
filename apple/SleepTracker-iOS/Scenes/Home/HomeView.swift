@@ -15,6 +15,9 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    if appState.interruptedSessionStart != nil {
+                        InterruptedSessionCard()
+                    }
                     TonightStatusCard()
                     SmartAlarmCard()
                     LastSummaryCard()
@@ -453,4 +456,55 @@ private func relativeDate(_ d: Date?) -> String {
     let fmt = RelativeDateTimeFormatter()
     fmt.unitsStyle = .abbreviated
     return fmt.localizedString(for: d, relativeTo: Date())
+}
+
+// MARK: - Interrupted session
+
+private struct InterruptedSessionCard: View {
+    @EnvironmentObject private var appState: AppState
+
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text("Previous session interrupted")
+                        .font(.subheadline.weight(.semibold))
+                }
+                if let m = appState.interruptedSessionStart {
+                    Text("Started \(formattedDate(m.startedAt)). The app was terminated before stop.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                HStack(spacing: 12) {
+                    Button {
+                        Task { await appState.finishInterruptedAndSave() }
+                    } label: {
+                        Text("Finish & Save")
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button(role: .destructive) {
+                        Task { await appState.discardInterruptedSession() }
+                    } label: {
+                        Text("Discard")
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+        }
+    }
+
+    private func formattedDate(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.dateStyle = .short
+        f.timeStyle = .short
+        return f.string(from: d)
+    }
 }
