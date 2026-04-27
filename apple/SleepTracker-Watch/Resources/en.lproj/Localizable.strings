@@ -1,0 +1,21 @@
+/* Sleep Tracker watchOS — English */
+
+"watch.title"           = "Sleep";
+"watch.state.tracking"  = "Tracking";
+"watch.state.idle"      = "Idle";
+"watch.link.reachable"  = "Phone reachable";
+"watch.link.offline"    = "Phone offline";
+"watch.alarm.banner"    = "⏰ Wake up";
+"watch.alarm.dismiss"   = "Dismiss";
+"watch.action.start"    = "Start";
+"watch.action.stop"     = "Stop";
+"watch.alarm.armed"       = "Alarm armed";
+"watch.alarm.triggered"   = "Alarm triggered";
+"watch.alarm.dismissed"   = "Alarm dismissed";
+"watch.alarm.linkFailure" = "Alarm: link failure";
+"watch.stage.dash"        = "—";
+"watch.stage.loading"     = "…";
+"stage.wake"  = "Awake";
+"stage.light" = "Light";
+"stage.deep"  = "Deep";
+"stage.rem"   = "REM";

@@ -171,7 +171,7 @@ struct SettingsView: View {
                 }
                 Button("settings.localData.confirmCancel", role: .cancel) {}
             } message: {
-                Text("Sessions, summaries, and timelines stored on this device will be removed.")
+                Text("settings.localData.confirmMessage")
             }
         }
     }

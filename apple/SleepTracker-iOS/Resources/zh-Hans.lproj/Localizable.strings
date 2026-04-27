@@ -195,3 +195,30 @@
 "history.summaryUnavailable.body"  = "这次会话还没有存储摘要。";
 "history.inProgress" = "进行中";
 "history.score"      = "评分";
+
+// Session Detail
+"detail.title"           = "会话";
+"detail.score"           = "评分";
+"detail.stages"          = "睡眠阶段";
+"detail.timeline"        = "时间轴";
+"detail.timeline.approx" = "近似时间轴";
+"detail.timeline.none"   = "本次会话暂无时间轴。";
+"detail.alarm"           = "智能闹钟";
+"detail.alarm.result"    = "结果";
+"detail.alarm.target"    = "目标时间";
+"detail.alarm.window"    = "时间窗";
+"detail.alarm.windowVal" = "%d 分钟";
+"detail.notes"           = "备注";
+"detail.notes.empty"     = "暂无备注。";
+"detail.alarm.idle"        = "未启用";
+"detail.alarm.armed"       = "已上闹（未触发）";
+"detail.alarm.triggered"   = "已触发";
+"detail.alarm.dismissed"   = "已触发并解除";
+"detail.alarm.unreachable" = "无法连接 Apple Watch";
+
+// Recovery banner
+"recovery.title"      = "上次会话被中断";
+"recovery.bodyFormat" = "开始于 %@。应用在结束前被关闭。";
+"recovery.finish"     = "完成并保存";
+"recovery.discard"    = "丢弃";
+"settings.localData.confirmMessage" = "本机存储的会话、摘要和时间轴将被删除。";

@@ -36,7 +36,7 @@ struct WatchHomeView: View {
             }
             .padding(.horizontal, 6)
         }
-        .navigationTitle("Sleep")
+        .navigationTitle("watch.title")
     }
 
     // MARK: Rows
@@ -46,7 +46,7 @@ struct WatchHomeView: View {
             Circle()
                 .fill(state.isTracking ? Color.green : Color.gray)
                 .frame(width: 8, height: 8)
-            Text(state.isTracking ? "Tracking" : "Idle")
+            Text(state.isTracking ? "watch.state.tracking" : "watch.state.idle")
                 .font(.caption.weight(.semibold))
             Spacer()
         }
@@ -65,7 +65,7 @@ struct WatchHomeView: View {
             Circle()
                 .fill(state.phoneReachable ? Color.green : Color.orange)
                 .frame(width: 6, height: 6)
-            Text(state.phoneReachable ? "Phone reachable" : "Phone offline")
+            Text(state.phoneReachable ? "watch.link.reachable" : "watch.link.offline")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Spacer()
@@ -74,13 +74,13 @@ struct WatchHomeView: View {
 
     private var alarmBanner: some View {
         VStack(spacing: 6) {
-            Text("⏰ Wake up")
+            Text("watch.alarm.banner")
                 .font(.headline)
                 .foregroundStyle(.white)
             Button(role: .destructive) {
                 state.dismissAlarmFromWatch()
             } label: {
-                Text("Dismiss")
+                Text("watch.alarm.dismiss")
                     .font(.body.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -101,7 +101,7 @@ struct WatchHomeView: View {
                 else { await state.manualStart() }
             }
         } label: {
-            Text(state.isTracking ? "Stop" : "Start")
+            Text(state.isTracking ? "watch.action.stop" : "watch.action.start")
                 .font(.caption.weight(.semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
@@ -113,23 +113,23 @@ struct WatchHomeView: View {
     // MARK: Helpers
 
     private var stageLabel: String {
-        guard state.isTracking else { return "—" }
-        guard let s = state.currentStage else { return "…" }
+        guard state.isTracking else { return NSLocalizedString("watch.stage.dash", comment: "") }
+        guard let s = state.currentStage else { return NSLocalizedString("watch.stage.loading", comment: "") }
         switch s {
-        case .wake:  return "Awake"
-        case .light: return "Light"
-        case .deep:  return "Deep"
-        case .rem:   return "REM"
+        case .wake:  return NSLocalizedString("stage.wake", comment: "")
+        case .light: return NSLocalizedString("stage.light", comment: "")
+        case .deep:  return NSLocalizedString("stage.deep", comment: "")
+        case .rem:   return NSLocalizedString("stage.rem", comment: "")
         }
     }
 
     private func alarmLabel(_ s: AlarmState) -> String {
         switch s {
         case .idle:                    return ""
-        case .armed:                   return "Alarm armed"
-        case .triggered:               return "Alarm triggered"
-        case .dismissed:               return "Alarm dismissed"
-        case .failedWatchUnreachable:  return "Alarm: link failure"
+        case .armed:                   return NSLocalizedString("watch.alarm.armed", comment: "")
+        case .triggered:               return NSLocalizedString("watch.alarm.triggered", comment: "")
+        case .dismissed:               return NSLocalizedString("watch.alarm.dismissed", comment: "")
+        case .failedWatchUnreachable:  return NSLocalizedString("watch.alarm.linkFailure", comment: "")
         }
     }
 }

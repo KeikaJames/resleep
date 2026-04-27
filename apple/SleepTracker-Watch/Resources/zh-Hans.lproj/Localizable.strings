@@ -1,0 +1,21 @@
+/* Sleep Tracker watchOS — Simplified Chinese */
+
+"watch.title"           = "睡眠";
+"watch.state.tracking"  = "追踪中";
+"watch.state.idle"      = "待机";
+"watch.link.reachable"  = "iPhone 已连接";
+"watch.link.offline"    = "iPhone 未连接";
+"watch.alarm.banner"    = "⏰ 起床";
+"watch.alarm.dismiss"   = "关闭";
+"watch.action.start"    = "开始";
+"watch.action.stop"     = "停止";
+"watch.alarm.armed"       = "闹钟已上";
+"watch.alarm.triggered"   = "闹钟触发";
+"watch.alarm.dismissed"   = "闹钟已关闭";
+"watch.alarm.linkFailure" = "闹钟：连接失败";
+"watch.stage.dash"        = "—";
+"watch.stage.loading"     = "…";
+"stage.wake"  = "清醒";
+"stage.light" = "浅睡";
+"stage.deep"  = "深睡";
+"stage.rem"   = "REM";

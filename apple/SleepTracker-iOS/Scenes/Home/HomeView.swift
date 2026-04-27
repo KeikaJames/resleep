@@ -524,11 +524,12 @@ private struct InterruptedSessionCard: View {
     var body: some View {
         Card {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Previous session interrupted")
+                Text("recovery.title")
                     .font(.headline)
                     .foregroundStyle(.primary)
                 if let m = appState.interruptedSessionStart {
-                    Text("Started \(formattedDate(m.startedAt)). The app was terminated before stop.")
+                    Text(String(format: NSLocalizedString("recovery.bodyFormat", comment: ""),
+                                formattedDate(m.startedAt)))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -537,7 +538,7 @@ private struct InterruptedSessionCard: View {
                     Button {
                         Task { await appState.finishInterruptedAndSave() }
                     } label: {
-                        Text("Finish & Save")
+                        Text("recovery.finish")
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
                     }
@@ -546,7 +547,7 @@ private struct InterruptedSessionCard: View {
                     Button(role: .destructive) {
                         Task { await appState.discardInterruptedSession() }
                     } label: {
-                        Text("Discard")
+                        Text("recovery.discard")
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
                     }

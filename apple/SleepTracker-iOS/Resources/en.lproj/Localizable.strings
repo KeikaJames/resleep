@@ -195,3 +195,30 @@
 "history.summaryUnavailable.body"  = "This session has no stored summary yet.";
 "history.inProgress" = "In progress";
 "history.score"      = "Score";
+
+// Session Detail
+"detail.title"           = "Session";
+"detail.score"           = "Score";
+"detail.stages"          = "Stages";
+"detail.timeline"        = "Timeline";
+"detail.timeline.approx" = "Approximate timeline";
+"detail.timeline.none"   = "Timeline not available for this session.";
+"detail.alarm"           = "Smart Alarm";
+"detail.alarm.result"    = "Result";
+"detail.alarm.target"    = "Target";
+"detail.alarm.window"    = "Window";
+"detail.alarm.windowVal" = "%d min";
+"detail.notes"           = "Notes";
+"detail.notes.empty"     = "No notes yet.";
+"detail.alarm.idle"        = "Disabled";
+"detail.alarm.armed"       = "Armed (no trigger)";
+"detail.alarm.triggered"   = "Triggered";
+"detail.alarm.dismissed"   = "Triggered & dismissed";
+"detail.alarm.unreachable" = "Watch unreachable";
+
+// Recovery banner
+"recovery.title"      = "Previous session interrupted";
+"recovery.bodyFormat" = "Started %@. The app was terminated before stop.";
+"recovery.finish"     = "Finish & Save";
+"recovery.discard"    = "Discard";
+"settings.localData.confirmMessage" = "Sessions, summaries, and timelines stored on this device will be removed.";

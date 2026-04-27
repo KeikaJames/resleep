@@ -28,7 +28,7 @@ struct SessionDetailView: View {
             .padding(.bottom, 32)
         }
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
-        .navigationTitle("Session")
+        .navigationTitle(Text("detail.title"))
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -48,7 +48,7 @@ struct SessionDetailView: View {
                     .monospacedDigit()
                     .foregroundStyle(.primary)
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text("Score")
+                    Text("detail.score")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Text("\(summary.sleepScore)")
@@ -63,11 +63,11 @@ struct SessionDetailView: View {
     private var breakdownCard: some View {
         Card {
             VStack(alignment: .leading, spacing: 12) {
-                CardHeader(title: "Stages")
-                StageRow(label: "Awake", color: .red.opacity(0.7), seconds: summary.timeInWakeSec, total: summary.durationSec)
-                StageRow(label: "Light", color: .blue.opacity(0.5),  seconds: summary.timeInLightSec, total: summary.durationSec)
-                StageRow(label: "Deep",  color: .indigo,             seconds: summary.timeInDeepSec, total: summary.durationSec)
-                StageRow(label: "REM",   color: .purple,             seconds: summary.timeInRemSec, total: summary.durationSec)
+                CardHeader(titleKey: "detail.stages")
+                StageRow(labelKey: "stage.wake",  color: .red.opacity(0.7), seconds: summary.timeInWakeSec, total: summary.durationSec)
+                StageRow(labelKey: "stage.light", color: .blue.opacity(0.5),  seconds: summary.timeInLightSec, total: summary.durationSec)
+                StageRow(labelKey: "stage.deep",  color: .indigo,             seconds: summary.timeInDeepSec, total: summary.durationSec)
+                StageRow(labelKey: "stage.rem",   color: .purple,             seconds: summary.timeInRemSec, total: summary.durationSec)
             }
         }
     }
@@ -75,16 +75,16 @@ struct SessionDetailView: View {
     private var timelineCard: some View {
         Card {
             VStack(alignment: .leading, spacing: 8) {
-                CardHeader(title: "Timeline")
+                CardHeader(titleKey: "detail.timeline")
                 if !realTimeline.isEmpty {
                     SleepTimelineView(entries: realTimeline)
                 } else if let entries = syntheticEntries() {
                     SleepTimelineView(entries: entries)
-                    Text("Approximate timeline")
+                    Text("detail.timeline.approx")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 } else {
-                    Text("Timeline not available for this session.")
+                    Text("detail.timeline.none")
                         .font(.footnote)
                         .foregroundStyle(.tertiary)
                 }
@@ -95,13 +95,15 @@ struct SessionDetailView: View {
     private var alarmCard: some View {
         Card {
             VStack(spacing: 10) {
-                CardHeader(title: "Smart Alarm")
-                Row(label: "Result", value: alarmResultText, valueColor: alarmResultColor)
+                CardHeader(titleKey: "detail.alarm")
+                Row(labelKey: "detail.alarm.result", value: alarmResultText, valueColor: alarmResultColor)
                 if let alarmTarget {
-                    Row(label: "Target",
+                    Row(labelKey: "detail.alarm.target",
                         value: alarmTarget.formatted(date: .omitted, time: .shortened))
                 }
-                Row(label: "Window", value: "\(alarmWindowMinutes) min")
+                Row(labelKey: "detail.alarm.window",
+                    value: String(format: NSLocalizedString("detail.alarm.windowVal", comment: ""),
+                                  alarmWindowMinutes))
             }
         }
     }
@@ -109,8 +111,8 @@ struct SessionDetailView: View {
     private var notesCard: some View {
         Card {
             VStack(alignment: .leading, spacing: 6) {
-                CardHeader(title: "Notes")
-                Text("No notes yet.")
+                CardHeader(titleKey: "detail.notes")
+                Text("detail.notes.empty")
                     .font(.footnote)
                     .foregroundStyle(.tertiary)
             }
@@ -144,11 +146,11 @@ struct SessionDetailView: View {
 
     private var alarmResultText: String {
         switch alarmState {
-        case .idle: return "Disabled"
-        case .armed: return "Armed (no trigger)"
-        case .triggered: return "Triggered"
-        case .dismissed: return "Triggered & dismissed"
-        case .failedWatchUnreachable: return "Watch unreachable"
+        case .idle: return NSLocalizedString("detail.alarm.idle", comment: "")
+        case .armed: return NSLocalizedString("detail.alarm.armed", comment: "")
+        case .triggered: return NSLocalizedString("detail.alarm.triggered", comment: "")
+        case .dismissed: return NSLocalizedString("detail.alarm.dismissed", comment: "")
+        case .failedWatchUnreachable: return NSLocalizedString("detail.alarm.unreachable", comment: "")
         }
     }
 
@@ -178,9 +180,9 @@ private struct Card<Content: View>: View {
 }
 
 private struct CardHeader: View {
-    let title: String
+    let titleKey: LocalizedStringKey
     var body: some View {
-        Text(title)
+        Text(titleKey)
             .font(.title3.weight(.bold))
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -189,12 +191,12 @@ private struct CardHeader: View {
 }
 
 private struct Row: View {
-    let label: String
+    let labelKey: LocalizedStringKey
     let value: String
     var valueColor: Color = .secondary
     var body: some View {
         HStack {
-            Text(label).font(.subheadline).foregroundStyle(.primary)
+            Text(labelKey).font(.subheadline).foregroundStyle(.primary)
             Spacer()
             Text(value).font(.subheadline).foregroundStyle(valueColor)
         }
@@ -202,14 +204,14 @@ private struct Row: View {
 }
 
 private struct StageRow: View {
-    let label: String
+    let labelKey: LocalizedStringKey
     let color: Color
     let seconds: Int
     let total: Int
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(label).font(.subheadline)
+                Text(labelKey).font(.subheadline)
                 Spacer()
                 Text(formatDuration(seconds))
                     .font(.subheadline.weight(.medium)).monospacedDigit()
