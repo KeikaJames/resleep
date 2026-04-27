@@ -1,18 +1,13 @@
 import Foundation
 
-/// Deterministic rule-based stage classifier used whenever a real Core ML
-/// model isn't bundled (or can't be loaded on the current platform).
+/// Rule-based stage classifier used when no Core ML model is bundled
+/// or the bundled one fails to load.
 ///
-/// Rules match the prior in-memory engine behavior + the synthetic dataset
-/// labelling function (`python/training/data/dataset.py`):
-///
-/// - high accel energy → wake
-/// - low accel + falling HR → deep
-/// - low accel + rising HR → rem
-/// - otherwise → light
-///
-/// Confidence is a bounded monotonic function of the margin between the
-/// selected class and the runner-up.
+/// Inputs are expected to be normalized (see `FeatureNormalization`).
+/// Rules track the synthetic dataset's labelling in
+/// `python/training/data/dataset.py`:
+/// high accel → wake, low accel + falling HR → deep, low accel +
+/// rising HR → rem, otherwise light.
 public struct FallbackHeuristicStageInferenceModel: StageInferenceModel {
 
     public let hyperparameters: StageInferenceHyperparameters
@@ -52,8 +47,7 @@ public struct FallbackHeuristicStageInferenceModel: StageInferenceModel {
         let hrMean = hrMeanSum / n
 
         // Score each class. Higher = more likely.
-        // Inputs are normalized (see `FeatureNormalization`), so thresholds
-        // are on the [0, 1] scale, NOT raw bpm / g.
+        // Inputs are normalized to [0, 1]; thresholds match that scale.
         var score: [Float] = [0, 0, 0, 0]  // wake, light, deep, rem
         score[0] = max(accelEnergy * 2.0, accelMean > 0.5 ? 1.5 : 0)
         score[1] = 1.0  // baseline prior

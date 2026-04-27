@@ -10,9 +10,11 @@ developer account, App Store Connect record, code signing) is manual.
 
 - [ ] **Apple Developer Program** ($99/yr): https://developer.apple.com/programs/enroll/. Individual is fine for private TestFlight; switch to Organization later if you want a brand name on the listing. Approval can take 24–48 hours; sometimes longer for new accounts.
 - [ ] **macOS Xcode 15+** with the iOS 17 / watchOS 10 simulator runtimes installed.
-- [ ] **Hosted Privacy URL.** App Store Connect requires a public privacy policy URL. The repo ships `docs/PRIVACY_POLICY.md`. Easiest hosting:
-    - GitHub Pages: enable Pages on this repo (Settings → Pages → Deploy from a branch → main, `/docs` folder). The published URL becomes `https://<user>.github.io/<repo>/PRIVACY_POLICY.html`. Convert the `.md` to `.html` with any static-site tool, or rename to `index.md` and let Jekyll render.
-    - Or any web host. Just don't link to a 404.
+- [ ] **Privacy policy URL.** App Store Connect requires a public URL. You don't need a server — pick one of:
+    - **GitHub Pages (free):** in this repo, Settings → Pages → Deploy from `main` / `/docs`. Rename `docs/PRIVACY_POLICY.md` → `docs/index.md` (or add an `index.md` that links to it) and the URL becomes `https://<user>.github.io/<repo>/`.
+    - **Gist (free):** paste `docs/PRIVACY_POLICY.md` into a public Gist; use the Gist's permalink.
+    - **Notion / Telegraph / any free static host.** Just paste the policy text and use the public URL.
+    - Whatever you pick, the URL must be reachable without a login.
 
 ## 1. Configure local signing
 
@@ -112,7 +114,7 @@ Microphone usage: optional breathing-event detection. Audio is processed
 on-device and never uploaded; the buffer is discarded after detection.
 
 No backend, no analytics, no third-party SDKs. Privacy policy:
-https://<your-hosted-privacy-url>/
+https://<your-github-username>.github.io/<repo>/  (or whichever free host you used in step 0)
 ```
 
 ## App Privacy answers
