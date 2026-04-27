@@ -284,7 +284,7 @@ struct SleepAIView: View {
                         .padding(.bottom, 16)
                     }
                     .coordinateSpace(name: "ai.scroll")
-                    .scrollDismissesKeyboard(.interactively)
+                    .scrollDismissesKeyboard(.immediately)
                     .onPreferenceChange(BottomVisibilityKey.self) { sentinelY in
                         // sentinelY is the bottom-edge Y of the 1pt sentinel
                         // expressed in the ScrollView's coord space; the
@@ -293,6 +293,11 @@ struct SleepAIView: View {
                         // on a half-pixel bounce.
                         let nearBottom = sentinelY <= outer.size.height + 4
                         if scrolledAtBottom != nearBottom {
+                            // Drop focus the moment the user scrolls up so the
+                            // keyboard tucks away cleanly with the composer
+                            // (scrollDismissesKeyboard alone only acts on a
+                            // direct interactive drag of the keyboard region).
+                            if !nearBottom { composerFocused = false }
                             withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
                                 scrolledAtBottom = nearBottom
                             }
@@ -342,7 +347,16 @@ struct SleepAIView: View {
                 }
             }
             disclaimer
+                .opacity(scrolledAtBottom ? 1 : 0)
+                .frame(maxHeight: scrolledAtBottom ? nil : 0, alignment: .top)
+                .clipped()
+                .allowsHitTesting(scrolledAtBottom)
             composer
+                .opacity(scrolledAtBottom ? 1 : 0)
+                .frame(maxHeight: scrolledAtBottom ? nil : 0, alignment: .top)
+                .clipped()
+                .allowsHitTesting(scrolledAtBottom)
+                .animation(.spring(response: 0.32, dampingFraction: 0.86), value: scrolledAtBottom)
         }
     }
 
