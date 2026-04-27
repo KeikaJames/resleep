@@ -109,7 +109,11 @@ struct HomeView: View {
     /// jump from "Idle home" to "Hero" reads as intentional motion instead
     /// of a hard cut. Also fires a soft success haptic.
     private func triggerStartCurtain() {
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        Haptics.tapHeavy()
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 80_000_000)
+            Haptics.success()
+        }
         withAnimation(.easeOut(duration: 0.4)) {
             showStartCurtain = true
         }
@@ -211,6 +215,7 @@ private struct TonightStatusCard: View {
                 }
 
                 Button(action: {
+                    Haptics.tapRigid()
                     Task { await model.toggleSession() }
                 }) {
                     Text(appState.workout.isTracking ? LocalizedStringKey("home.action.stop") : LocalizedStringKey("home.action.start"))
@@ -356,7 +361,7 @@ private struct SmartAlarmCard: View {
                 if appState.alarm.state == .triggered
                     || appState.alarm.state == .failedWatchUnreachable {
                     Button(role: .destructive) {
-                        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                        Haptics.tapHeavy()
                         model.dismissAlarmFromPhone()
                     } label: {
                         Text("card.smartAlarm.dismiss")

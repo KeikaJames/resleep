@@ -167,6 +167,9 @@ struct SleepAIView: View {
             .sheet(isPresented: $historyOpen) {
                 HistorySheet(model: model, isPresented: $historyOpen)
             }
+            .sensoryFeedback(.success, trigger: model.isReplying) { old, new in
+                old == true && new == false
+            }
         }
     }
 
@@ -191,7 +194,10 @@ struct SleepAIView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    withAnimation(.easeInOut) { model.startNewChat() }
+                    withAnimation(.easeInOut) {
+                        Haptics.selection()
+                        model.startNewChat()
+                    }
                 } label: {
                     Image(systemName: "square.and.pencil")
                         .font(.body)
@@ -267,6 +273,7 @@ struct SleepAIView: View {
             ForEach(Array(model.suggestionCards.enumerated()), id: \.offset) { _, card in
                 Button {
                     composerFocused = false
+                    Haptics.tapSoft()
                     Task { await model.send(prompt: card.text) }
                 } label: {
                     SuggestionCard(card: card)
@@ -329,6 +336,7 @@ struct SleepAIView: View {
     private func submit() {
         let text = model.draft
         model.draft = ""
+        Haptics.tapRigid()
         Task { await model.send(prompt: text) }
     }
 
@@ -362,6 +370,7 @@ struct SleepAIView: View {
                     .padding(.horizontal, 32)
 
                 Button {
+                    Haptics.tapHeavy()
                     withAnimation(.easeInOut) { model.acceptEULA() }
                 } label: {
                     Text("ai.eula.accept")
