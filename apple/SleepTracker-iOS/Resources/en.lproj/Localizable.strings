@@ -159,6 +159,9 @@
 "settings.health.recheck"              = "Re-check";
 "settings.health.openSettings"         = "Open iOS Settings";
 "settings.section.privacy"   = "Privacy";
+"settings.privacy.audio.title" = "Audio is never recorded";
+"settings.privacy.audio.body"  = "Snore-like sounds are processed in real time on this device. Raw audio is never saved or uploaded.";
+"settings.privacy.footer"      = "These choices are enforced locally. Cloud sync is unavailable in this version.";
 "settings.saveRawAudio"      = "Save raw audio";
 "settings.allowAudioUpload"  = "Allow audio upload";
 "settings.cloudSync"         = "Cloud sync (future)";

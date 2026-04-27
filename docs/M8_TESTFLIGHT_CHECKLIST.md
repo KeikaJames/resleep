@@ -98,11 +98,13 @@ minutes (and "Processing" for ~10 more).
 This app tracks sleep using Apple Watch heart rate, HRV, and motion. To
 review without sleeping for a real night:
 
-1. Launch the app, tap Settings → Developer → Runtime → ensure "Live" or
-   "Simulated" depending on whether the reviewer wears a paired Watch.
-2. On Home, tap "Start Tracking" to begin a fake-data simulated session.
-   The hypnogram fills in within ~30 seconds.
-3. Tap "Stop Tracking". A summary appears under History.
+1. Launch the app. The first run shows the legal-consent screen — accept
+   the Terms of Use and Privacy Statement to enter Home.
+2. On Home, tap **Start Tracking**. The hold-to-end CTA appears in the
+   tracking hero. Synthetic sensor data drives the hypnogram in under a
+   minute when no Apple Watch is paired (this is the reviewer mode).
+3. Press and hold **End** for one second to stop. A summary card slides
+   into History.
 
 HealthKit usage: the app reads heart rate and HRV to classify sleep stages.
 Microphone usage: optional breathing-event detection. Audio is processed

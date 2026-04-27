@@ -208,18 +208,37 @@ public struct GemmaWeightsLocator: Sendable {
 
     public static let `default` = GemmaWeightsLocator(
         dirName: "circadia-sleep-2b-4bit",
-        devFallbackPath: "/Users/gabiri/projects/resleep/sleep-tracker/python/training/llm/fused-circadia-sleep"
+        devFallbackPath: Self.developerFallback(for: "fused-circadia-sleep")
     )
 
-    /// Fused-weights path on the developer machine, by tier. Mirrors the
-    /// directory layout the Python training scripts produce.
-    static func devPath(for tier: SleepAIModelTier) -> String {
-        let base = "/Users/gabiri/projects/resleep/sleep-tracker/python/training/llm"
-        switch tier.kind {
-        case .gemma:       return "\(base)/fused-circadia-sleep"
-        case .qwenInstant: return "\(base)/fused-circadia-sleep-qwen-1_7b"
-        case .qwenPro:     return "\(base)/fused-circadia-sleep-qwen-4b"
+    /// Returns a developer-machine fallback path **only in DEBUG builds**.
+    /// Release builds receive `nil` so no absolute path from a contributor's
+    /// machine can be embedded in shipped binaries — App Store reviewers
+    /// occasionally flag this and it's just dead weight in production.
+    private static func developerFallback(for leaf: String) -> String? {
+        #if DEBUG
+        if let dir = ProcessInfo.processInfo.environment["CIRCADIA_LLM_DEV_DIR"],
+           !dir.isEmpty {
+            return "\(dir)/\(leaf)"
         }
+        return "/Users/gabiri/projects/resleep/sleep-tracker/python/training/llm/\(leaf)"
+        #else
+        _ = leaf
+        return nil
+        #endif
+    }
+
+    /// Fused-weights path on the developer machine, by tier. Mirrors the
+    /// directory layout the Python training scripts produce. Returns `nil`
+    /// in release builds.
+    static func devPath(for tier: SleepAIModelTier) -> String? {
+        let leaf: String
+        switch tier.kind {
+        case .gemma:       leaf = "fused-circadia-sleep"
+        case .qwenInstant: leaf = "fused-circadia-sleep-qwen-1_7b"
+        case .qwenPro:     leaf = "fused-circadia-sleep-qwen-4b"
+        }
+        return Self.developerFallback(for: leaf)
     }
 
     public func locate() throws -> URL {

@@ -1,14 +1,14 @@
 # Privacy Policy
 
-_Last updated: replace with date when you publish this policy._
+_Last updated: 2026-04-28._
 
-Sleep is an offline-first sleep tracking app for iOS and watchOS. This document
-describes what Sleep does and does not do with your data. The same text is
+Circadia is an offline-first sleep tracking app for iOS and watchOS. This document
+describes what Circadia does and does not do with your data. The same text is
 shown inside the app under Settings → Privacy Policy.
 
 ## What stays local
 
-By default, every byte Sleep records lives only on your device:
+By default, every byte Circadia records lives only on your device:
 
 - Heart rate samples and HRV-like features.
 - Accelerometer windows and motion summaries.
@@ -19,22 +19,22 @@ By default, every byte Sleep records lives only on your device:
 ## What we never do
 
 - We never upload raw audio. Microphone capture, when enabled, runs on-device only and discards the buffer after detection.
-- Sleep does not include third-party analytics, advertising, or tracking SDKs.
-- Sleep does not run a backend server for your sleep data.
-- Sleep does not share or sell your data to anyone.
+- Circadia does not include third-party analytics, advertising, or tracking SDKs.
+- Circadia does not run a backend server for your sleep data.
+- Circadia does not share or sell your data to anyone.
 
 ## HealthKit
 
 If you grant HealthKit access:
 
-- Sleep reads heart rate and HRV from HealthKit so it can classify sleep stages.
-- Sleep can write a sleep-analysis sample back to HealthKit so the night appears under Health → Sleep.
+- Circadia reads heart rate and HRV from HealthKit so it can classify sleep stages.
+- Circadia can write a sleep-analysis sample back to HealthKit so the night appears under Health → Sleep.
 
 You can revoke either permission at any time from iOS Settings → Health → Data Access & Devices → Sleep. Doing so does not delete data already written to HealthKit; manage that in the Health app.
 
 ## Diagnostics
 
-Sleep keeps a local diagnostic log under the app's Application Support
+Circadia keeps a local diagnostic log under the app's Application Support
 directory. The log contains timestamps, event types, and small counters
 (for example, "telemetry batch received: 64 samples"). No raw audio and no
 heart-rate values are written to the diagnostic log.
@@ -43,12 +43,12 @@ You can view, copy, or clear the diagnostic log at any time in Settings → Diag
 
 ## Children
 
-Sleep is not directed at children under 13 and we do not knowingly collect
+Circadia is not directed at children under 13 and we do not knowingly collect
 data from children.
 
 ## Changes to this policy
 
-If we change what Sleep does with your data, we will update this document
+If we change what Circadia does with your data, we will update this document
 and reflect the change in the Settings → Privacy Policy view in the next
 app release.
 

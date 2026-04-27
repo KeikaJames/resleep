@@ -30,8 +30,9 @@ test-python:
 	cd python && python -m pytest -q || echo "(no tests yet)"
 
 lint:
-	cd rust && cargo clippy --workspace --all-targets -- -D warnings || true
-	cd python && ruff check . || true
+	cd rust && cargo fmt --check
+	cd rust && cargo clippy --workspace --all-targets -- -D warnings
+	cd python && ruff check .
 
 clean:
 	cd rust && cargo clean

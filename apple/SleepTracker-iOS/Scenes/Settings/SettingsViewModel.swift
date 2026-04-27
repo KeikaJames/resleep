@@ -39,8 +39,13 @@ final class SettingsViewModel: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        self.saveRawAudio       = defaults.bool(forKey: Key.saveRawAudio)
-        self.audioUploadEnabled = defaults.bool(forKey: Key.audioUploadEnabled)
+        // Privacy invariant: raw audio is never persisted and never uploaded.
+        // Both flags are pinned off — any stale `true` from a prior build is
+        // proactively cleared so the on-disk state matches the published policy.
+        self.saveRawAudio       = false
+        self.audioUploadEnabled = false
+        defaults.set(false, forKey: Key.saveRawAudio)
+        defaults.set(false, forKey: Key.audioUploadEnabled)
         self.cloudSyncEnabled   = defaults.bool(forKey: Key.cloudSyncEnabled)
         self.shareWithHealthKit = defaults.bool(forKey: Key.shareWithHealthKit)
         self.snoreDetectionEnabled = defaults.bool(forKey: Key.snoreDetection)

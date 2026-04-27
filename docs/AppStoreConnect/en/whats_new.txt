@@ -3,7 +3,7 @@ Version 0.3.0
 · New Trends tab with a 30-night sleep score line and 7-night stage composition.
 · On-device personalization: a brief wake-up survey adapts the model to you over time. All learning stays on this device.
 · Snore detection (optional, off by default). Acoustic features only — audio is never recorded.
-· Sleep notes: tag caffeine, alcohol, exercise, stress, and more.
+· Circadia notes: tag caffeine, alcohol, exercise, stress, and more.
 · Bedtime reminder: a single, local daily nudge.
 · Shake-to-snooze when an alarm fires.
 · Full Simplified Chinese localization.

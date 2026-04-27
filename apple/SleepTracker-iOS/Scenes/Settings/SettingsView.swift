@@ -19,10 +19,23 @@ struct SettingsView: View {
                     Toggle("settings.shareWithHealth", isOn: $vm.shareWithHealthKit)
                 }
 
-                Section("settings.section.privacy") {
-                    Toggle("settings.saveRawAudio", isOn: $vm.saveRawAudio)
-                    Toggle("settings.allowAudioUpload", isOn: $vm.audioUploadEnabled)
+                Section {
+                    HStack(spacing: 10) {
+                        Image(systemName: "mic.slash.fill")
+                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("settings.privacy.audio.title")
+                                .font(.subheadline.weight(.medium))
+                            Text("settings.privacy.audio.body")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                     Toggle("settings.cloudSync", isOn: $vm.cloudSyncEnabled).disabled(true)
+                } header: {
+                    Text("settings.section.privacy")
+                } footer: {
+                    Text("settings.privacy.footer")
                 }
 
                 Section {

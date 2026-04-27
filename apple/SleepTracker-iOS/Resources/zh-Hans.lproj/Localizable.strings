@@ -159,6 +159,9 @@
 "settings.health.recheck"              = "重新检测";
 "settings.health.openSettings"         = "打开 iOS 设置";
 "settings.section.privacy"   = "隐私";
+"settings.privacy.audio.title" = "不录制原始音频";
+"settings.privacy.audio.body"  = "鼾声等音频特征只在本机实时处理，原始录音从不保存或上传。";
+"settings.privacy.footer"      = "上述策略在本机强制执行；当前版本不提供云端同步。";
 "settings.saveRawAudio"      = "保存原始录音";
 "settings.allowAudioUpload"  = "允许上传音频";
 "settings.cloudSync"         = "云端同步(未来)";

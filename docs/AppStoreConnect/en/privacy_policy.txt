@@ -1,8 +1,8 @@
-Sleep — Privacy Policy
+Circadia — Privacy Policy
 
 Effective: 2025
 
-Sleep is offline-first. Everything you record stays on your device by default.
+Circadia is offline-first. Everything you record stays on your device by default.
 
 WHAT STAYS LOCAL
 - Heart rate, HRV, motion, and derived sleep stages.
@@ -15,19 +15,19 @@ WHAT WE NEVER DO
 - We do not run a backend for your data. There are no accounts.
 
 HEALTHKIT
-If you allow it, Sleep can read heart rate and HRV from HealthKit and write a sleep analysis sample back. You can revoke either at any time in iOS Settings → Health → Data Access & Devices.
+If you allow it, Circadia can read heart rate and HRV from HealthKit and write a sleep analysis sample back. You can revoke either at any time in iOS Settings → Health → Data Access & Devices.
 
 ON-DEVICE PERSONALIZATION
-Sleep can adapt its stage detection to your wake-up surveys. The personalization model and the labels derived from your survey responses are stored only on this device, in the app's container.
+Circadia can adapt its stage detection to your wake-up surveys. The personalization model and the labels derived from your survey responses are stored only on this device, in the app's container.
 
 DIAGNOSTICS
 A local diagnostic log records events such as session start/stop and Watch reachability so you can review what happened overnight. The log lives in this app's container and can be cleared from Settings → Diagnostics.
 
 CHILDREN
-Sleep is not directed at children under 13.
+Circadia is not directed at children under 13.
 
 DELETION
-You can delete every byte stored by Sleep from Settings → Local Data → Delete Local Sleep Data, or by deleting the app.
+You can delete every byte stored by Circadia from Settings → Local Data → Delete Local Sleep Data, or by deleting the app.
 
 CONTACT
 Questions: contact the developer through the App Store listing.

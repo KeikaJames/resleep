@@ -81,10 +81,7 @@ impl NightmareDetector {
         if bpm <= 0.0 || !bpm.is_finite() {
             return;
         }
-        self.hr_buffer.push_back(Sample {
-            ts_ms,
-            value: bpm,
-        });
+        self.hr_buffer.push_back(Sample { ts_ms, value: bpm });
         // Drop samples older than the baseline window.
         while let Some(front) = self.hr_buffer.front() {
             if ts_ms.saturating_sub(front.ts_ms) > BASELINE_WIN_MS {
@@ -102,10 +99,7 @@ impl NightmareDetector {
         if !enmo.is_finite() || enmo < 0.0 {
             return;
         }
-        self.motion_buffer.push_back(Sample {
-            ts_ms,
-            value: enmo,
-        });
+        self.motion_buffer.push_back(Sample { ts_ms, value: enmo });
         while let Some(front) = self.motion_buffer.front() {
             if ts_ms.saturating_sub(front.ts_ms) > BASELINE_WIN_MS {
                 self.motion_buffer.pop_front();
@@ -163,15 +157,15 @@ impl NightmareDetector {
         // Also consult buffer history so persistence is recoverable from
         // raw data alone (e.g. when tick is called sparsely or the engine
         // restarts mid-spike).
-        let buffer_persisted = hr_spike_span_ms(&self.hr_buffer, hr_baseline * HR_SPIKE_RATIO)
-            >= MIN_HR_PERSIST_MS;
+        let buffer_persisted =
+            hr_spike_span_ms(&self.hr_buffer, hr_baseline * HR_SPIKE_RATIO) >= MIN_HR_PERSIST_MS;
         let persisted = tick_persisted || buffer_persisted;
 
         let motion_baseline = median(&self.motion_buffer).unwrap_or(0.0).max(MOTION_FLOOR);
         let recent_motion =
             recent_window_mean(&self.motion_buffer, now_ms, MOTION_WIN_MS).unwrap_or(0.0);
-        let motion_spiked = recent_motion >= motion_baseline * MOTION_SPIKE_RATIO
-            && recent_motion >= MOTION_FLOOR;
+        let motion_spiked =
+            recent_motion >= motion_baseline * MOTION_SPIKE_RATIO && recent_motion >= MOTION_FLOOR;
 
         if persisted && motion_spiked && hr_spiked {
             self.latched_until_ms = now_ms + LATCH_MS;
@@ -265,14 +259,17 @@ mod tests {
             d.push_motion(0.005, i * 1000);
         }
         // Now a ~1-minute HR spike to 90 bpm + ENMO 0.15 (~5× baseline).
-        let spike_start = 25 * 60;
+        let spike_start: u64 = 25 * 60;
         for i in spike_start..(spike_start + 60) {
             d.push_hr(90.0, i * 1000);
             d.push_motion(0.15, i * 1000);
         }
-        let now = (spike_start + 60) as u64 * 1000;
+        let now = (spike_start + 60) * 1000;
         let active = d.tick(now);
-        assert!(active, "detector should fire on sustained HR + motion spike");
+        assert!(
+            active,
+            "detector should fire on sustained HR + motion spike"
+        );
     }
 
     #[test]
