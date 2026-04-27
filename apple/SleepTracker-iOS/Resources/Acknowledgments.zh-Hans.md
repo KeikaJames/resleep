@@ -1,6 +1,6 @@
 # 特别鸣谢
 
-Circadia 由蒙乐资本（蒙乐（北京）科技有限公司）出品。
+Circadia 由蒙乐资本出品。
 
 Circadia 的部分功能参考、使用或受益于 Apple、Google DeepMind、阿里巴巴通义实验室（Tongyi Lab）以及开源社区公开发布的研究成果、算法、模型权重、开发工具及技术文档。
 
