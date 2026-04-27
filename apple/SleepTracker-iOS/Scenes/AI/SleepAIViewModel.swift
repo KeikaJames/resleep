@@ -65,6 +65,9 @@ final class SleepAIViewModel: ObservableObject {
         case needsEULA
         case ready
         case chatting
+        /// Region forbids the currently selected model (e.g. Gemma in
+        /// Mainland China). Composer is hidden and a banner explains it.
+        case regionBlocked
     }
 
     struct SuggestionCard {
@@ -84,6 +87,16 @@ final class SleepAIViewModel: ObservableObject {
     @Published var summaryText: String = ""
 
     @Published var history: [StoredChat] = []
+
+    /// Currently selected model tier. Drives the picker badge and the
+    /// underlying MLX service. Persisted across launches.
+    @Published private(set) var selectedTier: SleepAIModelTier
+    /// All tiers offered to the user *in this region*. Hides Gemma in
+    /// Mainland China.
+    @Published private(set) var availableTiers: [SleepAIModelTier] = []
+    /// True when the persisted selection is not authorised in the current
+    /// region — used to drive the `.regionBlocked` phase + banner copy.
+    @Published private(set) var regionBlocksSelection: Bool = false
 
     /// Suggestion cards rendered as a 2x2 grid on the idle screen.
     var suggestionCards: [SuggestionCard] {
@@ -115,21 +128,42 @@ final class SleepAIViewModel: ObservableObject {
     // MARK: Deps
 
     private weak var appState: AppState?
-    private let service: SleepAIServiceProtocol
+    private var service: SleepAIServiceProtocol
+    /// Factory used to (re)build the LLM service on tier changes. Lets us
+    /// swap models without dragging MLX types into SleepKit.
+    private let serviceFactory: (SleepAIModelTier) -> SleepAIServiceProtocol
 
     // MARK: Persistence keys
 
-    private static let eulaKey      = "sleep.ai.eula.accepted.v1"
-    private static let historyKey   = "sleep.ai.history.v1"
+    private static let eulaKey       = "sleep.ai.eula.accepted.v1"
+    private static let historyKey    = "sleep.ai.history.v1"
     private static let activeChatKey = "sleep.ai.history.activeId.v1"
+    private static let modelKey      = "sleep.ai.selectedModel.v1"
 
     private var activeChatId: UUID?
 
     // MARK: Init
 
-    init(service: SleepAIServiceProtocol = SleepAIService()) {
-        self.service = service
-        self.phase = computePhase()
+    init(serviceFactory: @escaping (SleepAIModelTier) -> SleepAIServiceProtocol = { _ in SleepAIService() }) {
+        self.serviceFactory = serviceFactory
+
+        // Resolve the user's preferred tier — but always pass it through
+        // the region policy so a persisted Gemma selection in CN gets
+        // dropped to a region-allowed default.
+        let region = SleepAIRegion.current
+        let stored = UserDefaults.standard.string(forKey: Self.modelKey)
+            .flatMap(SleepAIModelKind.init(rawValue:))
+        let blocked = stored.map { !region.allows($0) } ?? false
+        let resolvedKind: SleepAIModelKind = {
+            if let s = stored, region.allows(s) { return s }
+            return SleepAIModelCatalog.defaultKind(for: region)
+        }()
+        let tier = SleepAIModelCatalog.descriptor(for: resolvedKind)
+        self.selectedTier = tier
+        self.availableTiers = SleepAIModelCatalog.available(in: region)
+        self.regionBlocksSelection = blocked
+        self.service = serviceFactory(tier)
+        self.phase = Self.computePhase(blocked: blocked, hasMessages: false)
         loadHistory()
     }
 
@@ -176,6 +210,7 @@ final class SleepAIViewModel: ObservableObject {
     func send(prompt rawPrompt: String) async {
         let prompt = rawPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty else { return }
+        guard !regionBlocksSelection else { return } // never invoke a blocked engine
         messages.append(SleepAIMessage(role: .user, text: prompt))
         isReplying = true
         let ctx = await buildContext()
@@ -226,7 +261,49 @@ final class SleepAIViewModel: ObservableObject {
 
     private func computePhase() -> Phase {
         guard eulaAccepted else { return .needsEULA }
-        return messages.isEmpty ? .ready : .chatting
+        return Self.computePhase(blocked: regionBlocksSelection,
+                                 hasMessages: !messages.isEmpty)
+    }
+
+    /// Stateless phase computation used by both the initial constructor
+    /// (before `self` is fully built) and the live recompute path.
+    private static func computePhase(blocked: Bool, hasMessages: Bool) -> Phase {
+        if blocked { return .regionBlocked }
+        return hasMessages ? .chatting : .ready
+    }
+
+    // MARK: Model switching
+
+    /// User-driven model swap from the picker. Persists the choice, drops
+    /// any cached LLM state, and recomputes the region-block flag.
+    func selectTier(_ kind: SleepAIModelKind) {
+        let region = SleepAIRegion.current
+        guard region.allows(kind) else {
+            // Defensive: picker should not offer a forbidden tier.
+            return
+        }
+        UserDefaults.standard.set(kind.rawValue, forKey: Self.modelKey)
+        let tier = SleepAIModelCatalog.descriptor(for: kind)
+        selectedTier = tier
+        regionBlocksSelection = false
+        service = serviceFactory(tier)
+        phase = computePhase()
+        Task { await refreshContext() }
+    }
+
+    /// Localized banner copy shown when the user's selection (or persisted
+    /// state) is not authorised in the current region. Today this is the
+    /// Gemma-in-Mainland-China case.
+    var regionBlockTitle: String { local("ai.region.blocked.title") }
+    var regionBlockBody: String  { local("ai.region.blocked.body") }
+    var regionBlockSwitchCTA: String { local("ai.region.blocked.switch") }
+
+    /// Suggested fallback tier the user can tap from the banner.
+    var regionFallbackTier: SleepAIModelTier {
+        let region = SleepAIRegion.current
+        return SleepAIModelCatalog.descriptor(
+            for: SleepAIModelCatalog.defaultKind(for: region)
+        )
     }
 
     private func local(_ key: String) -> String {

@@ -170,7 +170,7 @@ Circadia 不面向 13 周岁以下儿童使用。若你位于中国大陆，Circ
 
 如你希望行使适用法律下的隐私权利，可通过以下邮箱联系 BIRI GA：
 
-**隐私查询邮箱：** gabira@bayagud.com
+**隐私查询邮箱：** keika_bayagud@outlook.com
 
 BIRI GA 会按适用法律处理相关请求。
 
@@ -194,7 +194,7 @@ BIRI GA 可不时更新本说明。
 
 如你对 Circadia、本说明或相关隐私事项有任何查询，可通过以下方式联系 BIRI GA：
 
-**联系邮箱：** gabira@bayagud.com
+**联系邮箱：** keika_bayagud@outlook.com
 
 ---
 

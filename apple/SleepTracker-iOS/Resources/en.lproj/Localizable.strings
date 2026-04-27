@@ -306,6 +306,10 @@ Pick one and stick with it for a week.";
 // AI tab — toolbar / history / disclaimer (added in Apple‑style polish pass)
 "ai.toolbar.history"               = "Chat history";
 "ai.toolbar.newChat"               = "New chat";
+"ai.toolbar.modelPicker"           = "Choose model";
+"ai.region.blocked.title"          = "Sleep AI is not available in this region.";
+"ai.region.blocked.body"           = "The current model is not offered in your region. Switch to a region-available model to continue chatting.";
+"ai.region.blocked.switch"         = "Use the recommended model";
 "ai.history.empty"                 = "No conversations yet.";
 "ai.history.title"                 = "History";
 "ai.history.today"                 = "Today";

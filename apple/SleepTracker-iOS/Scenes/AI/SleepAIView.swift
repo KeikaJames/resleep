@@ -135,7 +135,7 @@ private struct IntelligenceGlow: View {
 struct SleepAIView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var model = SleepAIViewModel(
-        service: GemmaSleepAIService()
+        serviceFactory: { tier in MLXSleepAIService(tier: tier) }
     )
     @FocusState private var composerFocused: Bool
     @State private var historyOpen: Bool = false
@@ -148,13 +148,15 @@ struct SleepAIView: View {
                 switch model.phase {
                 case .needsEULA:
                     eulaScreen
+                case .regionBlocked:
+                    regionBlockedScreen
                 case .ready, .chatting:
                     main
                 }
 
                 // Apple Intelligence bottom glow — only when actually using
-                // the assistant (not on the EULA screen).
-                if model.phase != .needsEULA {
+                // the assistant (not on the EULA / region-block screens).
+                if model.phase == .ready || model.phase == .chatting {
                     IntelligenceGlow(active: model.isReplying)
                 }
             }
@@ -177,7 +179,7 @@ struct SleepAIView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        if model.phase != .needsEULA {
+        if model.phase == .ready || model.phase == .chatting {
             ToolbarItem(placement: .topBarLeading) {
                 Button {
                     historyOpen = true
@@ -188,9 +190,7 @@ struct SleepAIView: View {
                 .accessibilityLabel(Text("ai.toolbar.history"))
             }
             ToolbarItem(placement: .principal) {
-                Text("ai.tab.title")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
+                ModelPickerLabel(model: model)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -203,6 +203,12 @@ struct SleepAIView: View {
                         .font(.body)
                 }
                 .accessibilityLabel(Text("ai.toolbar.newChat"))
+            }
+        } else if model.phase == .regionBlocked {
+            // Region-blocked state still gets a working "switch model"
+            // affordance in the principal slot so the user is never stuck.
+            ToolbarItem(placement: .principal) {
+                ModelPickerLabel(model: model)
             }
         }
     }
@@ -489,6 +495,97 @@ private struct HistorySheet: View {
         if !yLst.isEmpty { out.append((NSLocalizedString("ai.history.yesterday", comment: ""), yLst)) }
         if !earlier.isEmpty { out.append((NSLocalizedString("ai.history.title", comment: ""), earlier)) }
         return out
+    }
+}
+
+// MARK: - Model picker
+
+/// Toolbar label that doubles as a Menu of available model tiers. Mirrors
+/// the ChatGPT/Claude pattern: name + caret in the principal slot, tap to
+/// reveal a list with subtitles + checkmark on the active row.
+private struct ModelPickerLabel: View {
+    @ObservedObject var model: SleepAIViewModel
+    @Environment(\.locale) private var locale
+
+    private var isChinese: Bool {
+        locale.language.languageCode?.identifier == "zh"
+            || (Locale.preferredLanguages.first ?? "").hasPrefix("zh")
+    }
+
+    var body: some View {
+        Menu {
+            ForEach(model.availableTiers) { tier in
+                Button {
+                    if tier.kind != model.selectedTier.kind {
+                        Haptics.selection()
+                        model.selectTier(tier.kind)
+                    }
+                } label: {
+                    Label {
+                        VStack(alignment: .leading) {
+                            Text(tier.displayName(chinese: isChinese))
+                            Text(tier.subtitle(chinese: isChinese))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        if tier.kind == model.selectedTier.kind {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(model.selectedTier.displayName(chinese: isChinese))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                Capsule().fill(Color(.secondarySystemBackground))
+            )
+            .accessibilityLabel(Text("ai.toolbar.modelPicker"))
+        }
+    }
+}
+
+// MARK: - Region-blocked screen
+
+private extension SleepAIView {
+    var regionBlockedScreen: some View {
+        VStack(spacing: 18) {
+            Spacer()
+            Image(systemName: "exclamationmark.shield")
+                .font(.system(size: 44, weight: .light))
+                .foregroundStyle(.tint)
+            Text(model.regionBlockTitle)
+                .font(.title3.weight(.semibold))
+                .multilineTextAlignment(.center)
+            Text(model.regionBlockBody)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 12)
+            Button {
+                Haptics.selection()
+                model.selectTier(model.regionFallbackTier.kind)
+            } label: {
+                Text(model.regionBlockSwitchCTA)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .padding(.top, 4)
+            Spacer()
+        }
+        .padding(.horizontal, 32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

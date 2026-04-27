@@ -65,7 +65,18 @@ def _write_yaml_config(cfg: LoRAConfig, dest: Path) -> Path:
 
 
 def main() -> None:
-    cfg = LoRAConfig()
+    import argparse
+    from .configs import config_for, TIERS
+
+    parser = argparse.ArgumentParser(description="Train Sleep-AI LoRA adapters")
+    parser.add_argument(
+        "--tier",
+        choices=sorted(TIERS.keys()),
+        default="gemma",
+        help="Which model tier to fine-tune (default: gemma).",
+    )
+    args = parser.parse_args()
+    cfg = config_for(args.tier)
 
     if not (cfg.dataset_dir / "train.jsonl").exists():
         sys.exit(
@@ -76,7 +87,7 @@ def main() -> None:
     cfg.adapter_dir.mkdir(parents=True, exist_ok=True)
     config_path = _write_yaml_config(cfg, cfg.adapter_dir / "config.yaml")
 
-    print("\n=== Sleep-AI LoRA fine-tune ===")
+    print(f"\n=== Sleep-AI LoRA fine-tune ({args.tier}) ===")
     for k, v in asdict(cfg).items():
         print(f"  {k:18s} = {v}")
     print(f"  config_path        = {config_path}")
@@ -92,6 +103,7 @@ def main() -> None:
     # Persist a copy of the dataset summary alongside the adapter so we
     # can audit later what the adapter was trained on.
     summary = {
+        "tier": args.tier,
         "base_model": cfg.base_model,
         "iters": cfg.iters,
         "lora_rank": cfg.lora_rank,
@@ -101,7 +113,7 @@ def main() -> None:
         json.dumps(summary, indent=2), encoding="utf-8"
     )
     print(f"\nAdapters written to {cfg.adapter_dir}")
-    print("Next: `python -m training.llm.fuse` to bake the adapter into a deployable model.")
+    print(f"Next: `python -m training.llm.fuse --tier {args.tier}` to bake the adapter into a deployable model.")
 
 
 if __name__ == "__main__":

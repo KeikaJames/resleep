@@ -84,23 +84,30 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     postCompileScripts:
       - name: Embed Circadia LLM
-        # Copies the fused LoRA-tuned Gemma 2B weights into the .app bundle
-        # so Sleep AI runs fully offline with no first-launch download. The
-        # source directory is produced by:
-        #     PYTHONPATH=python python3 -m training.llm.fuse
-        # If the source isn't present (fresh clone), we warn but don't fail
-        # — the developer can train + fuse and rebuild.
+        # Copies the fused LoRA-tuned weights for every model tier we ship
+        # (Gemma overseas + Qwen Instant/Pro for China) into the .app bundle
+        # so Sleep AI runs fully offline with no first-launch download.
+        # Source dirs are produced by:
+        #     PYTHONPATH=python python3 -m training.llm.fuse --tier <kind>
+        # Missing tiers are skipped with a warning so a fresh clone still
+        # builds — the developer can train + fuse and rebuild.
         script: |
           set -euo pipefail
-          SRC="${SRCROOT}/../python/training/llm/fused-circadia-sleep"
-          DST="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/circadia-sleep-2b-4bit"
-          if [ ! -d "${SRC}" ]; then
-            echo "warning: Circadia LLM weights not found at ${SRC}. Run 'PYTHONPATH=python python3 -m training.llm.fuse' to produce them. The app will start without on-device AI."
-            exit 0
-          fi
-          mkdir -p "${DST}"
-          rsync -a --delete "${SRC}/" "${DST}/"
-          echo "Embedded Circadia LLM (size: $(du -sh \"${DST}\" | cut -f1)) at ${DST}"
+          embed() {
+            local SRC_NAME="$1"; local DST_NAME="$2"
+            local SRC="${SRCROOT}/../python/training/llm/${SRC_NAME}"
+            local DST="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/${DST_NAME}"
+            if [ ! -d "${SRC}" ]; then
+              echo "warning: Circadia LLM weights not found at ${SRC}; skipping ${DST_NAME}. Run 'PYTHONPATH=python python3 -m training.llm.fuse' for that tier."
+              return 0
+            fi
+            mkdir -p "${DST}"
+            rsync -a --delete "${SRC}/" "${DST}/"
+            echo "Embedded ${DST_NAME} (size: $(du -sh \"${DST}\" | cut -f1))"
+          }
+          embed "fused-circadia-sleep"          "circadia-sleep-2b-4bit"
+          embed "fused-circadia-sleep-qwen-1_7b" "circadia-sleep-qwen-1_7b-4bit"
+          embed "fused-circadia-sleep-qwen-4b"   "circadia-sleep-qwen-4b-4bit"
         basedOnDependencyAnalysis: false
         showEnvVars: false
     scheme:

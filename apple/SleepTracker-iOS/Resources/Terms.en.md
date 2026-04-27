@@ -141,17 +141,21 @@ If a material change occurs, BIRI GA will notify you via in-app prompts, update 
 
 Continued use of Circadia after the updated Terms take effect indicates acceptance of the update.
 
-## 15. Governing law and disputes
+## 15. Governing law, regional application and disputes
 
-Unless mandatory law provides otherwise, these Terms are governed by and construed under the laws of the Hong Kong Special Administrative Region.
+Unless mandatory law provides otherwise, these Terms are governed by and construed under the laws of the Mainland of the People's Republic of China.
 
-Any dispute arising from or related to these Terms or Circadia shall first be addressed in good faith. If unresolved, both parties submit to the non-exclusive jurisdiction of the Hong Kong courts.
+For general contract disputes arising from or related to these Terms, Circadia, Sleep AI or related services, the parties shall first seek resolution in good faith. If unresolved, both parties agree to submit such disputes to the competent People's Court in the Mainland of the People's Republic of China.
+
+Where any dispute, complaint, regulatory matter or legal requirement involves Mainland China users, services in Mainland China, processing of personal information of Mainland China users, processing of health data of Mainland China users, Mainland China consumer rights, Mainland China cybersecurity, data security, generative AI services, algorithmic recommendation, protection of minors, or other mandatory legal requirements applicable in Mainland China, such matters shall be handled in accordance with the applicable laws, regulations, rules, regulatory requirements and decisions of competent authorities of Mainland China.
+
+The choice of governing law and forum in these Terms does not affect any rights you have under the laws of your place of residence or other applicable mandatory rules concerning consumer protection, personal information protection, health data, cybersecurity, data security, AI services, protection of minors, or similar non-waivable protections.
 
 ## 16. Contact
 
 If you have any question about Circadia, these Terms or related matters, contact BIRI GA at:
 
-**Email:** gabira@bayagud.com
+**Email:** keika_bayagud@outlook.com
 
 ---
 

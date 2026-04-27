@@ -170,7 +170,7 @@ You can manage some information and permissions via:
 
 To exercise privacy rights under applicable law, contact BIRI GA at:
 
-**Privacy contact:** gabira@bayagud.com
+**Privacy contact:** keika_bayagud@outlook.com
 
 BIRI GA will handle relevant requests in accordance with applicable law.
 
@@ -194,7 +194,7 @@ Continued use of Circadia after the updated Notice takes effect indicates that y
 
 If you have any question about Circadia, this Notice or related privacy matters, contact BIRI GA at:
 
-**Email:** gabira@bayagud.com
+**Email:** keika_bayagud@outlook.com
 
 ---
 

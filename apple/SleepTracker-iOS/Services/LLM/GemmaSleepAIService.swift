@@ -12,30 +12,35 @@ import MLXLMCommon
 import MLX
 #endif
 
-/// On-device Gemma assistant. Loads MLX 4-bit Gemma 3n weights from a
-/// local directory (the simulator/dev workspace path or the app's
-/// Documents folder on device), then answers questions with a sleep-coach
-/// persona. The service still implements `SleepAIServiceProtocol`, so it
-/// drops into the existing UI without changes.
+/// On-device Sleep AI assistant powered by an MLX-loaded LLM. Backs all
+/// three tiers in the model catalog (Gemma, Qwen Instant, Qwen Pro) — the
+/// loader resolves the correct weights directory by `bundleDirName` and
+/// MLX-LLM's `LLMModelFactory` autodetects the architecture from
+/// `config.json`. The service drops into the existing UI through
+/// `SleepAIServiceProtocol` without changes.
 ///
 /// Lifecycle:
 ///   1. `init` does no work — cheap to construct.
 ///   2. First `reply(...)` lazily kicks off `prepare()` which:
 ///        a. resolves the weights directory,
 ///        b. builds an MLX `ModelContainer`,
-///        c. opens a `ChatSession` with our system prompt.
+///        c. opens a `ChatSession` with the sleep-only system prompt.
 ///   3. Subsequent calls reuse the same session.
 ///
 /// If anything fails (missing weights, OOM, build platform without MLX),
-/// the service surfaces a localized error string so the UI can fall back
-/// to the rule-based engine.
-public final class GemmaSleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
+/// the service surfaces a localized fallback string so the UI never dies.
+public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
 
-    public init(weightsLocator: GemmaWeightsLocator = .default) {
+    public init(tier: SleepAIModelTier = SleepAIModelCatalog.descriptor(for: .gemma),
+                weightsLocator: GemmaWeightsLocator? = nil) {
+        self.tier = tier
         self.weightsLocator = weightsLocator
+            ?? GemmaWeightsLocator(dirName: tier.bundleDirName,
+                                   devFallbackPath: GemmaWeightsLocator.devPath(for: tier))
     }
 
     public var engineKind: SleepAIEngineKind { .gemmaLocal }
+    public let tier: SleepAIModelTier
 
     // MARK: Public API
 
@@ -175,16 +180,23 @@ public final class GemmaSleepAIService: SleepAIServiceProtocol, @unchecked Senda
     }
 }
 
+/// Backwards-compatibility alias: the old name is kept so we don't have to
+/// rewrite call sites that haven't been touched in this migration.
+public typealias GemmaSleepAIService = MLXSleepAIService
+
 // MARK: - Weights locator
 
-/// Resolves the local directory holding Gemma 3n MLX 4-bit weights.
+/// Resolves the local directory holding MLX 4-bit weights for an LLM tier.
 ///
 /// Resolution order:
-///   1. `CIRCADIA_GEMMA_DIR` environment variable (developer override).
-///   2. App-specific Documents/Models/<dirName>.
-///   3. Repository-relative dev path on simulator
-///      (`<repoRoot>/models/<dirName>`) — only resolved when a path the
-///      developer hard-coded actually exists.
+///   1. `CIRCADIA_GEMMA_DIR` environment variable (developer override —
+///      kept for backwards compatibility, applies to whichever tier the
+///      service is constructed with).
+///   2. App bundle (the embedded `<dirName>` produced by the `Embed
+///      Circadia LLM` build phase).
+///   3. `Documents/Models/<dirName>` — sideloaded weights.
+///   4. `devFallbackPath` (simulator only) — typically the fused output of
+///      `python -m training.llm.fuse` for that tier.
 ///
 /// Returns the URL, or throws if no candidate exists.
 public struct GemmaWeightsLocator: Sendable {
@@ -198,6 +210,17 @@ public struct GemmaWeightsLocator: Sendable {
         dirName: "circadia-sleep-2b-4bit",
         devFallbackPath: "/Users/gabiri/projects/resleep/sleep-tracker/python/training/llm/fused-circadia-sleep"
     )
+
+    /// Fused-weights path on the developer machine, by tier. Mirrors the
+    /// directory layout the Python training scripts produce.
+    static func devPath(for tier: SleepAIModelTier) -> String {
+        let base = "/Users/gabiri/projects/resleep/sleep-tracker/python/training/llm"
+        switch tier.kind {
+        case .gemma:       return "\(base)/fused-circadia-sleep"
+        case .qwenInstant: return "\(base)/fused-circadia-sleep-qwen-1_7b"
+        case .qwenPro:     return "\(base)/fused-circadia-sleep-qwen-4b"
+        }
+    }
 
     public func locate() throws -> URL {
         let fm = FileManager.default

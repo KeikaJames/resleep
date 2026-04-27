@@ -20,13 +20,24 @@ from .configs import LoRAConfig
 
 
 def main() -> None:
-    cfg = LoRAConfig()
+    import argparse
+    from .configs import config_for, TIERS
+
+    parser = argparse.ArgumentParser(description="Fuse Sleep-AI LoRA adapters")
+    parser.add_argument(
+        "--tier",
+        choices=sorted(TIERS.keys()),
+        default="gemma",
+        help="Which model tier to fuse (default: gemma).",
+    )
+    args = parser.parse_args()
+    cfg = config_for(args.tier)
 
     if not (cfg.adapter_dir / "adapters.safetensors").exists() and \
        not list(cfg.adapter_dir.glob("*adapters*.safetensors")):
         sys.exit(
             f"No adapters found in {cfg.adapter_dir}. "
-            f"Run `python -m training.llm.train_lora` first."
+            f"Run `python -m training.llm.train_lora --tier {args.tier}` first."
         )
 
     cfg.fused_dir.mkdir(parents=True, exist_ok=True)
@@ -44,9 +55,8 @@ def main() -> None:
 
     print(
         f"\nFused model written to {cfg.fused_dir}\n"
-        "Copy that directory to the device or point\n"
-        "  CIRCADIA_GEMMA_DIR\n"
-        "at it before launching the app."
+        "It will be picked up automatically by the next Xcode build via\n"
+        "the `Embed Circadia LLM` script and bundled into Circadia.app."
     )
 
 
