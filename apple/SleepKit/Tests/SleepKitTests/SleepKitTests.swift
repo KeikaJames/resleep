@@ -260,12 +260,12 @@ final class SleepKitTests: XCTestCase {
     func testHeuristicModelClassifies() throws {
         let model = FallbackHeuristicStageInferenceModel()
         let hp = model.hyperparameters
-        // High-accel → wake
+        // High-accel → wake (normalized [0, 1] scale per FeatureNormalization)
         let wakeRow: [Float] = {
             var r = Array<Float>(repeating: 0, count: hp.featureDim)
-            r[StageFeature.accelEnergy.rawValue] = 2.0
-            r[StageFeature.accelMean.rawValue] = 1.5
-            r[StageFeature.hrMean.rawValue] = 70
+            r[StageFeature.accelEnergy.rawValue] = 0.8
+            r[StageFeature.accelMean.rawValue] = 0.7
+            r[StageFeature.hrMean.rawValue] = 0.7
             return r
         }()
         let wakeWindow = Array(repeating: wakeRow, count: hp.seqLen)
@@ -275,13 +275,13 @@ final class SleepKitTests: XCTestCase {
         XCTAssertEqual(wakeOut.stage, .wake)
         XCTAssertEqual(wakeOut.probabilities.count, 4)
 
-        // Low-accel + negative HR slope → deep
+        // Low-accel + negative HR slope → deep (normalized scale)
         let deepRow: [Float] = {
             var r = Array<Float>(repeating: 0, count: hp.featureDim)
             r[StageFeature.accelEnergy.rawValue] = 0.01
             r[StageFeature.accelMean.rawValue] = 0.05
-            r[StageFeature.hrSlope.rawValue] = -1.5
-            r[StageFeature.hrMean.rawValue] = 55
+            r[StageFeature.hrSlope.rawValue] = -0.6
+            r[StageFeature.hrMean.rawValue] = 0.55
             return r
         }()
         let deepWindow = Array(repeating: deepRow, count: hp.seqLen)

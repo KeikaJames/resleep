@@ -55,4 +55,4 @@ app release.
 ## Contact
 
 For questions about this policy, contact the developer through the App Store
-listing for Sleep.
+listing for Circadia.

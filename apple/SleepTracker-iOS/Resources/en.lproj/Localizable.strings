@@ -1,4 +1,4 @@
-/* Sleep Tracker — English UI strings */
+/* Circadia — English UI strings */
 
 // Tabs
 "tab.home"     = "Home";
@@ -39,7 +39,7 @@
 "onboarding.privacy.b3" = "No accounts, no servers, no tracking.";
 "onboarding.privacy.b4" = "Delete every byte from Settings at any time.";
 "onboarding.perms.title" = "Connect to Health.";
-"onboarding.perms.body" = "Sleep can read your heart rate and HRV from Health to improve stage detection. You can change this anytime.";
+"onboarding.perms.body" = "Circadia can read your heart rate and HRV from Health to improve stage detection. You can change this anytime.";
 "onboarding.perms.allow" = "Allow Health Access";
 "onboarding.perms.skip"  = "Not Now";
 "onboarding.consent.title" = "Before we begin.";
@@ -52,7 +52,7 @@
 
 // Notifications
 "notification.bedtime.title" = "Time to wind down";
-"notification.bedtime.body"  = "A consistent bedtime helps. Open Sleep when you're ready.";
+"notification.bedtime.body"  = "A consistent bedtime helps. Open Circadia when you're ready.";
 
 // Alarm
 "alarm.shake.hint" = "Shake your iPhone to dismiss.";
@@ -170,7 +170,7 @@
 "settings.section.reminders" = "Reminders";
 "settings.bedtimeReminder"   = "Daily wind-down reminder";
 "settings.bedtimeTime"       = "Reminder time";
-"settings.reminders.footer"  = "A local notification only. Sleep does not use remote push.";
+"settings.reminders.footer"  = "A local notification only. Circadia does not use remote push.";
 "settings.section.watch"     = "Apple Watch";
 "settings.section.model"     = "Model";
 "settings.model.backend"     = "Backend";
@@ -185,7 +185,7 @@
 "settings.diag.empty"          = "No diagnostic events yet.";
 "settings.diag.footer"         = "A local log of activity from your last tracked night.";
 "settings.section.localData"   = "Local Data";
-"settings.localData.delete"    = "Delete Local Sleep Data";
+"settings.localData.delete"    = "Delete Local Circadia Data";
 "settings.localData.footer"    = "Removes all sessions, summaries, and timeline entries stored on this device. This cannot be undone.";
 "settings.localData.confirmTitle" = "Delete all local sleep data?";
 "settings.localData.confirmMessage" = "Sessions, summaries, and timelines stored on this device will be removed.";
@@ -213,7 +213,7 @@
 "history.empty.title" = "No sessions yet";
 "history.empty.subtitle" = "Sessions you record will appear here.";
 "history.summaryUnavailable.title" = "Summary unavailable";
-"history.summaryUnavailable.body"  = "Sleep summary couldn't be loaded.";
+"history.summaryUnavailable.body"  = "Sleep summary couldn’t be loaded.";
 "history.inProgress" = "In progress";
 "history.score"      = "Score";
 
@@ -284,6 +284,8 @@
 "ai.suggestion.summarize"          = "Summarize last night";
 "ai.suggestion.deep"               = "How was my deep sleep?";
 "ai.suggestion.rem"                = "What about REM?";
+"ai.suggestion.trend"              = "What changed recently?";
+"ai.suggestion.factors"            = "What affected my sleep?";
 "ai.suggestion.advice"             = "Tips to sleep better";
 "ai.suggestion.howItWorks"         = "How does this work?";
 "ai.suggestion.whatTracked"        = "What do you track?";

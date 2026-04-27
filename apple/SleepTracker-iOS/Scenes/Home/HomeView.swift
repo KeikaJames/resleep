@@ -55,7 +55,7 @@ struct HomeView: View {
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, 8)
-                        .padding(.bottom, 32)
+                        .padding(.bottom, 96)
                     }
                     .background(Color(.systemGroupedBackground).ignoresSafeArea())
                     .navigationTitle(Text("home.title"))

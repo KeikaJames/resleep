@@ -284,6 +284,8 @@
 "ai.suggestion.summarize"          = "总结昨晚";
 "ai.suggestion.deep"               = "深睡怎么样？";
 "ai.suggestion.rem"                = "REM 呢？";
+"ai.suggestion.trend"              = "最近有什么变化？";
+"ai.suggestion.factors"            = "什么影响了睡眠？";
 "ai.suggestion.advice"             = "睡得更好的建议";
 "ai.suggestion.howItWorks"         = "这是怎么工作的？";
 "ai.suggestion.whatTracked"        = "都追踪了什么？";

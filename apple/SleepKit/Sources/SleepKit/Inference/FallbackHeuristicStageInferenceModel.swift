@@ -52,11 +52,13 @@ public struct FallbackHeuristicStageInferenceModel: StageInferenceModel {
         let hrMean = hrMeanSum / n
 
         // Score each class. Higher = more likely.
+        // Inputs are normalized (see `FeatureNormalization`), so thresholds
+        // are on the [0, 1] scale, NOT raw bpm / g.
         var score: [Float] = [0, 0, 0, 0]  // wake, light, deep, rem
-        score[0] = max(accelEnergy * 2.0, accelMean > 1.2 ? 1.5 : 0)
+        score[0] = max(accelEnergy * 2.0, accelMean > 0.5 ? 1.5 : 0)
         score[1] = 1.0  // baseline prior
         score[2] = max(-hrSlope, 0) * 2.0 + (accelEnergy < 0.1 ? 0.3 : 0)
-        score[3] = max(hrSlope, 0) * 2.0 + (hrMean > 55 ? 0.2 : 0)
+        score[3] = max(hrSlope, 0) * 2.0 + (hrMean > 0.55 ? 0.2 : 0)
 
         // No samples at all → fully uniform (caller will treat as low conf).
         if nonZero == 0 {

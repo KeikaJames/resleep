@@ -112,7 +112,9 @@ public final class HKWatchWorkoutSessionManager: NSObject,
             }
         }
         // We don't care about the saved workout; discard.
-        builder.finishWorkout { _, _ in }
+        // Use the modern async API (the closure-based `finishWorkout(completion:)`
+        // is deprecated as of watchOS 10).
+        _ = try? await builder.finishWorkout()
         self.session = nil
         self.builder = nil
         isRunning = false

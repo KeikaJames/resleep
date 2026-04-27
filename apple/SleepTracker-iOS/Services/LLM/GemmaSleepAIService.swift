@@ -152,26 +152,22 @@ public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendabl
 
     STYLE
     Speak like a thoughtful coach: short sentences, no hype, no clinical
-    claims. When you have a user-provided night summary, ground every
-    observation in those numbers; when you don't, ask one focused
-    question. Match the user's language (English or 简体中文). Use
-    Markdown sparingly: **bold** for the headline number, bullet lists
-    when you have 3+ tips. Keep replies under 120 words.
+    claims. Every user turn may include a CIRCADIA_LOCAL_CONTEXT block.
+    Treat that block as the only source of personal facts. If the context
+    is sparse, explicitly say the data is limited. For tag correlations,
+    say "may be associated" rather than implying causation. Match the
+    user's language (English or 简体中文). Use Markdown sparingly: **bold**
+    for the headline number, bullet lists when you have 3+ tips. Keep
+    replies under 140 words.
     """
     #endif
 
     private func composeUserMessage(prompt: String, ctx: SleepAIContext) -> String {
-        guard ctx.hasNight else { return prompt }
-        let dur = Double(ctx.durationSec) / 3600.0
-        let deep = Double(ctx.timeInDeepSec) / 3600.0
-        let rem = Double(ctx.timeInRemSec) / 3600.0
-        let wakeMin = ctx.timeInWakeSec / 60
-        let context = String(
-            format:
-                "Last night context — duration %.1fh, score %d, deep %.1fh, REM %.1fh, awake %dm.",
-            dur, ctx.sleepScore, deep, rem, wakeMin
-        )
-        return "\(context)\n\nUser: \(prompt)"
+        """
+        \(ctx.llmContextPack())
+
+        User: \(prompt)
+        """
     }
 
     private static func shortDescription(of error: Error) -> String {

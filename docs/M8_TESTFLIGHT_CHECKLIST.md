@@ -130,7 +130,7 @@ Paste these into App Store Connect → App Privacy.
 
 Hand them this short note:
 
-> Install Sleep from the TestFlight invite. Pair your Apple Watch. Tap Start
+> Install Circadia from the TestFlight invite. Pair your Apple Watch. Tap Start
 > Tracking before bed and Stop Tracking when you wake. In the morning, open
 > Settings → Diagnostics, tap the copy icon, and paste the diagnostic dump
 > into a reply.

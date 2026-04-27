@@ -224,6 +224,10 @@ struct SleepAIView: View {
                             heroHeader
                                 .padding(.top, 40)
                                 .padding(.horizontal, 24)
+                            if !model.summaryText.isEmpty {
+                                contextSnapshotCard
+                                    .padding(.horizontal, 20)
+                            }
                             suggestionsGrid
                                 .padding(.horizontal, 20)
                                 .padding(.top, 8)
@@ -271,6 +275,29 @@ struct SleepAIView: View {
                 .aiShimmer()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var contextSnapshotCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.tint)
+                Text("ai.summary.title")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+            }
+            Text(model.summaryText)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
     }
 
     private var suggestionsGrid: some View {

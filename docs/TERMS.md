@@ -33,5 +33,5 @@ applicable, are included in the app bundle.
 
 ## Changes
 
-These terms may change in future versions of Sleep. Continued use after an
+These terms may change in future versions of Circadia. Continued use after an
 update means you accept the updated terms.
