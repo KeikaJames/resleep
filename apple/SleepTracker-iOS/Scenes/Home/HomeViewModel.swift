@@ -6,6 +6,10 @@ final class HomeViewModel: ObservableObject {
 
     @Published var isPreparingPermissions: Bool = false
     @Published var lastError: String?
+    /// When non-nil, HomeView presents the wake-up survey sheet for this session.
+    @Published var pendingSurveySessionId: String?
+    /// When non-nil, HomeView presents the sleep-notes sheet for this session.
+    @Published var pendingNotesSessionId: String?
 
     private weak var appState: AppState?
 
@@ -151,6 +155,7 @@ final class HomeViewModel: ObservableObject {
                     source: source,
                     runtimeMode: runtimeMode
                 )
+                pendingSurveySessionId = summary.sessionId
                 await appState.diagnostics.append(
                     DiagnosticEvent(type: .localStoreWrite,
                                     sessionId: summary.sessionId,

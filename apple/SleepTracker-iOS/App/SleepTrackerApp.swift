@@ -5,22 +5,31 @@ import SleepKit
 struct SleepTrackerApp: App {
     @StateObject private var appState = AppState.makeDefault()
     @Environment(\.scenePhase) private var scenePhase
+    @State private var hasOnboarded: Bool = OnboardingGate.hasCompleted
 
     var body: some Scene {
         WindowGroup {
-            RootTabView()
-                .environmentObject(appState)
-                .task {
-                    await appState.appLaunch()
-                    await appState.restoreLatestSession()
-                }
-                .onChange(of: scenePhase) { _, newPhase in
-                    switch newPhase {
-                    case .active:     appState.appForeground()
-                    case .background: appState.appBackground()
-                    default: break
+            Group {
+                if hasOnboarded {
+                    RootTabView()
+                } else {
+                    OnboardingFlow {
+                        hasOnboarded = true
                     }
                 }
+            }
+            .environmentObject(appState)
+            .task {
+                await appState.appLaunch()
+                await appState.restoreLatestSession()
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                switch newPhase {
+                case .active:     appState.appForeground()
+                case .background: appState.appBackground()
+                default: break
+                }
+            }
         }
     }
 }
@@ -29,11 +38,13 @@ struct RootTabView: View {
     var body: some View {
         TabView {
             HomeView()
-                .tabItem { Label("Home", systemImage: "moon.stars") }
+                .tabItem { Label("tab.home", systemImage: "moon.stars") }
+            TrendsView()
+                .tabItem { Label("tab.trends", systemImage: "chart.bar.xaxis") }
             HistoryView()
-                .tabItem { Label("History", systemImage: "list.bullet.rectangle") }
+                .tabItem { Label("tab.history", systemImage: "list.bullet.rectangle") }
             SettingsView()
-                .tabItem { Label("Settings", systemImage: "gear") }
+                .tabItem { Label("tab.settings", systemImage: "gear") }
         }
     }
 }

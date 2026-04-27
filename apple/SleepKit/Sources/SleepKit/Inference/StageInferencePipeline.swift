@@ -37,6 +37,13 @@ public final class StageInferencePipeline: ObservableObject {
     /// app-state rebinds (M6 overnight reliability).
     private var startEpoch: UInt64 = 0
 
+    /// Snapshot of the on-device personalization correction. Mutated by
+    /// AppState after each personalization-service update.
+    private var personalization: PersonalizationVector = .zero
+    /// Whether the user has personalization enabled (default true; toggle
+    /// from Settings).
+    public var personalizationEnabled: Bool = true
+
     public init(model: StageInferenceModel, modelLoadMs: Double = 0) {
         self.model = model
         let hp = model.hyperparameters
@@ -102,7 +109,10 @@ public final class StageInferencePipeline: ObservableObject {
         )
         let predictStart = Date()
         do {
-            let out = try model.predict(input)
+            var out = try model.predict(input)
+            if personalizationEnabled, !out.probabilities.isEmpty {
+                out = applyPersonalization(to: out, features: vector)
+            }
             let predictMs = Date().timeIntervalSince(predictStart) * 1000.0
             latest = out
             inferenceCount += 1
@@ -133,4 +143,42 @@ public final class StageInferencePipeline: ObservableObject {
     }
 
     public var isRealModel: Bool { model.isRealModel }
+
+    // MARK: - Personalization
+
+    /// Replace the in-memory correction snapshot. Pipeline applies this
+    /// every subsequent `tick()`. Cheap to call (just stores vector).
+    public func updatePersonalization(_ vec: PersonalizationVector) {
+        self.personalization = vec
+    }
+
+    public var personalizationSnapshot: PersonalizationVector { personalization }
+
+    /// Reapply correction to base logits and re-softmax to get a personalized
+    /// `StageInferenceOutput`. Conservative: capped delta keeps the bundled
+    /// model dominant if personalization has only a few samples.
+    private func applyPersonalization(to base: StageInferenceOutput,
+                                      features: [Float]) -> StageInferenceOutput {
+        // Convert probabilities to pseudo-logits (log-prob with floor).
+        let probs = base.probabilities
+        let logProbs = probs.map { logf(max($0, 1e-6)) }
+        let adjusted = PersonalizationService.add(
+            base: logProbs, vec: personalization, features: features
+        )
+        // Re-softmax
+        let m = adjusted.max() ?? 0
+        var exps = adjusted.map { expf($0 - m) }
+        let s = exps.reduce(0, +)
+        if s > 0 { for i in 0..<exps.count { exps[i] /= s } }
+        guard let argmax = exps.indices.max(by: { exps[$0] < exps[$1] }) else {
+            return base
+        }
+        let stage = SleepStage(rawValue: argmax) ?? base.stage
+        return StageInferenceOutput(
+            stage: stage,
+            confidence: exps[argmax],
+            probabilities: exps,
+            producedAt: base.producedAt
+        )
+    }
 }

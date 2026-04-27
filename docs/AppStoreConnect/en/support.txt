@@ -1,0 +1,26 @@
+Sleep — Support
+
+GETTING STARTED
+1. On first launch, allow notifications and (optionally) Health access.
+2. Tap Start in the evening, or use the Apple Watch app.
+3. In the morning, fill in the short two-tap survey to personalize Sleep to you.
+
+COMMON QUESTIONS
+
+Why don't I see my sleep stages?
+Sleep needs at least a few minutes of motion and (ideally) heart rate data to begin classifying. If you wear an Apple Watch, make sure the Sleep companion is running on the Watch.
+
+How accurate is the smart alarm?
+The smart alarm fires inside the window you choose, when Sleep estimates you are in light sleep. If you don't want to risk missing the alarm, set a separate iOS alarm as a backstop.
+
+Where is my data?
+On this device. Sleep does not have a server. You can delete everything from Settings → Local Data.
+
+Will snore detection record me?
+No. When you enable it, audio is processed into short numerical features in real time and discarded. Nothing is saved or transmitted.
+
+CONTACT
+Questions or feedback: contact the developer through the App Store listing.
+
+NOT A MEDICAL DEVICE
+Sleep is for personal wellness only. It is not intended to diagnose, treat, cure, or prevent any disease.

@@ -23,6 +23,39 @@ struct SettingsView: View {
                     Toggle("Cloud sync (future)", isOn: $vm.cloudSyncEnabled).disabled(true)
                 }
 
+                Section {
+                    Toggle("Snore detection", isOn: $vm.snoreDetectionEnabled)
+                    Toggle("On-device personalization", isOn: $vm.personalizationEnabled)
+                } header: {
+                    Text("Insights")
+                } footer: {
+                    Text("Snore detection runs entirely on this device and never records audio. Personalization adapts the model to your wake-up surveys; updates stay on this device.")
+                }
+
+                Section {
+                    Toggle("Daily wind-down reminder", isOn: $vm.bedtimeReminderEnabled)
+                    if vm.bedtimeReminderEnabled {
+                        DatePicker("Reminder time",
+                                   selection: $vm.bedtimeReminderTime,
+                                   displayedComponents: [.hourAndMinute])
+                    }
+                } header: {
+                    Text("Reminders")
+                } footer: {
+                    Text("A local notification only. Sleep does not use remote push.")
+                }
+                .onChange(of: vm.bedtimeReminderEnabled) { _, on in
+                    Task { await applyBedtime(on: on, at: vm.bedtimeReminderTime) }
+                }
+                .onChange(of: vm.bedtimeReminderTime) { _, t in
+                    if vm.bedtimeReminderEnabled {
+                        Task { await applyBedtime(on: true, at: t) }
+                    }
+                }
+                .onChange(of: vm.personalizationEnabled) { _, on in
+                    appState.inferencePipeline.personalizationEnabled = on
+                }
+
                 Section("Apple Watch") {
                     LabeledContent("Reachable",
                                    value: appState.router.watchReachable ? "Yes" : "No")
@@ -169,6 +202,17 @@ struct SettingsView: View {
         await appState.diagnostics.clear()
         clearedDiagAt = Date()
         await refreshDiagSummary()
+    }
+
+    private func applyBedtime(on: Bool, at time: Date) async {
+        let svc = BedtimeReminderService()
+        if on {
+            _ = await svc.requestAuthorization()
+            let comps = Calendar.current.dateComponents([.hour, .minute], from: time)
+            await svc.schedule(at: comps.hour ?? 22, minute: comps.minute ?? 30)
+        } else {
+            await svc.cancel()
+        }
     }
 
     private static var versionString: String {

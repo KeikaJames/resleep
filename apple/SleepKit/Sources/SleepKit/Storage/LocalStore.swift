@@ -47,6 +47,9 @@ public struct StoredSessionRecord: Codable, Sendable, Equatable, Identifiable {
     public var sourceRaw: String?           // TrackingSource raw
     public var runtimeModeRaw: String?      // "live" | "simulated"
     public var notes: String?
+    public var tags: [String]?
+    public var survey: WakeSurvey?
+    public var snoreEventCount: Int?
     public var timeline: [TimelineEntry]
 
     public init(
@@ -58,6 +61,9 @@ public struct StoredSessionRecord: Codable, Sendable, Equatable, Identifiable {
         sourceRaw: String? = nil,
         runtimeModeRaw: String? = nil,
         notes: String? = nil,
+        tags: [String]? = nil,
+        survey: WakeSurvey? = nil,
+        snoreEventCount: Int? = nil,
         timeline: [TimelineEntry] = []
     ) {
         self.id = id
@@ -68,6 +74,9 @@ public struct StoredSessionRecord: Codable, Sendable, Equatable, Identifiable {
         self.sourceRaw = sourceRaw
         self.runtimeModeRaw = runtimeModeRaw
         self.notes = notes
+        self.tags = tags
+        self.survey = survey
+        self.snoreEventCount = snoreEventCount
         self.timeline = timeline
     }
 

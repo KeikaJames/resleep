@@ -1,0 +1,92 @@
+/* Sleep Tracker — English UI strings */
+
+// Tabs
+"tab.home"     = "Home";
+"tab.trends"   = "Trends";
+"tab.history"  = "History";
+"tab.settings" = "Settings";
+
+// Stages
+"stage.wake"  = "Awake";
+"stage.light" = "Light";
+"stage.deep"  = "Deep";
+"stage.rem"   = "REM";
+
+// Trends
+"trends.title" = "Trends";
+"trends.empty.title" = "No nights yet";
+"trends.empty.subtitle" = "Track a few nights and your trends will appear here.";
+"trends.score.title" = "Sleep Score";
+"trends.score.subtitle" = "Last 30 nights";
+"trends.stages.title" = "Stage Composition";
+"trends.stages.subtitle" = "Last 7 nights";
+"trends.averages.title" = "Averages";
+"trends.averages.score" = "Score";
+"trends.averages.scoreSub" = "average";
+"trends.averages.duration" = "Hours";
+"trends.averages.durationSub" = "per night";
+"trends.averages.nights" = "Nights";
+"trends.averages.nightsSub" = "tracked";
+
+// Onboarding
+"onboarding.next" = "Continue";
+"onboarding.back" = "Back";
+"onboarding.welcome.title" = "Sleep, on your device.";
+"onboarding.welcome.body"  = "A quiet way to understand your nights. Heart rate, motion, and breathing — analyzed locally on your iPhone.";
+"onboarding.privacy.title" = "Your data stays here.";
+"onboarding.privacy.b1" = "All processing happens on this iPhone and Apple Watch.";
+"onboarding.privacy.b2" = "Audio is never recorded or uploaded.";
+"onboarding.privacy.b3" = "No accounts, no servers, no tracking.";
+"onboarding.privacy.b4" = "Delete every byte from Settings at any time.";
+"onboarding.perms.title" = "Connect to Health.";
+"onboarding.perms.body" = "Sleep can read your heart rate and HRV from Health to improve stage detection. You can change this anytime.";
+"onboarding.perms.allow" = "Allow Health Access";
+"onboarding.perms.skip"  = "Not Now";
+
+// Notifications
+"notification.bedtime.title" = "Time to wind down";
+"notification.bedtime.body"  = "A consistent bedtime helps. Open Sleep when you're ready.";
+
+// Alarm
+"alarm.shake.hint" = "Shake your iPhone to dismiss.";
+
+// Wake-up survey
+"survey.title" = "Good morning";
+"survey.quality.title" = "How did you sleep?";
+"survey.quality.footer" = "1 = poor, 5 = excellent";
+"survey.alarm.header" = "Smart Alarm";
+"survey.alarm.title" = "Did the alarm wake you well?";
+"survey.alarm.unset" = "—";
+"survey.alarm.good"  = "Yes";
+"survey.alarm.bad"   = "No";
+"survey.times.header" = "Actual times (optional)";
+"survey.fellasleep.title" = "Fell asleep at";
+"survey.wokeup.title"     = "Woke up at";
+"survey.note.header" = "Note";
+"survey.note.placeholder" = "Anything notable about tonight…";
+"survey.skip"   = "Skip";
+"survey.submit" = "Save";
+
+// Sleep notes
+"notes.title" = "Sleep Notes";
+"notes.tags.header" = "Tags";
+"notes.tags.footer" = "Tap any that apply to last night.";
+"notes.note.header" = "Note";
+"notes.note.placeholder" = "Free-form note (optional)";
+"notes.cancel" = "Cancel";
+"notes.save"   = "Save";
+
+// Tags
+"tag.caffeine"     = "Caffeine";
+"tag.alcohol"      = "Alcohol";
+"tag.exercise"     = "Exercise";
+"tag.stress"       = "Stress";
+"tag.late_meal"    = "Late meal";
+"tag.travel"       = "Travel";
+"tag.medication"   = "Medication";
+"tag.screen_time"  = "Screen time";
+
+// Home buttons (used widely)
+"home.start"  = "Start";
+"home.stop"   = "Stop";
+"home.notes"  = "Add Notes";

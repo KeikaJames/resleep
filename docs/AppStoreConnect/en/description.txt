@@ -1,0 +1,30 @@
+Sleep is a quiet sleep tracker that runs entirely on your iPhone and Apple Watch.
+
+WHY SLEEP
+
+· Offline first. Heart rate, motion, and breathing analysis all happen on this device. There is no server, no account, and no tracking.
+· Privacy by default. Audio is never recorded and never uploaded. Snore detection works on transient acoustic features, then forgets them.
+· Calm by design. One screen for tonight. One screen for trends. No streaks, no gamification, no ads.
+
+WHAT YOU GET
+
+· Automatic sleep stages. Light, Deep, REM, and Awake — estimated from heart rate, HRV, and motion using a small on-device model.
+· Smart wake. The Apple Watch buzzes gently inside a window you choose, when you are in light sleep.
+· Trends. A simple weekly score line and stage composition for the last 7 to 30 nights.
+· Wake-up survey. A two-tap morning check-in that quietly personalizes the model to you over time.
+· Sleep notes. Tag caffeine, alcohol, exercise, stress, travel, and more — see what affects your nights.
+
+PRIVACY PROMISES
+
+· No raw audio is saved or sent. Ever.
+· No third-party analytics. No advertising SDKs.
+· You can delete every byte from Settings at any time.
+
+NOT A MEDICAL DEVICE
+
+Sleep is for personal wellness. It is not intended to diagnose, treat, cure, or prevent any disease. Do not rely on the smart alarm if missing it would cause harm.
+
+REQUIREMENTS
+
+· iPhone with iOS 17 or later
+· Apple Watch with watchOS 10 or later (optional but recommended)

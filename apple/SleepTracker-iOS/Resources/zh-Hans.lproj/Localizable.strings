@@ -1,0 +1,92 @@
+/* Sleep Tracker — 简体中文 UI 文案 */
+
+// Tabs
+"tab.home"     = "今晚";
+"tab.trends"   = "趋势";
+"tab.history"  = "记录";
+"tab.settings" = "设置";
+
+// Stages
+"stage.wake"  = "清醒";
+"stage.light" = "浅睡";
+"stage.deep"  = "深睡";
+"stage.rem"   = "快速眼动";
+
+// Trends
+"trends.title" = "趋势";
+"trends.empty.title" = "还没有睡眠记录";
+"trends.empty.subtitle" = "追踪几晚之后,这里会显示你的睡眠趋势。";
+"trends.score.title" = "睡眠分数";
+"trends.score.subtitle" = "最近 30 晚";
+"trends.stages.title" = "阶段构成";
+"trends.stages.subtitle" = "最近 7 晚";
+"trends.averages.title" = "平均";
+"trends.averages.score" = "分数";
+"trends.averages.scoreSub" = "平均";
+"trends.averages.duration" = "时长";
+"trends.averages.durationSub" = "小时/夜";
+"trends.averages.nights" = "晚数";
+"trends.averages.nightsSub" = "已追踪";
+
+// Onboarding
+"onboarding.next" = "继续";
+"onboarding.back" = "返回";
+"onboarding.welcome.title" = "在你的设备上,看见你的睡眠。";
+"onboarding.welcome.body"  = "一种安静的方式去了解你的夜晚。心率、动作与呼吸,全部在你的 iPhone 上分析。";
+"onboarding.privacy.title" = "数据留在你这里。";
+"onboarding.privacy.b1" = "所有处理都在这台 iPhone 与 Apple Watch 上完成。";
+"onboarding.privacy.b2" = "永不录制、永不上传音频。";
+"onboarding.privacy.b3" = "没有账户、没有服务器、没有追踪。";
+"onboarding.privacy.b4" = "随时可在“设置”中清除全部数据。";
+"onboarding.perms.title" = "连接“健康”。";
+"onboarding.perms.body"  = "Sleep 可以读取“健康”里的心率与心率变异性,帮助更准确地识别睡眠阶段。你可以随时更改授权。";
+"onboarding.perms.allow" = "允许访问“健康”";
+"onboarding.perms.skip"  = "暂不允许";
+
+// Notifications
+"notification.bedtime.title" = "该放松了";
+"notification.bedtime.body"  = "保持规律的就寝时间有帮助。准备好后打开 Sleep。";
+
+// Alarm
+"alarm.shake.hint" = "摇一摇 iPhone 即可关闭闹钟。";
+
+// Wake-up survey
+"survey.title" = "早安";
+"survey.quality.title" = "今晚睡得怎么样?";
+"survey.quality.footer" = "1 = 很差,5 = 很好";
+"survey.alarm.header" = "智能闹钟";
+"survey.alarm.title" = "闹钟把你叫得舒服吗?";
+"survey.alarm.unset" = "—";
+"survey.alarm.good"  = "舒服";
+"survey.alarm.bad"   = "不舒服";
+"survey.times.header" = "真实时间(可选)";
+"survey.fellasleep.title" = "实际入睡";
+"survey.wokeup.title"     = "实际醒来";
+"survey.note.header" = "备注";
+"survey.note.placeholder" = "今晚有什么值得记一笔的…";
+"survey.skip"   = "跳过";
+"survey.submit" = "保存";
+
+// Sleep notes
+"notes.title" = "睡眠备注";
+"notes.tags.header" = "标签";
+"notes.tags.footer" = "点击与昨晚相关的项目。";
+"notes.note.header" = "备注";
+"notes.note.placeholder" = "自由记录(可选)";
+"notes.cancel" = "取消";
+"notes.save"   = "保存";
+
+// Tags
+"tag.caffeine"     = "咖啡因";
+"tag.alcohol"      = "酒精";
+"tag.exercise"     = "运动";
+"tag.stress"       = "压力";
+"tag.late_meal"    = "夜宵";
+"tag.travel"       = "出行";
+"tag.medication"   = "药物";
+"tag.screen_time"  = "屏幕时间";
+
+// Home buttons
+"home.start"  = "开始";
+"home.stop"   = "停止";
+"home.notes"  = "添加备注";

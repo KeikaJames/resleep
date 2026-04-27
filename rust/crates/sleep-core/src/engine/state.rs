@@ -3,9 +3,11 @@ use crate::alarm::SmartAlarm;
 use crate::db::repo::Repo;
 use crate::engine::config::EngineConfig;
 use crate::models::inference::{RuleInference, StageInference};
+use crate::signal::actigraphy;
 use crate::signal::features::FeatureBuffers;
 use crate::{CoreError, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 use uuid::Uuid;
 
 /// High-level sleep stage. Matches Swift's `SleepStage` enum.
@@ -64,6 +66,13 @@ pub struct SleepEngine {
     current_stage: Stage,
     current_confidence: f32,
     session: Option<ActiveSession>,
+    // Actigraphy support: accumulate ENMO into 60-second epochs, keep a
+    // rolling window of counts, and use Cole-Kripke to override an obvious
+    // wake epoch that the model misclassified as light.
+    accel_epoch_acc: f32,
+    accel_epoch_n: u32,
+    accel_epoch_start_ms: u64,
+    actigraphy_counts: VecDeque<f32>,
 }
 
 impl SleepEngine {
@@ -78,6 +87,10 @@ impl SleepEngine {
             current_stage: Stage::Wake,
             current_confidence: 0.0,
             session: None,
+            accel_epoch_acc: 0.0,
+            accel_epoch_n: 0,
+            accel_epoch_start_ms: 0,
+            actigraphy_counts: VecDeque::with_capacity(30),
         })
     }
 
@@ -103,6 +116,10 @@ impl SleepEngine {
             last_stage: Stage::Wake,
             time_in_stage_sec: [0; 4],
         });
+        self.accel_epoch_acc = 0.0;
+        self.accel_epoch_n = 0;
+        self.accel_epoch_start_ms = started_at_ms;
+        self.actigraphy_counts.clear();
         Ok(id)
     }
 
@@ -158,13 +175,57 @@ impl SleepEngine {
             crate::db::repo::SampleKind::Accelerometer,
             &json,
         )?;
+        // Accumulate ENMO into 60-second epochs for actigraphy.
+        let mag = (x * x + y * y + z * z).sqrt();
+        let enmo = (mag - 1.0).max(0.0);
+        if self.accel_epoch_start_ms == 0 {
+            self.accel_epoch_start_ms = ts_ms;
+        }
+        self.accel_epoch_acc += enmo;
+        self.accel_epoch_n += 1;
+        if ts_ms.saturating_sub(self.accel_epoch_start_ms) >= 60_000 && self.accel_epoch_n > 0 {
+            let mean_enmo = self.accel_epoch_acc / self.accel_epoch_n as f32;
+            // Same scaling as ActiGraph counts (~1000× ENMO).
+            let count = mean_enmo * 1000.0;
+            if self.actigraphy_counts.len() == 30 {
+                self.actigraphy_counts.pop_front();
+            }
+            self.actigraphy_counts.push_back(count);
+            self.accel_epoch_acc = 0.0;
+            self.accel_epoch_n = 0;
+            self.accel_epoch_start_ms = ts_ms;
+        }
         self.recompute_stage(ts_ms);
         Ok(())
     }
 
     fn recompute_stage(&mut self, ts_ms: u64) {
         let feats = self.features.snapshot();
-        let (stage, conf) = self.inference.infer(&feats);
+        let (mut stage, mut conf) = self.inference.infer(&feats);
+
+        // Actigraphy override: if we have a full minute window of counts and
+        // Cole-Kripke says the most recent epoch was wake, never call deep.
+        // This catches the common failure mode where the prior model decides
+        // the user is sleeping while they're still tossing.
+        if self.actigraphy_counts.len() >= 9 {
+            let counts: Vec<f32> = self.actigraphy_counts.iter().copied().collect();
+            let labels = actigraphy::ck_sadeh_ensemble(&counts);
+            if let Some(&last_is_wake) = labels.last() {
+                if last_is_wake {
+                    if matches!(stage, Stage::Deep | Stage::Rem) {
+                        stage = Stage::Light;
+                        conf = (conf * 0.7).max(0.4);
+                    } else if matches!(stage, Stage::Light) {
+                        let recent_wake = labels.iter().rev().take(3).all(|&l| l);
+                        if recent_wake {
+                            stage = Stage::Wake;
+                            conf = (conf * 0.7).max(0.4);
+                        }
+                    }
+                }
+            }
+        }
+
         self.current_confidence = conf;
 
         if stage != self.current_stage {

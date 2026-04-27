@@ -39,9 +39,33 @@ struct HomeView: View {
             .navigationTitle("Sleep")
             .navigationBarTitleDisplayMode(.large)
             .onAppear { model.bind(appState: appState) }
+            .sheet(item: Binding<IdentifiedString?>(
+                get: { model.pendingSurveySessionId.map(IdentifiedString.init) },
+                set: { newValue in model.pendingSurveySessionId = newValue?.id }
+            )) { wrapped in
+                WakeUpSurveySheet(sessionId: wrapped.id) {
+                    model.pendingSurveySessionId = nil
+                }
+                .environmentObject(appState)
+                .presentationDetents([.large])
+            }
+            .sheet(item: Binding<IdentifiedString?>(
+                get: { model.pendingNotesSessionId.map(IdentifiedString.init) },
+                set: { newValue in model.pendingNotesSessionId = newValue?.id }
+            )) { wrapped in
+                SleepNotesSheet(sessionId: wrapped.id) {
+                    model.pendingNotesSessionId = nil
+                }
+                .environmentObject(appState)
+                .presentationDetents([.medium, .large])
+            }
             .environmentObject(model)
         }
     }
+}
+
+private struct IdentifiedString: Identifiable, Hashable {
+    let id: String
 }
 
 // MARK: - Tonight status
@@ -194,8 +218,18 @@ private struct SmartAlarmCard: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(.red)
+
+                    Text("alarm.shake.hint")
+                        .font(.footnote)
+                        .foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
+            .modifier(ShakeToSnoozeModifier(
+                isActive: appState.alarm.state == .triggered
+                    || appState.alarm.state == .failedWatchUnreachable,
+                onShake: { model.dismissAlarmFromPhone() }
+            ))
         }
     }
 
@@ -223,6 +257,7 @@ private struct SmartAlarmCard: View {
 
 private struct LastSummaryCard: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var model: HomeViewModel
 
     var body: some View {
         Card {
@@ -273,6 +308,18 @@ private struct LastSummaryCard: View {
                         .font(.subheadline)
                     }
                     .padding(.top, 2)
+
+                    Button {
+                        model.pendingNotesSessionId = summary.sessionId
+                    } label: {
+                        HStack {
+                            Image(systemName: "tag")
+                            Text("home.notes")
+                        }
+                        .font(.subheadline)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 } else {
                     Text("Start a sleep session tonight. Your summary will appear here in the morning.")
                         .font(.subheadline)
@@ -518,5 +565,30 @@ private struct InterruptedSessionCard: View {
         f.dateStyle = .short
         f.timeStyle = .short
         return f.string(from: d)
+    }
+}
+
+// MARK: - Shake to snooze (alarm)
+
+/// Wires a `ShakeToSnoozeDetector` to a view's lifecycle. Active only while
+/// `isActive == true`, so we never poll accelerometer outside the trigger UI.
+private struct ShakeToSnoozeModifier: ViewModifier {
+    let isActive: Bool
+    let onShake: () -> Void
+
+    @State private var detector = ShakeToSnoozeDetector()
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear { restart() }
+            .onDisappear { detector.stop() }
+            .onChange(of: isActive) { _, _ in restart() }
+    }
+
+    private func restart() {
+        detector.stop()
+        if isActive {
+            detector.start { onShake() }
+        }
     }
 }

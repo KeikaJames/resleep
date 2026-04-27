@@ -17,6 +17,8 @@ public final class AppState: ObservableObject {
     public let connectivity: ConnectivityManagerProtocol
     public let health: HealthPermissionServiceProtocol
     public let healthWriter: HealthKitSleepWriting
+    public let snoreDetector: SnoreDetectorProtocol
+    public let personalization: PersonalizationService
     public let heartRateStream: HeartRateStreaming
     public let workout: WorkoutSessionManager
     public let router: TelemetryRouter
@@ -70,6 +72,8 @@ public final class AppState: ObservableObject {
         health: HealthPermissionServiceProtocol,
         heartRateStream: HeartRateStreaming,
         healthWriter: HealthKitSleepWriting? = nil,
+        snoreDetector: SnoreDetectorProtocol? = nil,
+        personalization: PersonalizationService? = nil,
         inferenceModel: StageInferenceModel? = nil,
         inferenceFallbackReason: String? = nil,
         diagnostics: DiagnosticsStoreProtocol = InMemoryDiagnosticsStore(),
@@ -83,6 +87,8 @@ public final class AppState: ObservableObject {
         self.health = health
         self.heartRateStream = heartRateStream
         self.healthWriter = healthWriter ?? EngineHost.makeHealthKitSleepWriter()
+        self.snoreDetector = snoreDetector ?? EngineHost.makeSnoreDetector()
+        self.personalization = personalization ?? EngineHost.makePersonalizationService()
         self.diagnostics = diagnostics
         self.markerStore = markerStore
 
@@ -153,6 +159,12 @@ public final class AppState: ObservableObject {
         }
         startStatusTickLoop()
         startTimelineTickLoop()
+        startSnoreDetectorIfEnabled()
+        Task { [weak self] in
+            guard let self else { return }
+            let snap = await self.personalization.snapshot()
+            await MainActor.run { self.inferencePipeline.updatePersonalization(snap) }
+        }
     }
 
     /// Tears down hooks installed by `installRunningSessionHooks()`. Does
@@ -162,6 +174,14 @@ public final class AppState: ObservableObject {
         statusTickTask = nil
         timelineTickTask?.cancel()
         timelineTickTask = nil
+        snoreDetector.stop()
+    }
+
+    private func startSnoreDetectorIfEnabled() {
+        let enabled = UserDefaults.standard.bool(forKey: "settings.enableSnoreDetection")
+        guard enabled else { return }
+        do { try snoreDetector.start() }
+        catch { /* graceful: detector simply stays inactive */ }
     }
 
     private func startTimelineTickLoop() {
@@ -219,8 +239,11 @@ public final class AppState: ObservableObject {
         timeline: [TimelineEntry],
         alarm: StoredAlarmMeta?,
         source: TrackingSource?,
-        runtimeMode: AppRuntimeMode
+        runtimeMode: AppRuntimeMode,
+        tags: [String]? = nil,
+        survey: WakeSurvey? = nil
     ) async {
+        let snoreCount = snoreDetector.eventCount
         let record = StoredSessionRecord(
             id: summary.sessionId,
             startedAt: startedAt,
@@ -230,10 +253,19 @@ public final class AppState: ObservableObject {
             sourceRaw: source?.rawValue,
             runtimeModeRaw: runtimeMode.rawValue,
             notes: nil,
+            tags: tags,
+            survey: survey,
+            snoreEventCount: snoreCount > 0 ? snoreCount : nil,
             timeline: timeline
         )
         try? await localStore.recordSessionRecord(record)
         latestSummary = summary
+
+        if let survey {
+            await ingestSurveyAsLabels(sessionId: summary.sessionId,
+                                       timeline: timeline,
+                                       survey: survey)
+        }
 
         // Optional Apple Health write-back. Honors the user's Settings toggle
         // and silently degrades if HealthKit is unauthorized.
@@ -263,6 +295,73 @@ public final class AppState: ObservableObject {
         if let s = try? await localStore.latestCompletedSummary() {
             latestSummary = s
         }
+    }
+
+    /// Persist a wake-up survey for an already-archived session. Updates the
+    /// stored record in place and feeds the survey into personalization.
+    public func submitWakeSurvey(sessionId: String, survey: WakeSurvey) async {
+        guard var rec = try? await localStore.record(for: sessionId) else { return }
+        rec.survey = survey
+        try? await localStore.recordSessionRecord(rec)
+        await ingestSurveyAsLabels(sessionId: sessionId,
+                                   timeline: rec.timeline,
+                                   survey: survey)
+    }
+
+    /// Persist Sleep Notes (tags + free text) for an already-archived session.
+    public func attachSleepNotes(sessionId: String,
+                                 tags: [String]?,
+                                 note: String?) async {
+        guard var rec = try? await localStore.record(for: sessionId) else { return }
+        rec.tags = tags
+        rec.notes = note
+        try? await localStore.recordSessionRecord(rec)
+    }
+
+    /// Translate a wake-up survey into personalization labels.
+    ///
+    /// Heuristic: assume the user actually fell asleep at
+    /// `survey.actualFellAsleepAt` (if provided) and woke at
+    /// `actualWokeUpAt`. Anything before / after those bounds was wake.
+    /// Higher self-reported quality → higher label weight (more trust).
+    private func ingestSurveyAsLabels(sessionId: String,
+                                      timeline: [TimelineEntry],
+                                      survey: WakeSurvey) async {
+        guard !timeline.isEmpty else { return }
+        let qualityWeight = max(0.2, Float(survey.quality) / 5.0)
+
+        var labels: [PersonalLabel] = []
+        for entry in timeline {
+            // We don't have stored per-window features yet — approximate
+            // with a mid-entry feature vector of zeros plus a single-hot
+            // "this stage was active" cue. The weight matrix will still
+            // learn class-level bias adjustments per user.
+            var feats = Array<Float>(repeating: 0, count: PersonalizationVector.dim)
+            feats[0] = Float(entry.end.timeIntervalSince(entry.start) / 3600.0)
+
+            var stage = entry.stage
+            if let fa = survey.actualFellAsleepAt, entry.start < fa {
+                stage = .wake
+            }
+            if let wu = survey.actualWokeUpAt, entry.start > wu {
+                stage = .wake
+            }
+            if survey.alarmFeltGood == false, entry == timeline.last,
+               stage == .deep {
+                // user said alarm woke them in deep; downweight that signal.
+                continue
+            }
+            labels.append(
+                PersonalLabel(sessionId: sessionId,
+                              features: feats,
+                              stage: stage.rawValue,
+                              weight: qualityWeight)
+            )
+        }
+        guard !labels.isEmpty else { return }
+        await personalization.ingest(labels: labels)
+        let snap = await personalization.snapshot()
+        inferencePipeline.updatePersonalization(snap)
     }
 
     private func startStatusTickLoop() {

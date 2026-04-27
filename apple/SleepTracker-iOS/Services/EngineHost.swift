@@ -57,6 +57,22 @@ enum EngineHost {
         #endif
     }
 
+    @MainActor
+    static func makeSnoreDetector() -> SnoreDetectorProtocol {
+        #if canImport(AVFoundation) && canImport(CoreML) && canImport(Accelerate) && os(iOS)
+        return SleepKit.SnoreDetector()
+        #else
+        return NoopSnoreDetector()
+        #endif
+    }
+
+    static func makePersonalizationService() -> PersonalizationService {
+        let store = PersistentPersonalizationStore(
+            fileURL: PersistentPersonalizationStore.defaultURL()
+        )
+        return PersonalizationService(store: store)
+    }
+
     private static func defaultDBPath() -> String {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
