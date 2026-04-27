@@ -141,6 +141,11 @@
 "card.deviceSync.lastSync"  = "Last sync";
 "card.deviceSync.yes"       = "Yes";
 "card.deviceSync.no"        = "No";
+"card.deviceSync.live"      = "Watch is live";
+"card.deviceSync.offline"   = "Watch unreachable";
+"card.deviceSync.region"    = "Region";
+"card.deviceSync.region.cn" = "Mainland China";
+"card.deviceSync.region.global" = "Global";
 
 // Settings
 "settings.title"          = "Settings";
@@ -302,6 +307,7 @@ Pick one and stick with it for a week.";
 
 "home.tracking.duration"           = "Tracking · {time}";
 "home.tracking.stop"               = "End night";
+"home.tracking.holdHint"           = "Hold to end · 1 s";
 
 // AI tab — toolbar / history / disclaimer (added in Apple‑style polish pass)
 "ai.toolbar.history"               = "Chat history";

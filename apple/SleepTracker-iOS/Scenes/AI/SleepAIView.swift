@@ -516,20 +516,20 @@ private struct ModelPickerLabel: View {
         Menu {
             ForEach(model.availableTiers) { tier in
                 Button {
-                    if tier.kind != model.selectedTier.kind {
+                    if tier.brand != model.selectedTier.brand {
                         Haptics.selection()
-                        model.selectTier(tier.kind)
+                        model.selectBrand(tier.brand)
                     }
                 } label: {
                     Label {
                         VStack(alignment: .leading) {
-                            Text(tier.displayName(chinese: isChinese))
+                            Text(tier.displayName)
                             Text(tier.subtitle(chinese: isChinese))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     } icon: {
-                        if tier.kind == model.selectedTier.kind {
+                        if tier.brand == model.selectedTier.brand {
                             Image(systemName: "checkmark")
                         }
                     }
@@ -537,7 +537,7 @@ private struct ModelPickerLabel: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Text(model.selectedTier.displayName(chinese: isChinese))
+                Text(model.selectedTier.displayName)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
                 Image(systemName: "chevron.down")

@@ -141,6 +141,11 @@
 "card.deviceSync.lastSync"  = "最近同步";
 "card.deviceSync.yes"       = "是";
 "card.deviceSync.no"        = "否";
+"card.deviceSync.live"      = "手表已连接";
+"card.deviceSync.offline"   = "手表未连接";
+"card.deviceSync.region"    = "地区";
+"card.deviceSync.region.cn" = "中国大陆";
+"card.deviceSync.region.global" = "海外";
 
 // Settings
 "settings.title"          = "设置";
@@ -302,6 +307,7 @@
 
 "home.tracking.duration"           = "追踪中 · {time}";
 "home.tracking.stop"               = "结束";
+"home.tracking.holdHint"           = "长按 1 秒结束";
 
 // AI tab — toolbar / history / disclaimer (added in Apple‑style polish pass)
 "ai.toolbar.history"               = "聊天记录";

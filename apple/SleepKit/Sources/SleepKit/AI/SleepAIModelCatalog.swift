@@ -1,40 +1,61 @@
 import Foundation
 
-/// Catalog of the on-device LLM tiers Circadia ships. Each entry maps to:
-///   • A weights *directory name* (used by the build phase that embeds the
-///     model into the .app bundle, and by `MLXSleepAIService` to locate
-///     them at runtime).
-///   • A *display name* + *tier badge* shown in the model picker.
-///   • A regional policy (`SleepAIRegion.allows(_:)`) that decides whether
-///     this tier is offered in the picker.
+/// Catalog of the on-device LLM tiers Circadia ships.
 ///
-/// Adding a new tier is one line in `all`; the rest of the app picks it up.
+/// **Brand model (user-visible).** The picker only ever exposes two tiers:
+///
+///   • **Instant** — fast, lightweight model. Region-routed:
+///       - Mainland China  → Tongyi Lab Qwen3-1.7B-Instruct, 4-bit + LoRA
+///       - Everywhere else → Google DeepMind Gemma 3n, 4-bit + LoRA
+///     The user sees a single brand, "Instant", regardless of region.
+///
+///   • **Pro** — higher-quality, larger context. Identical worldwide:
+///       - Tongyi Lab Qwen3-4B-Instruct, 4-bit + LoRA
+///
+/// **Implementation model.** `SleepAIModelKind` (gemma / qwenInstant /
+/// qwenPro) still names the *underlying weights bundle on disk*; this is
+/// what `MLXSleepAIService` actually loads. The picker translates a brand
+/// tier + region into the right kind via `kind(for:in:)`.
+///
+/// Display copy is locale-agnostic on purpose — "Instant" and "Pro" read
+/// the same in zh-Hans and en, so we don't need to clutter the row with
+/// translations or technical jargon (no "1.7B / 4-bit / LoRA" subtitle).
 
 public enum SleepAIModelKind: String, Codable, Sendable, CaseIterable, Equatable {
-    /// Google DeepMind's Gemma-2-2B-IT, 4-bit, with a Circadia LoRA adapter
-    /// fused in. Default in regions outside Mainland China.
+    /// Google DeepMind Gemma 3n, 4-bit, with a Circadia LoRA adapter fused
+    /// in. Powers **Instant** outside Mainland China.
     case gemma
-    /// Alibaba Tongyi Lab Qwen3-1.7B-Instruct, 4-bit, sleep-only LoRA-tuned.
-    /// Branded as **Instant** — fast, light footprint.
+    /// Alibaba Tongyi Lab Qwen3-1.7B-Instruct, 4-bit + LoRA. Powers
+    /// **Instant** in Mainland China.
     case qwenInstant
-    /// Alibaba Tongyi Lab Qwen3-4B-Instruct, 4-bit, sleep-only LoRA-tuned.
-    /// Branded as **Pro** — larger, higher quality, slower first-token.
+    /// Alibaba Tongyi Lab Qwen3-4B-Instruct, 4-bit + LoRA. Powers **Pro**
+    /// in every region.
     case qwenPro
+}
+
+/// User-visible brand tier in the model picker. Stable string identifiers
+/// so persisted preferences survive across renames.
+public enum SleepAIBrandTier: String, Codable, Sendable, CaseIterable, Equatable {
+    case instant
+    case pro
 }
 
 /// Static metadata describing how each tier is presented and where its
 /// weights live on disk.
 public struct SleepAIModelTier: Codable, Equatable, Sendable, Identifiable {
+    /// Brand-level tier the user picks (Instant / Pro).
+    public let brand: SleepAIBrandTier
+    /// Underlying weights kind that actually loads at runtime — depends on
+    /// the brand tier *and* the device region.
     public let kind: SleepAIModelKind
     /// Subdirectory name *inside the .app bundle* and on disk under
     /// `Documents/Models/`. Stable across renames so existing installs keep
     /// finding their weights.
     public let bundleDirName: String
-    /// Short brand name in English: "Gemma 3n" / "Instant" / "Pro".
-    public let englishName: String
-    /// Short brand name in zh-Hans: "Gemma 3n" / "Instant 即时版" / "Pro 专业版".
-    public let chineseName: String
-    /// One-line subtitle shown under the model row in the picker.
+    /// Short brand name. Identical across locales — "Instant" / "Pro".
+    public let displayName: String
+    /// One-line subtitle shown under the model row. Plain language, no
+    /// model-card jargon.
     public let englishSubtitle: String
     public let chineseSubtitle: String
     /// On-disk size in MB (rounded). Used in the picker so the user can
@@ -43,11 +64,8 @@ public struct SleepAIModelTier: Codable, Equatable, Sendable, Identifiable {
     /// SF Symbol used as the picker row glyph.
     public let symbol: String
 
-    public var id: String { kind.rawValue }
+    public var id: String { brand.rawValue }
 
-    public func displayName(chinese: Bool) -> String {
-        chinese ? chineseName : englishName
-    }
     public func subtitle(chinese: Bool) -> String {
         chinese ? chineseSubtitle : englishSubtitle
     }
@@ -55,60 +73,92 @@ public struct SleepAIModelTier: Codable, Equatable, Sendable, Identifiable {
 
 public enum SleepAIModelCatalog {
 
-    /// All tiers Circadia knows about, in picker order. The order also
-    /// drives default selection (`defaultDescriptor(for:)` picks the first
-    /// allowed entry).
-    public static let all: [SleepAIModelTier] = [
-        SleepAIModelTier(
-            kind: .gemma,
-            bundleDirName: "circadia-sleep-2b-4bit",
-            englishName: "Gemma 3n",
-            chineseName: "Gemma 3n",
-            englishSubtitle: "Google DeepMind · 2B · 4-bit · LoRA",
-            chineseSubtitle: "Google DeepMind · 2B · 4-bit · LoRA",
-            approximateMB: 1500,
-            symbol: "sparkle"
-        ),
-        SleepAIModelTier(
-            kind: .qwenInstant,
-            bundleDirName: "circadia-sleep-qwen-1_7b-4bit",
-            englishName: "Instant",
-            chineseName: "Instant 即时版",
-            englishSubtitle: "Tongyi Lab Qwen3 · 1.7B · 4-bit · LoRA",
-            chineseSubtitle: "通义实验室 Qwen3 · 1.7B · 4-bit · LoRA",
-            approximateMB: 1100,
-            symbol: "bolt"
-        ),
-        SleepAIModelTier(
-            kind: .qwenPro,
-            bundleDirName: "circadia-sleep-qwen-4b-4bit",
-            englishName: "Pro",
-            chineseName: "Pro 专业版",
-            englishSubtitle: "Tongyi Lab Qwen3 · 4B · 4-bit · LoRA",
-            chineseSubtitle: "通义实验室 Qwen3 · 4B · 4-bit · LoRA",
-            approximateMB: 2500,
-            symbol: "sparkles"
-        )
-    ]
+    /// Resolves the underlying weights kind for a brand tier in a given
+    /// region. The returned kind is always one the region allows.
+    public static func kind(for brand: SleepAIBrandTier, in region: SleepAIRegion) -> SleepAIModelKind {
+        switch (brand, region) {
+        case (.instant, .mainlandChina): return .qwenInstant
+        case (.instant, .global):        return .gemma
+        case (.pro, _):                  return .qwenPro
+        }
+    }
 
+    /// Builds the tier descriptor the picker should show for `brand` in
+    /// `region`. Region only affects the *underlying* `kind` and bundle
+    /// directory; the brand label is identical worldwide.
+    public static func descriptor(for brand: SleepAIBrandTier, in region: SleepAIRegion) -> SleepAIModelTier {
+        let kind = kind(for: brand, in: region)
+        switch brand {
+        case .instant:
+            return SleepAIModelTier(
+                brand: .instant,
+                kind: kind,
+                bundleDirName: bundleDirName(for: kind),
+                displayName: "Instant",
+                englishSubtitle: "Fast · runs entirely on your iPhone",
+                chineseSubtitle: "轻快 · 完全在 iPhone 上运行",
+                approximateMB: kind == .qwenInstant ? 1100 : 1500,
+                symbol: "bolt.fill"
+            )
+        case .pro:
+            return SleepAIModelTier(
+                brand: .pro,
+                kind: kind,
+                bundleDirName: bundleDirName(for: kind),
+                displayName: "Pro",
+                englishSubtitle: "Higher quality · still on-device",
+                chineseSubtitle: "更高质量 · 同样本地运行",
+                approximateMB: 2500,
+                symbol: "sparkles"
+            )
+        }
+    }
+
+    /// Backwards-compatible lookup by raw kind. Used by existing call sites
+    /// that still pass a `SleepAIModelKind` (e.g. the legacy persistence
+    /// layer that stored kind strings before the brand-tier refactor).
     public static func descriptor(for kind: SleepAIModelKind) -> SleepAIModelTier {
-        all.first { $0.kind == kind } ?? all[0]
+        let region = SleepAIRegion.current
+        switch kind {
+        case .qwenPro:
+            return descriptor(for: .pro, in: region)
+        case .gemma, .qwenInstant:
+            return descriptor(for: .instant, in: region)
+        }
     }
 
-    /// Returns the descriptors the user is allowed to see in the picker
-    /// for a given region. Always non-empty: the catalogue guarantees at
-    /// least one Qwen tier in every region.
+    /// Tiers offered to the user in this region. Always exactly two,
+    /// `[Instant, Pro]`, independent of region — but the underlying weights
+    /// for Instant differ between Mainland China (Qwen) and Global (Gemma).
     public static func available(in region: SleepAIRegion) -> [SleepAIModelTier] {
-        all.filter { region.allows($0.kind) }
+        [
+            descriptor(for: .instant, in: region),
+            descriptor(for: .pro, in: region)
+        ]
     }
 
-    /// Default tier for a fresh install in `region`. We prefer **Instant**
-    /// in Mainland China (smallest footprint, no Gemma) and **Gemma** in
-    /// every other region (current shipping default).
+    /// Default brand tier for a fresh install. Always **Instant** — a small,
+    /// fast first-run experience is more important than peak quality.
+    public static func defaultBrand(for region: SleepAIRegion) -> SleepAIBrandTier {
+        _ = region
+        return .instant
+    }
+
+    /// Default underlying kind for a fresh install in `region`. Preserved
+    /// so existing call sites that read `defaultKind` keep working.
     public static func defaultKind(for region: SleepAIRegion) -> SleepAIModelKind {
-        switch region {
-        case .mainlandChina: return .qwenInstant
-        case .global:        return .gemma
+        kind(for: defaultBrand(for: region), in: region)
+    }
+
+    // MARK: - Internal
+
+    /// On-disk bundle directory name for a given underlying weights kind.
+    /// These match the names used by the `Embed Circadia LLM` build phase.
+    private static func bundleDirName(for kind: SleepAIModelKind) -> String {
+        switch kind {
+        case .gemma:       return "circadia-sleep-2b-4bit"
+        case .qwenInstant: return "circadia-sleep-qwen-1_7b-4bit"
+        case .qwenPro:     return "circadia-sleep-qwen-4b-4bit"
         }
     }
 }

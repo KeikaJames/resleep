@@ -5,6 +5,7 @@ use crate::engine::config::EngineConfig;
 use crate::models::inference::{RuleInference, StageInference};
 use crate::signal::actigraphy;
 use crate::signal::features::FeatureBuffers;
+use crate::signal::nightmare::NightmareDetector;
 use crate::{CoreError, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -73,6 +74,7 @@ pub struct SleepEngine {
     accel_epoch_n: u32,
     accel_epoch_start_ms: u64,
     actigraphy_counts: VecDeque<f32>,
+    nightmare: NightmareDetector,
 }
 
 impl SleepEngine {
@@ -91,6 +93,7 @@ impl SleepEngine {
             accel_epoch_n: 0,
             accel_epoch_start_ms: 0,
             actigraphy_counts: VecDeque::with_capacity(30),
+            nightmare: NightmareDetector::new(),
         })
     }
 
@@ -120,6 +123,8 @@ impl SleepEngine {
         self.accel_epoch_n = 0;
         self.accel_epoch_start_ms = started_at_ms;
         self.actigraphy_counts.clear();
+        self.nightmare.reset();
+        self.nightmare.note_session_start(started_at_ms);
         Ok(id)
     }
 
@@ -152,6 +157,7 @@ impl SleepEngine {
         };
         s.last_sample_ms = ts_ms.max(s.last_sample_ms);
         self.features.push_hr(bpm, ts_ms);
+        self.nightmare.push_hr(bpm, ts_ms);
         self.repo.insert_sample(
             &s.id,
             ts_ms,
@@ -178,6 +184,7 @@ impl SleepEngine {
         // Accumulate ENMO into 60-second epochs for actigraphy.
         let mag = (x * x + y * y + z * z).sqrt();
         let enmo = (mag - 1.0).max(0.0);
+        self.nightmare.push_motion(enmo, ts_ms);
         if self.accel_epoch_start_ms == 0 {
             self.accel_epoch_start_ms = ts_ms;
         }
@@ -254,9 +261,14 @@ impl SleepEngine {
         self.alarm.arm(target_ms, window_minutes);
     }
 
-    pub fn check_alarm_trigger(&self, now_ms: u64) -> bool {
-        self.alarm
-            .should_trigger(now_ms, self.current_stage, self.current_confidence)
+    pub fn check_alarm_trigger(&mut self, now_ms: u64) -> bool {
+        let nightmare_active = self.nightmare.tick(now_ms);
+        self.alarm.should_trigger(
+            now_ms,
+            self.current_stage,
+            self.current_confidence,
+            nightmare_active,
+        )
     }
 }
 

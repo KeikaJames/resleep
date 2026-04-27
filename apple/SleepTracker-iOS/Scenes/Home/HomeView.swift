@@ -40,9 +40,6 @@ struct HomeView: View {
                             LastSummaryCard()
                             InsightsCard()
                             DeviceSyncCard()
-                            #if DEBUG
-                            DeveloperDebugCard()
-                            #endif
                             if let err = model.lastError {
                                 Card {
                                     Label {
@@ -114,21 +111,28 @@ struct HomeView: View {
             try? await Task.sleep(nanoseconds: 80_000_000)
             Haptics.success()
         }
-        withAnimation(.easeOut(duration: 0.4)) {
+        withAnimation(.easeOut(duration: 0.45)) {
             showStartCurtain = true
         }
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 1_400_000_000)
-            withAnimation(.easeIn(duration: 0.6)) {
+            try? await Task.sleep(nanoseconds: 1_700_000_000)
+            withAnimation(.easeIn(duration: 0.75)) {
                 showStartCurtain = false
             }
         }
     }
 }
 
-/// Dark "settling in" overlay shown for ~1.4 s after Start. A single deep
-/// gradient with a slow pulsing radial highlight and a soft, fading
-/// localized phrase. No copy crunch — just breath.
+/// Dark "settling in" overlay shown for ~1.4 s after Start. Builds in
+/// three layered beats so the cut from "Idle home" to the night Hero feels
+/// cinematic rather than abrupt:
+///   1. A deep gradient washes in (curtain fall).
+///   2. A radial pulse breathes at the centre, scaling up.
+///   3. The brand moon glyph fades in, gently rising, with the localized
+///      "good night" greeting beneath it.
+/// All driven by a single `phase` value so timing stays cheap and easy to
+/// tune. The hero's own starfield + aurora then takes over without any
+/// visible seam — both layers share the same indigo palette.
 private struct StartCurtainView: View {
     @State private var phase: CGFloat = 0
     var body: some View {
@@ -151,18 +155,39 @@ private struct StartCurtainView: View {
                 startRadius: 0,
                 endRadius: 320
             )
-            .scaleEffect(0.85 + 0.18 * phase)
+            .scaleEffect(0.78 + 0.28 * phase)
             .blur(radius: 28)
 
-            Text("home.start.greeting")
-                .font(.system(size: 28, weight: .light, design: .default))
-                .foregroundStyle(.white.opacity(0.85))
-                .tracking(2)
-                .opacity(0.4 + 0.6 * phase)
+            VStack(spacing: 20) {
+                Image(systemName: "moon.stars.fill")
+                    .font(.system(size: 52, weight: .light))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.98, green: 0.94, blue: 0.84),
+                                Color(red: 0.85, green: 0.82, blue: 0.74)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .shadow(color: Color(red: 0.95, green: 0.85, blue: 0.6).opacity(0.4),
+                            radius: 22, y: 0)
+                    .opacity(Double(phase))
+                    .scaleEffect(0.85 + 0.20 * phase)
+                    .offset(y: (1 - phase) * 16)
+
+                Text("home.start.greeting")
+                    .font(.system(size: 26, weight: .light, design: .default))
+                    .foregroundStyle(.white.opacity(0.88))
+                    .tracking(2)
+                    .opacity(0.2 + 0.8 * Double(phase))
+                    .offset(y: (1 - phase) * 10)
+            }
         }
         .preferredColorScheme(.dark)
         .onAppear {
-            withAnimation(.easeInOut(duration: 1.0)) { phase = 1 }
+            withAnimation(.easeOut(duration: 1.05)) { phase = 1 }
         }
     }
 }
@@ -551,29 +576,98 @@ private struct InsightRow: View {
 
 // MARK: - Device & sync
 
+/// Quiet, premium status card that *summarises connectivity* at a glance,
+/// then dives into details on tap. The collapsed state shows an
+/// expressive watch glyph + a single live status line; the expanded state
+/// reveals the full breakdown (last sync, model backend) plus a refresh
+/// affordance. Designed to read like a system widget — you can tell at a
+/// glance whether the night will record properly.
 private struct DeviceSyncCard: View {
     @EnvironmentObject private var appState: AppState
+    @State private var expanded: Bool = false
 
     var body: some View {
         Card {
-            VStack(spacing: 10) {
-                CardHeader(title: "card.deviceSync")
+            VStack(spacing: 14) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.28)) { expanded.toggle() }
+                    Haptics.selection()
+                } label: {
+                    HStack(spacing: 14) {
+                        watchGlyph
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("card.deviceSync")
+                                .font(.subheadline.weight(.semibold))
+                                .textCase(.uppercase)
+                                .tracking(0.5)
+                                .foregroundStyle(.secondary)
+                            HStack(spacing: 6) {
+                                StatusDot(color: appState.router.watchReachable ? .green : .secondary)
+                                Text(headlineKey)
+                                    .font(.body.weight(.medium))
+                                    .foregroundStyle(.primary)
+                            }
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                            .rotationEffect(.degrees(expanded ? 180 : 0))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
 
-                Row(label: "home.source.watch",
-                    value: appState.router.watchReachable
-                        ? NSLocalizedString("card.deviceSync.reachable", comment: "")
-                        : NSLocalizedString("card.deviceSync.no", comment: ""),
-                    valueColor: appState.router.watchReachable ? .green : .secondary)
-                Row(label: "card.deviceSync.lastSync", value: relativeDate(appState.router.lastBatchAt))
-                Row(label: "settings.section.model",
-                    value: appState.inferencePipeline.descriptor.isRealModel
-                        ? NSLocalizedString("settings.model.coreml", comment: "")
-                        : NSLocalizedString("settings.model.heuristic", comment: ""),
-                    valueColor: appState.inferencePipeline.descriptor.isRealModel ? .green : .orange)
+                if expanded {
+                    VStack(spacing: 10) {
+                        Divider().opacity(0.5)
+                        Row(label: "card.deviceSync.lastSync",
+                            value: relativeDate(appState.router.lastBatchAt))
+                        Row(label: "settings.section.model",
+                            value: appState.inferencePipeline.descriptor.isRealModel
+                                ? NSLocalizedString("settings.model.coreml", comment: "")
+                                : NSLocalizedString("settings.model.heuristic", comment: ""),
+                            valueColor: appState.inferencePipeline.descriptor.isRealModel ? .green : .orange)
+                        Row(label: "card.deviceSync.region",
+                            value: regionLabel)
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             }
         }
     }
 
+    /// SF Symbol that breathes when the watch is reachable — tiny ambient
+    /// pulse that confirms "we're live" without a noisy badge.
+    private var watchGlyph: some View {
+        ZStack {
+            Circle()
+                .fill(appState.router.watchReachable
+                      ? Color.green.opacity(0.14)
+                      : Color.secondary.opacity(0.10))
+                .frame(width: 44, height: 44)
+            Image(systemName: "applewatch.radiowaves.left.and.right")
+                .font(.title3.weight(.medium))
+                .foregroundStyle(appState.router.watchReachable ? .green : .secondary)
+                .symbolEffect(
+                    .variableColor.iterative.dimInactiveLayers,
+                    isActive: appState.router.watchReachable
+                )
+        }
+    }
+
+    private var headlineKey: LocalizedStringKey {
+        appState.router.watchReachable
+            ? "card.deviceSync.live"
+            : "card.deviceSync.offline"
+    }
+
+    private var regionLabel: String {
+        switch SleepAIRegion.current {
+        case .mainlandChina: return NSLocalizedString("card.deviceSync.region.cn", comment: "")
+        case .global:        return NSLocalizedString("card.deviceSync.region.global", comment: "")
+        }
+    }
 }
 
 // MARK: - Developer debug (collapsed)
