@@ -222,3 +222,12 @@
 "recovery.finish"     = "Finish & Save";
 "recovery.discard"    = "Discard";
 "settings.localData.confirmMessage" = "Sessions, summaries, and timelines stored on this device will be removed.";
+
+// Insights (LocalInsightsService)
+"insights.header"                  = "Insights";
+"insight.duration.short.title"     = "Aim for 7–8h";
+"insight.duration.short.detail"    = "Last night you slept under 6h. Try an earlier bedtime tonight.";
+"insight.deep.low.title"           = "Low deep sleep";
+"insight.deep.low.detail"          = "Deep sleep was under 12%. Avoid late caffeine and screens.";
+"insight.wake.high.title"          = "Restless night";
+"insight.wake.high.detail"         = "Awake time was above 15%. Keep the room cool and dark.";

@@ -21,6 +21,7 @@ struct HomeView: View {
                     TonightStatusCard()
                     SmartAlarmCard()
                     LastSummaryCard()
+                    InsightsCard()
                     DeviceSyncCard()
                     DeveloperDebugCard()
                     if let err = model.lastError {
@@ -266,7 +267,7 @@ private struct LastSummaryCard: View {
                 CardHeader(title: "card.lastSession")
 
                 if let summary = appState.latestSummary {
-                    HStack(alignment: .firstTextBaseline) {
+                    HStack(alignment: .center, spacing: 18) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(formatDuration(summary.durationSec))
                                 .font(.system(size: 30, weight: .semibold, design: .rounded))
@@ -276,14 +277,10 @@ private struct LastSummaryCard: View {
                                 .foregroundStyle(.tertiary)
                         }
                         Spacer()
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text("\(summary.sleepScore)")
-                                .font(.system(size: 30, weight: .semibold, design: .rounded))
-                                .monospacedDigit()
-                            Text("card.lastSession.score")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
+                        ScoreRing(score: summary.sleepScore)
+                            .frame(width: 76, height: 76)
+                            .accessibilityLabel(Text("card.lastSession.score"))
+                            .accessibilityValue(Text("\(summary.sleepScore)"))
                     }
 
                     HStack(spacing: 14) {
@@ -328,6 +325,76 @@ private struct LastSummaryCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+        }
+    }
+}
+
+// MARK: - Insights
+
+/// Surfaces personalized rule-based suggestions from `LocalInsightsService`
+/// for the most recent session. Hidden when there's no current summary or
+/// no suggestions fire.
+private struct InsightsCard: View {
+    @EnvironmentObject private var appState: AppState
+
+    private var suggestions: [Suggestion] {
+        guard let s = appState.latestSummary else { return [] }
+        return appState.insights.suggestions(from: s)
+    }
+
+    var body: some View {
+        if suggestions.isEmpty {
+            EmptyView()
+        } else {
+            Card {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "sparkles")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.tint)
+                        Text("insights.header")
+                            .font(.headline)
+                    }
+                    ForEach(suggestions) { suggestion in
+                        InsightRow(suggestion: suggestion)
+                        if suggestion.id != suggestions.last?.id {
+                            Divider().opacity(0.4)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct InsightRow: View {
+    let suggestion: Suggestion
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: glyph(for: suggestion.id))
+                .font(.body.weight(.medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 22, alignment: .center)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(verbatim: suggestion.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text(verbatim: suggestion.detail)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func glyph(for id: String) -> String {
+        switch id {
+        case "duration.short": return "moon.zzz"
+        case "deep.low":       return "waveform.path.ecg"
+        case "wake.high":      return "exclamationmark.triangle"
+        default:               return "lightbulb"
         }
     }
 }
@@ -497,6 +564,47 @@ private struct StatusDot: View {
     let color: Color
     var body: some View {
         Circle().fill(color).frame(width: 8, height: 8)
+    }
+}
+
+/// Apple Health-style circular score indicator. The arc length encodes
+/// the score (0-100) and the color shifts from amber to green across
+/// the same range. Uses `design: .rounded` for the numeric SF style.
+private struct ScoreRing: View {
+    let score: Int
+
+    private var fraction: Double {
+        Double(min(max(score, 0), 100)) / 100.0
+    }
+
+    private var tint: Color {
+        switch score {
+        case ..<50:  return .orange
+        case 50..<75: return .yellow
+        default:     return .green
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.secondary.opacity(0.15), lineWidth: 6)
+            Circle()
+                .trim(from: 0, to: fraction)
+                .stroke(tint, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.easeOut(duration: 0.6), value: fraction)
+            VStack(spacing: 0) {
+                Text("\(score)")
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.primary)
+                Text("card.lastSession.score")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                    .textCase(.uppercase)
+            }
+        }
     }
 }
 

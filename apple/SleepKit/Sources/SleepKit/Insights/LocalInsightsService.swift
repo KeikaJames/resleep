@@ -30,19 +30,32 @@ public final class LocalInsightsService: LocalInsightsServiceProtocol, @unchecke
     public func suggestions(from summary: SessionSummary) -> [Suggestion] {
         var out: [Suggestion] = []
         if summary.durationSec < 6 * 3600 {
-            out.append(Suggestion(title: "Aim for 7–8h",
-                                  detail: "Last night you slept under 6h. Try an earlier bedtime tonight."))
+            out.append(Suggestion(
+                id: "duration.short",
+                title: Self.local("insight.duration.short.title"),
+                detail: Self.local("insight.duration.short.detail")))
         }
         let deepRatio = Double(summary.timeInDeepSec) / Double(max(summary.durationSec, 1))
         if deepRatio < 0.12 {
-            out.append(Suggestion(title: "Low deep sleep",
-                                  detail: "Deep sleep was under 12%. Avoid late caffeine and screens."))
+            out.append(Suggestion(
+                id: "deep.low",
+                title: Self.local("insight.deep.low.title"),
+                detail: Self.local("insight.deep.low.detail")))
         }
         let wakeRatio = Double(summary.timeInWakeSec) / Double(max(summary.durationSec, 1))
         if wakeRatio > 0.15 {
-            out.append(Suggestion(title: "Restless night",
-                                  detail: "Awake time was above 15%. Keep the room cool and dark."))
+            out.append(Suggestion(
+                id: "wake.high",
+                title: Self.local("insight.wake.high.title"),
+                detail: Self.local("insight.wake.high.detail")))
         }
         return out
+    }
+
+    /// Looks up a localized string from the running app's bundle. The
+    /// SleepKit package itself ships no `.strings` file — strings live
+    /// in the iOS / watchOS app bundle that imports SleepKit.
+    private static func local(_ key: String) -> String {
+        Bundle.main.localizedString(forKey: key, value: key, table: nil)
     }
 }

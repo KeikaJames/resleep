@@ -222,3 +222,12 @@
 "recovery.finish"     = "完成并保存";
 "recovery.discard"    = "丢弃";
 "settings.localData.confirmMessage" = "本机存储的会话、摘要和时间轴将被删除。";
+
+// Insights
+"insights.header"                  = "睡眠建议";
+"insight.duration.short.title"     = "争取 7–8 小时";
+"insight.duration.short.detail"    = "昨晚不到 6 小时，今晚早一点上床试试。";
+"insight.deep.low.title"           = "深睡偏低";
+"insight.deep.low.detail"          = "深睡少于 12%。睡前避免咖啡因和强光屏幕。";
+"insight.wake.high.title"          = "夜里偏躁动";
+"insight.wake.high.detail"         = "清醒时间超过 15%。保持卧室凉爽、黑暗。";
