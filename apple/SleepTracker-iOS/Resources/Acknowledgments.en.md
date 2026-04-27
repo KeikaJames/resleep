@@ -1,5 +1,7 @@
 # Acknowledgments
 
+Circadia is produced by Monle Capital (Monle (Beijing) Technology Co., Ltd.).
+
 Some Circadia features reference, use or benefit from publicly released research, algorithms, model weights, developer tools and technical documentation from Apple, Google DeepMind, Alibaba Tongyi Lab and the open-source community.
 
 We thank the many developers, researchers and maintainers on GitHub, Hugging Face and across the open-source community for their contributions to open research, open models and on-device intelligence.
