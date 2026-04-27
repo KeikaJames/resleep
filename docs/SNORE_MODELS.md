@@ -1,74 +1,48 @@
-# Snore detection — open-source paths
+# Snore detection — using Apple's built-in classifier
 
-Two ways to get a stronger snore detector than the synthetic baseline.
+## What ships today (no model file needed)
 
-## Option A — Fine-tune our small CNN on ESC-50 (recommended starter)
+`SleepKit/Health/SnoreDetector.swift` is now backed by Apple's
+**`SNClassifySoundRequest` with `SNClassifierIdentifier.version1`**
+(SoundAnalysis framework, iOS 15+). This classifier ships **inside the
+OS**, recognizes ~300 environmental sound classes including `snoring`,
+and is the same classifier used by Apple's first-party features.
 
-ESC-50 (Karol Piczak) ships a `snoring` class with 40 clips and 49 other
-environmental classes for the negatives. CC BY-NC 3.0 — research / personal
-use only; do not bundle the dataset.
+What this means:
 
-```bash
-cd python
-python3 -m training.train_snore_cnn --dataset esc50 --epochs 30 \
-    --out runs --val-fold 5
-# Or with a pre-extracted copy:
-python3 -m training.train_snore_cnn --dataset esc50 \
-    --esc50-path /path/to/ESC-50-master --epochs 30 --out runs
-python3 -m training.export.export_snore --ckpt runs/snore_latest.pt \
-    --out runs/SnoreDetector.mlpackage
-```
+- **Zero model weights in the app bundle.** Nothing to train, nothing to
+  download, nothing to bundle. The shipped binary stays small.
+- **Apple-quality recognition** out of the box, calibrated by Apple on a
+  large internal dataset. No synthetic-data limitation.
+- **Privacy unchanged.** Audio still flows AVAudioEngine →
+  SNAudioStreamAnalyzer **in memory only**, never persisted, never
+  uploaded. Only a Float32 confidence score for the `snoring` class
+  leaves the audio pipeline.
+- **License: free.** SoundAnalysis is part of iOS — no third-party
+  licensing or attribution required.
 
-The script does fold-based hold-out (default `--val-fold 5`) and a
-SpecAugment-lite frequency/time mask. With 30 epochs you should land
-~88-93 % balanced accuracy on the held-out fold. The exported
-`.mlpackage` drops straight into `apple/SleepKit/Sources/SleepKit/Models/`
-and is auto-loaded by `SnoreDetector`.
+Threshold is `0.6` on `snoring.confidence`, with a 1.5 s cooldown
+between counted events to avoid double-counting one snore that spans
+two analysis windows.
 
-## Option B — Replace the encoder with YAMNet or PANNs
+## When you might want to swap in your own model
 
-If you want production-grade audio embeddings without collecting new data:
+Only if you need:
 
-| Model | License | What you get | How to use |
-|---|---|---|---|
-| **YAMNet** (TF Hub) | Apache 2.0 | 521-class AudioSet head, "Snoring" class is index 38, returns scores per 0.96 s window | Convert via `coremltools` from the official `.tflite`, or use Apple's published [`AudioSet`](https://developer.apple.com/documentation/createmlcomponents) example |
-| **PANNs CNN10/CNN14** (Qiuqiang Kong) | MIT | 527-class AudioSet head, top-K Snoring scores per second | Convert PyTorch checkpoint via `coremltools.convert`; or fine-tune the last layer on ESC-50 |
-| **AST** (MIT, Yuan Gong) | BSD-3 | Transformer on AudioSet, strong but ~80 MB | Fine-tune last block on ESC-50 + record-your-own snores; quantize to 8-bit for Core ML |
+- A custom class set (e.g. distinguish snoring vs sleep apnea events).
+- Non-iOS targets (watchOS, macOS Catalyst — the on-device classifier
+  is iOS-only).
 
-Recommended path if you want to ship the strongest baseline today:
+In those cases, the previous Core ML pipeline still exists in git
+history and the training scripts under `python/training/` still work.
+Open-source paths kept for reference:
 
-1. Download YAMNet from TF Hub.
-2. Run it on a few real overnight recordings to confirm the AudioSet
-   "Snoring" head fires reasonably on your data.
-3. Convert to Core ML via the standard TF → CoreML path:
-   ```bash
-   pip install coremltools tensorflow
-   python3 -c "
-   import tensorflow_hub as hub, coremltools as ct, tensorflow as tf
-   m = hub.load('https://tfhub.dev/google/yamnet/1')
-   # wrap & convert — see Apple sample 'Classifying Sounds in an Audio File'
-   "
-   ```
-4. Drop the `.mlpackage` next to `SnoreDetector.mlpackage` and have
-   `SnoreDetector` read just the "Snoring" / "Snore" class scores.
+| Path | License | Notes |
+|---|---|---|
+| ESC-50 + our small CNN | CC BY-NC 3.0 | 40 snoring clips; balanced negatives. Training in `python/training/train_snore_cnn.py --dataset esc50`. |
+| YAMNet (TF Hub) | Apache 2.0 | AudioSet 521 classes, "Snoring" #38. |
+| PANNs CNN10/14 | MIT | AudioSet 527 classes, "Snoring" included. |
+| AST | BSD-3 | Stronger transformer; ~80 MB. |
 
-This avoids training on synthetic data entirely.
+For production iOS the SoundAnalysis built-in is the right call.
 
-## What our shipped baseline does today
-
-- Pure-PyTorch tiny CNN, 3 conv blocks, 64×32 log-mel input.
-- Trained on synthetic mel patterns (low-frequency periodic bursts vs
-  pink noise + transients) by default.
-- Real-data training is now opt-in via `--dataset esc50`.
-- Inference is wrapped behind `SnoreDetector` (Swift) which thresholds
-  the positive-class probability at 0.6 with a 3-of-5 hysteresis.
-
-## Compliance notes
-
-- Audio is captured with `AVAudioEngine`, converted to log-mel **in
-  memory only**, scored, and discarded. No PCM is written to disk.
-- ESC-50 is **not** redistributed in this repo. Users must download it
-  themselves and accept its license.
-- AudioSet itself is not redistributable as audio; using YAMNet/PANNs
-  weights pretrained on AudioSet is fine because the upstream authors
-  release the weights under permissive licenses.

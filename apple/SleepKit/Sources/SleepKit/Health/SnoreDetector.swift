@@ -52,54 +52,52 @@ public final class NoopSnoreDetector: SnoreDetectorProtocol {
     public func onEvent(_ handler: @escaping @Sendable (Int) -> Void) {}
 }
 
-#if canImport(AVFoundation) && canImport(CoreML) && canImport(Accelerate) && os(iOS)
+#if canImport(AVFoundation) && canImport(SoundAnalysis) && os(iOS)
+import SoundAnalysis
 
-/// Production iOS implementation. Tap the input node at 16 kHz mono, build
-/// log-mel windows, predict per second.
+/// Production iOS implementation backed by Apple's built-in
+/// `SNClassifySoundRequest` (iOS 15+, classifier `version1`). This classifier
+/// is shipped inside the OS — it recognizes ~300 environmental sounds
+/// including `snoring` — so we ship no model weights, no `.mlpackage`,
+/// no synthetic-data baseline, and we get Apple's quality bar for free.
+///
+/// **Audio bytes are never persisted, never logged, never uploaded.** Each
+/// PCM buffer flows AVAudioEngine → SNAudioStreamAnalyzer in memory and is
+/// dropped. The only thing that escapes the audio pipeline is a Float
+/// confidence score for the `snoring` class.
 @MainActor
-public final class SnoreDetector: SnoreDetectorProtocol {
+public final class SnoreDetector: NSObject, SnoreDetectorProtocol, SNResultsObserving {
 
     public private(set) var isRunning: Bool = false
     public private(set) var eventCount: Int = 0
 
-    public var isAvailable: Bool { _model != nil }
+    /// Always available on iOS 15+. The class is gated by `os(iOS)` already.
+    public var isAvailable: Bool { true }
 
     private let session = AVAudioSession.sharedInstance()
     private let engine = AVAudioEngine()
-    private let _model: MLModel?
+    private var analyzer: SNAudioStreamAnalyzer?
+    private var request: SNClassifySoundRequest?
+    private let analysisQueue = DispatchQueue(label: "snore.analysis")
 
-    private let nMels = 64
-    private let nFrames = 32
-    private let sampleRate: Double = 16_000.0
-    private let hopSamples: Int  = 256          // ≈16 ms hop @ 16 kHz
-    private let frameSamples: Int = 512          // 32 ms FFT frame
-    private let windowSamples: Int                // = hop * nFrames
+    /// Minimum confidence (0..1) on the `snoring` class to count one event.
+    /// Apple's classifier returns calibrated probabilities; 0.6 is a good
+    /// trade-off between recall and false positives in quiet bedrooms.
+    private let threshold: Double = 0.6
 
-    /// Activation threshold above which we count the window as a snore-like
-    /// event. The classifier emits softmaxed prob(snore) – well-calibrated on
-    /// synthetic data; conservative threshold avoids over-counting.
-    private let threshold: Float = 0.7
-
-    private var ringBuffer: [Float] = []
-    private var melFilterbank: [[Float]] = []
-    private var hannWindow: [Float] = []
+    /// Hysteresis: count a single "event" per N consecutive positive windows
+    /// to avoid double-counting one snore that spans two analysis windows.
+    private let cooldownSec: TimeInterval = 1.5
+    private var lastEventAt: Date = .distantPast
 
     private var eventHandler: (@Sendable (Int) -> Void)?
 
-    public init(bundle: Bundle = .main) {
-        self.windowSamples = 256 * 32
-        if let url = Self.findModelURL(in: bundle),
-           let m = try? MLModel(contentsOf: url) {
-            self._model = m
-        } else {
-            self._model = nil
-        }
-        self.melFilterbank = Self.buildMelFilterbank(
-            nMels: nMels, nFFT: frameSamples, sampleRate: Float(sampleRate)
-        )
-        self.hannWindow = (0..<frameSamples).map {
-            0.5 - 0.5 * cos(2.0 * Float.pi * Float($0) / Float(self.frameSamples - 1))
-        }
+    public override init() {
+        super.init()
+    }
+
+    public init(bundle _: Bundle = .main) {
+        super.init()
     }
 
     public func onEvent(_ handler: @escaping @Sendable (Int) -> Void) {
@@ -107,9 +105,9 @@ public final class SnoreDetector: SnoreDetectorProtocol {
     }
 
     public func start() throws {
-        guard _model != nil else { throw SnoreDetectorError.modelMissing }
         guard !isRunning else { return }
 
+        // Configure the audio session for low-power background recording.
         do {
             try session.setCategory(.playAndRecord,
                                     mode: .measurement,
@@ -121,43 +119,35 @@ public final class SnoreDetector: SnoreDetectorProtocol {
 
         let inputNode = engine.inputNode
         let nativeFormat = inputNode.outputFormat(forBus: 0)
-        guard let targetFormat = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: sampleRate,
-            channels: 1,
-            interleaved: false
-        ) else { throw SnoreDetectorError.engineFailed("invalid format") }
+        guard nativeFormat.sampleRate > 0 else {
+            throw SnoreDetectorError.engineFailed("input node has no format")
+        }
 
-        let converter = AVAudioConverter(from: nativeFormat, to: targetFormat)
-        ringBuffer.removeAll(keepingCapacity: true)
-        ringBuffer.reserveCapacity(windowSamples * 2)
+        // Build the SoundAnalysis request against Apple's bundled classifier.
+        let request: SNClassifySoundRequest
+        do {
+            request = try SNClassifySoundRequest(classifierIdentifier: .version1)
+            // Default 0.975 s window with 0.0 overlap = ~1 detection per second.
+            request.windowDuration = CMTime(seconds: 0.975, preferredTimescale: 44_100)
+            request.overlapFactor = 0.0
+        } catch {
+            throw SnoreDetectorError.engineFailed("classifier init: \(error.localizedDescription)")
+        }
 
-        inputNode.installTap(onBus: 0, bufferSize: 2048, format: nativeFormat) { [weak self] buffer, _ in
+        let analyzer = SNAudioStreamAnalyzer(format: nativeFormat)
+        do {
+            try analyzer.add(request, withObserver: self)
+        } catch {
+            throw SnoreDetectorError.engineFailed("analyzer add: \(error.localizedDescription)")
+        }
+
+        self.analyzer = analyzer
+        self.request = request
+
+        inputNode.installTap(onBus: 0, bufferSize: 8192, format: nativeFormat) { [weak self] buffer, when in
             guard let self else { return }
-            let frameCapacity = AVAudioFrameCount(
-                Double(buffer.frameLength) * self.sampleRate / nativeFormat.sampleRate + 16
-            )
-            guard let outBuf = AVAudioPCMBuffer(
-                pcmFormat: targetFormat, frameCapacity: frameCapacity
-            ) else { return }
-            var error: NSError?
-            let status = converter?.convert(to: outBuf, error: &error) { _, statusOut in
-                statusOut.pointee = .haveData
-                return buffer
-            }
-            guard status == .haveData,
-                  let channelData = outBuf.floatChannelData?[0] else { return }
-            let n = Int(outBuf.frameLength)
-            let frames = UnsafeBufferPointer(start: channelData, count: n)
-
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.ringBuffer.append(contentsOf: frames)
-                while self.ringBuffer.count >= self.windowSamples {
-                    let chunk = Array(self.ringBuffer.prefix(self.windowSamples))
-                    self.ringBuffer.removeFirst(self.windowSamples)
-                    self.classifyChunk(chunk)
-                }
+            self.analysisQueue.async {
+                self.analyzer?.analyze(buffer, atAudioFramePosition: when.sampleTime)
             }
         }
 
@@ -166,6 +156,7 @@ public final class SnoreDetector: SnoreDetectorProtocol {
             try engine.start()
             isRunning = true
             eventCount = 0
+            lastEventAt = .distantPast
         } catch {
             throw SnoreDetectorError.engineFailed(error.localizedDescription)
         }
@@ -175,129 +166,37 @@ public final class SnoreDetector: SnoreDetectorProtocol {
         guard isRunning else { return }
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
+        analyzer?.removeAllRequests()
+        analyzer = nil
+        request = nil
         try? session.setActive(false, options: .notifyOthersOnDeactivation)
-        ringBuffer.removeAll(keepingCapacity: false)
         isRunning = false
     }
 
-    // MARK: - Inference
+    // MARK: - SNResultsObserving
 
-    private func classifyChunk(_ samples: [Float]) {
-        guard let mel = computeLogMel(samples: samples) else { return }
-        guard let model = _model else { return }
-        guard let array = try? MLMultiArray(
-            shape: [1, 1, NSNumber(value: nMels), NSNumber(value: nFrames)],
-            dataType: .float32
-        ) else { return }
-        let ptr = UnsafeMutablePointer<Float>(OpaquePointer(array.dataPointer))
-        for m in 0..<nMels {
-            for f in 0..<nFrames {
-                ptr[m * nFrames + f] = mel[m][f]
-            }
-        }
-        let provider = try? MLDictionaryFeatureProvider(
-            dictionary: ["logMel": MLFeatureValue(multiArray: array)]
-        )
-        guard let provider,
-              let out = try? model.prediction(from: provider) else { return }
-
-        // Find any output array regardless of name (logits / var_96 fallback).
-        var snoreProb: Float = 0
-        for name in out.featureNames {
-            if let m = out.featureValue(for: name)?.multiArrayValue,
-               m.count == 2 {
-                let p0 = Float(truncating: m[0])
-                let p1 = Float(truncating: m[1])
-                let s = exp(p1) / (exp(p0) + exp(p1))
-                snoreProb = s
-                break
-            }
-        }
-        if snoreProb >= threshold {
-            eventCount += 1
-            eventHandler?(eventCount)
+    public nonisolated func request(_ request: SNRequest, didProduce result: SNResult) {
+        guard let cls = result as? SNClassificationResult else { return }
+        // Apple's class identifier for snoring is "snoring".
+        guard let snore = cls.classification(forIdentifier: "snoring") else { return }
+        let confidence = snore.confidence
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard confidence >= self.threshold else { return }
+            let now = Date()
+            guard now.timeIntervalSince(self.lastEventAt) >= self.cooldownSec else { return }
+            self.lastEventAt = now
+            self.eventCount += 1
+            self.eventHandler?(self.eventCount)
         }
     }
 
-    private func computeLogMel(samples: [Float]) -> [[Float]]? {
-        // Frame the signal: nFrames windows of frameSamples each, hop=hopSamples.
-        guard samples.count >= frameSamples + (nFrames - 1) * hopSamples else { return nil }
-        let log2N = vDSP_Length(log2(Float(frameSamples)))
-        guard let fft = vDSP_create_fftsetup(log2N, FFTRadix(kFFTRadix2)) else { return nil }
-        defer { vDSP_destroy_fftsetup(fft) }
-
-        var real = [Float](repeating: 0, count: frameSamples / 2)
-        var imag = [Float](repeating: 0, count: frameSamples / 2)
-        var mel = Array(repeating: [Float](repeating: 0, count: nFrames), count: nMels)
-
-        var window = [Float](repeating: 0, count: frameSamples)
-        for f in 0..<nFrames {
-            let off = f * hopSamples
-            // windowed copy
-            vDSP_vmul(Array(samples[off..<off+frameSamples]), 1,
-                      hannWindow, 1,
-                      &window, 1, vDSP_Length(frameSamples))
-            // FFT
-            window.withUnsafeMutableBufferPointer { wp in
-                wp.baseAddress!.withMemoryRebound(to: DSPComplex.self,
-                                                  capacity: frameSamples / 2) { complexPtr in
-                    var split = DSPSplitComplex(realp: &real, imagp: &imag)
-                    vDSP_ctoz(complexPtr, 2, &split, 1, vDSP_Length(frameSamples / 2))
-                    vDSP_fft_zrip(fft, &split, 1, log2N, FFTDirection(FFT_FORWARD))
-                }
-            }
-            // power = real^2 + imag^2
-            var power = [Float](repeating: 0, count: frameSamples / 2)
-            vDSP_vsq(real, 1, &power, 1, vDSP_Length(frameSamples / 2))
-            var imagSq = [Float](repeating: 0, count: frameSamples / 2)
-            vDSP_vsq(imag, 1, &imagSq, 1, vDSP_Length(frameSamples / 2))
-            vDSP_vadd(power, 1, imagSq, 1, &power, 1, vDSP_Length(frameSamples / 2))
-
-            // Apply mel filterbank
-            for m in 0..<nMels {
-                var s: Float = 0
-                vDSP_dotpr(power, 1, melFilterbank[m], 1, &s, vDSP_Length(power.count))
-                mel[m][f] = log10f(max(s, 1e-10))
-            }
-        }
-        return mel
+    public nonisolated func request(_ request: SNRequest, didFailWithError error: Error) {
+        // Surface to caller best-effort: stop on hard failure.
+        Task { @MainActor [weak self] in self?.stop() }
     }
 
-    // MARK: - Mel filterbank
-
-    private static func buildMelFilterbank(nMels: Int, nFFT: Int, sampleRate: Float) -> [[Float]] {
-        let fmin: Float = 50
-        let fmax: Float = sampleRate / 2
-        let melMin = 2595 * log10f(1 + fmin / 700)
-        let melMax = 2595 * log10f(1 + fmax / 700)
-        let melPoints = (0..<(nMels + 2)).map { i -> Float in
-            let m = melMin + (melMax - melMin) * Float(i) / Float(nMels + 1)
-            return 700 * (powf(10, m / 2595) - 1)
-        }
-        let bin = melPoints.map { Int(floor(Float(nFFT + 1) * $0 / sampleRate)) }
-        var fb = Array(repeating: [Float](repeating: 0, count: nFFT / 2), count: nMels)
-        for m in 0..<nMels {
-            let lo = bin[m], mid = bin[m + 1], hi = bin[m + 2]
-            for k in lo..<min(mid, nFFT / 2) {
-                if mid == lo { continue }
-                fb[m][k] = Float(k - lo) / Float(mid - lo)
-            }
-            for k in mid..<min(hi, nFFT / 2) {
-                if hi == mid { continue }
-                fb[m][k] = Float(hi - k) / Float(hi - mid)
-            }
-        }
-        return fb
-    }
-
-    private static func findModelURL(in bundle: Bundle) -> URL? {
-        for ext in ["mlmodelc", "mlpackage"] {
-            if let u = bundle.url(forResource: "SnoreDetector", withExtension: ext) {
-                return u
-            }
-        }
-        return nil
-    }
+    public nonisolated func requestDidComplete(_ request: SNRequest) {}
 }
 
 #endif
