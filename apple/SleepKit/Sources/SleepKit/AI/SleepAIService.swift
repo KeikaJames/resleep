@@ -175,6 +175,15 @@ public struct SleepAIContext: Sendable, Equatable {
 
     public var strongestTagInsight: SleepAITagInsight? { tagInsights.first }
 
+    /// True only when there is a tracked night with non-trivial duration.
+    /// A 30-second start/stop test session leaves `hasNight=true` with all
+    /// zero stage durations — that's not real data and the assistant must
+    /// not report on it. Threshold is 5 minutes; below that we treat the
+    /// context as effectively empty.
+    public var hasUsableNight: Bool {
+        hasNight && durationSec >= 300
+    }
+
     /// Compact, deterministic context block for local LLM calls. The prompt
     /// explicitly says these are the only facts the model may use.
     public func llmContextPack(maxNights: Int = 7) -> String {
@@ -182,7 +191,7 @@ public struct SleepAIContext: Sendable, Equatable {
         lines.append("CIRCADIA_LOCAL_CONTEXT")
         lines.append("Rules: use only these facts for personal claims; say data is limited when counts are small; do not diagnose.")
 
-        if hasNight {
+        if hasUsableNight {
             lines.append("Latest: duration=\(Self.formatHours(durationSec)); score=\(sleepScore); deep=\(Self.formatHours(timeInDeepSec)); REM=\(Self.formatHours(timeInRemSec)); light=\(Self.formatHours(timeInLightSec)); awake=\(Self.formatMinutes(timeInWakeSec)).")
         } else {
             lines.append("Latest: NO_NIGHT_RECORDED.")
@@ -305,7 +314,7 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
     public var engineKind: SleepAIEngineKind { .ruleBased }
 
     public func morningSummary(context ctx: SleepAIContext) -> String {
-        guard ctx.hasNight else {
+        guard ctx.hasUsableNight else {
             return Self.local("ai.summary.empty")
         }
         let durStr = Self.formatHours(ctx.durationSec)
@@ -356,31 +365,46 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
     /// pattern matched — callers escalate to the LLM in that case.
     public func skillReply(to prompt: String, context ctx: SleepAIContext) -> String? {
         let p = prompt.lowercased()
+        let trimmed = p.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if Self.matches(p, ["summary", "summarize", "总结", "概括", "summary?"]) {
+        // Single-word affirmations / fillers that have nothing to ground on.
+        // Without this guard the LLM treats them as translation requests
+        // ("可以" → 'I can translate "you can"…') or generic chitchat.
+        if Self.isTrivialFiller(trimmed) {
+            return Self.local("ai.reply.fallback")
+        }
+
+        // "Look at my recent sleep" family. People rarely use the word
+        // "summary" in natural Chinese; they say 看 / 看看 / 最近 / 这几晚.
+        if Self.matches(p, [
+            "summary", "summarize", "summary?",
+            "总结", "概括",
+            "看一下", "看看", "看下", "瞧瞧",
+            "最近", "这几晚", "这几天", "我的睡眠", "我睡眠"
+        ]) {
             return morningSummary(context: ctx)
         }
         if Self.matches(p, ["deep", "深睡", "deep sleep"]) {
-            guard ctx.hasNight else { return Self.local("ai.reply.noNight") }
+            guard ctx.hasUsableNight else { return Self.local("ai.reply.noNight") }
             let pct = Double(ctx.timeInDeepSec) / Double(max(ctx.durationSec, 1)) * 100
             return Self.local("ai.reply.deep")
                 .replacingOccurrences(of: "{pct}", with: String(format: "%.0f", pct))
                 .replacingOccurrences(of: "{dur}", with: Self.formatHours(ctx.timeInDeepSec))
         }
         if Self.matches(p, ["rem", "rapid eye"]) {
-            guard ctx.hasNight else { return Self.local("ai.reply.noNight") }
+            guard ctx.hasUsableNight else { return Self.local("ai.reply.noNight") }
             let pct = Double(ctx.timeInRemSec) / Double(max(ctx.durationSec, 1)) * 100
             return Self.local("ai.reply.rem")
                 .replacingOccurrences(of: "{pct}", with: String(format: "%.0f", pct))
                 .replacingOccurrences(of: "{dur}", with: Self.formatHours(ctx.timeInRemSec))
         }
         if Self.matches(p, ["wake", "awake", "醒", "清醒"]) {
-            guard ctx.hasNight else { return Self.local("ai.reply.noNight") }
+            guard ctx.hasUsableNight else { return Self.local("ai.reply.noNight") }
             return Self.local("ai.reply.wake")
                 .replacingOccurrences(of: "{dur}", with: Self.formatMinutes(ctx.timeInWakeSec))
         }
-        if Self.matches(p, ["score", "评分", "得分", "how did i sleep"]) {
-            guard ctx.hasNight else { return Self.local("ai.reply.noNight") }
+        if Self.matches(p, ["score", "评分", "得分", "几分", "多少分", "how did i sleep"]) {
+            guard ctx.hasUsableNight else { return Self.local("ai.reply.noNight") }
             return Self.local("ai.reply.score")
                 .replacingOccurrences(of: "{score}", with: "\(ctx.sleepScore)")
                 .replacingOccurrences(of: "{avg}", with: String(format: "%.0f", ctx.weeklyAverageScore))
@@ -401,7 +425,7 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
         ]) {
             return Self.dataStatusReply(context: ctx, chinese: Self.isChinese(p))
         }
-        if Self.matches(p, ["tip", "advice", "improve", "建议", "怎么改善"]) {
+        if Self.matches(p, ["tip", "advice", "improve", "建议", "怎么改善", "怎么睡得", "睡得更好"]) {
             return Self.local("ai.reply.advice")
         }
         if Self.matches(p, ["how it works", "how does", "工作", "原理", "怎么工作"]) {
@@ -410,7 +434,7 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
         if Self.matches(p, ["track", "tracked", "追踪", "都追踪", "what tracked"]) {
             return Self.local("ai.reply.whatTracked")
         }
-        if Self.matches(p, ["hello", "hi", "你好", "嗨"]) {
+        if Self.matches(p, ["hello", "hi", "你好", "嗨", "在吗", "在不在"]) {
             return Self.local("ai.reply.hello")
         }
         // No skill matched — caller decides whether to escalate.
@@ -437,6 +461,27 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
 
     private static func matches(_ haystack: String, _ needles: [String]) -> Bool {
         for n in needles where haystack.contains(n.lowercased()) { return true }
+        return false
+    }
+
+    /// One- or two-character affirmations / fillers that have no semantic
+    /// content for a sleep coach to act on. Without this guard a Gemma-class
+    /// model latches onto them as translation requests ("可以" → "I can
+    /// translate that to English…") or generic chitchat. We answer with the
+    /// canonical idle copy instead.
+    static func isTrivialFiller(_ text: String) -> Bool {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if t.isEmpty { return true }
+        let fillers: Set<String> = [
+            "可以", "好", "好的", "嗯", "哦", "对", "是", "是的", "行", "ok", "okay",
+            "yes", "no", "sure", "thanks", "thx", "thank you", "谢谢", "多谢", "了解", "知道", "明白"
+        ]
+        if fillers.contains(t) { return true }
+        // Catch single-CJK answers that aren't covered above.
+        if t.unicodeScalars.count <= 2,
+           t.range(of: #"\p{Han}"#, options: .regularExpression) != nil {
+            return true
+        }
         return false
     }
 

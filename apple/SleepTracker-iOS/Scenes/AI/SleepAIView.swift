@@ -139,6 +139,9 @@ struct SleepAIView: View {
     )
     @FocusState private var composerFocused: Bool
     @State private var historyOpen: Bool = false
+    /// Drives the dynamic composer collapse + the "scroll to latest" FAB.
+    /// Updated by the visibility of an invisible 1pt bottom sentinel.
+    @State private var scrolledAtBottom: Bool = true
 
     var body: some View {
         NavigationStack {
@@ -248,6 +251,25 @@ struct SleepAIView: View {
                             .padding(.horizontal, 20)
                             .padding(.top, 16)
                         }
+
+                        // Invisible bottom sentinel — its appearance/
+                        // disappearance drives the scroll-to-bottom FAB. A
+                        // 1pt LazyVStack child only renders when on-screen,
+                        // so onAppear fires when the user is at the bottom
+                        // and onDisappear fires when they scroll up.
+                        Color.clear
+                            .frame(height: 1)
+                            .id("__bottom_sentinel__")
+                            .onAppear {
+                                withAnimation(.easeInOut(duration: 0.18)) {
+                                    scrolledAtBottom = true
+                                }
+                            }
+                            .onDisappear {
+                                withAnimation(.easeInOut(duration: 0.18)) {
+                                    scrolledAtBottom = false
+                                }
+                            }
                     }
                     .padding(.bottom, 16)
                 }
@@ -259,10 +281,49 @@ struct SleepAIView: View {
                         }
                     }
                 }
+                .overlay(alignment: .bottomTrailing) {
+                    // Floating "jump to latest" affordance — shown only
+                    // when the user has scrolled away from the bottom and
+                    // there's actually a chat to jump back to.
+                    if !scrolledAtBottom && !model.messages.isEmpty {
+                        Button {
+                            Haptics.selection()
+                            withAnimation(.easeOut(duration: 0.28)) {
+                                if let last = model.messages.last {
+                                    proxy.scrollTo(last.id, anchor: .bottom)
+                                } else {
+                                    proxy.scrollTo("__bottom_sentinel__", anchor: .bottom)
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "chevron.down")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Color(.systemBackground))
+                                .frame(width: 38, height: 38)
+                                .background(
+                                    Circle()
+                                        .fill(Color.primary.opacity(0.85))
+                                        .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
+                                )
+                        }
+                        .padding(.trailing, 16)
+                        .padding(.bottom, 12)
+                        .transition(.scale(scale: 0.6).combined(with: .opacity))
+                        .accessibilityLabel(Text("ai.scrollToBottom"))
+                    }
+                }
             }
             disclaimer
-            composer
+            // The composer collapses out of view when the user is reading
+            // back through the chat. Tapping the floating arrow scrolls
+            // to the bottom and brings it back. Saves vertical space and
+            // makes the screen feel responsive instead of nailed-down.
+            if scrolledAtBottom || model.messages.isEmpty {
+                composer
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
+        .animation(.easeInOut(duration: 0.22), value: scrolledAtBottom)
     }
 
     private var heroHeader: some View {

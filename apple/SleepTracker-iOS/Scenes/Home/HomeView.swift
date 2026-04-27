@@ -348,6 +348,7 @@ private struct TonightStatusCard: View {
 private struct SmartAlarmCard: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var model: HomeViewModel
+    @State private var showingWakePicker: Bool = false
 
     var body: some View {
         Card {
@@ -357,11 +358,28 @@ private struct SmartAlarmCard: View {
                 Toggle("card.smartAlarm.enabled", isOn: $appState.alarm.isEnabled)
                     .tint(.accentColor)
 
-                DatePicker(
-                    "card.smartAlarm.wakeBy",
-                    selection: $appState.alarm.target,
-                    displayedComponents: [.hourAndMinute]
-                )
+                // Tappable row that opens a half-sheet wheel picker — same
+                // affordance Apple's Clock app uses. A bare `.compact`
+                // DatePicker felt locked-in on iPhone; this gives a clear
+                // "tap to change" target with a native picker behind it.
+                Button {
+                    Haptics.tapSoft()
+                    showingWakePicker = true
+                } label: {
+                    HStack {
+                        Text("card.smartAlarm.wakeBy")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Text(appState.alarm.target, style: .time)
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(.tint)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
                 .disabled(!appState.alarm.isEnabled)
 
                 Stepper(
@@ -408,6 +426,11 @@ private struct SmartAlarmCard: View {
                 onShake: { model.dismissAlarmFromPhone() }
             ))
         }
+        .sheet(isPresented: $showingWakePicker) {
+            WakeTimeSheet(target: $appState.alarm.target)
+                .presentationDetents([.height(320)])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     private func alarmLabel(_ s: AlarmState) -> LocalizedStringKey {
@@ -426,6 +449,38 @@ private struct SmartAlarmCard: View {
         case .armed: return .blue
         case .triggered: return .red
         case .failedWatchUnreachable: return .orange
+        }
+    }
+}
+
+/// Half-sheet wheel picker that mirrors the Clock app's "Wake Up" sheet.
+/// The wheel is the spinning DatePicker style — what users expect from a
+/// time-of-day control on iPhone.
+private struct WakeTimeSheet: View {
+    @Binding var target: Date
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack {
+                DatePicker(
+                    "",
+                    selection: $target,
+                    displayedComponents: [.hourAndMinute]
+                )
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .padding(.top, 4)
+                Spacer(minLength: 0)
+            }
+            .navigationTitle(Text("card.smartAlarm.wakeBy"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("common.done") { dismiss() }
+                        .fontWeight(.semibold)
+                }
+            }
         }
     }
 }

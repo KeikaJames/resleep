@@ -311,6 +311,7 @@
 // AI tab — toolbar / history / disclaimer (added in Apple‑style polish pass)
 "ai.toolbar.history"               = "聊天记录";
 "ai.toolbar.newChat"               = "新对话";
+"ai.scrollToBottom"                = "回到最新";
 "ai.toolbar.modelPicker"           = "选择模型";
 "ai.region.blocked.title"          = "Sleep AI 暂未在该地区提供。";
 "ai.region.blocked.body"           = "当前所选模型在你所在地区暂未提供。请切换为本地区可用的模型继续对话。";

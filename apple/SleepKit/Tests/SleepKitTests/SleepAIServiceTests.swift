@@ -167,6 +167,37 @@ final class SleepAIServiceTests: XCTestCase {
         XCTAssertNil(r, "Free-form non-skill prompts must return nil so the caller escalates to the LLM")
     }
 
+    func testSkillReply_singleWordAffirmation_isTrivialFiller() {
+        // "可以" — without this guard Gemma routes it to translation.
+        let r = svc.skillReply(to: "可以", context: .empty)
+        XCTAssertNotNil(r, "One-word fillers must short-circuit, not reach the LLM")
+    }
+
+    func testSkillReply_ok_isTrivialFiller() {
+        let r = svc.skillReply(to: "ok", context: .empty)
+        XCTAssertNotNil(r)
+    }
+
+    func testSkillReply_naturalChineseRecentSleep_routesSummary() {
+        let ctx = SleepAIContext(hasNight: true, durationSec: 6 * 3600, sleepScore: 70)
+        let r = svc.skillReply(to: "看一下我最近的睡眠", context: ctx)
+        XCTAssertNotNil(r, "Natural Chinese summary phrasings must hit the deterministic skill")
+    }
+
+    func testHasUsableNight_filtersTrivialDurations() {
+        let trivial = SleepAIContext(hasNight: true, durationSec: 30, sleepScore: 0)
+        XCTAssertFalse(trivial.hasUsableNight, "30-second start/stop test sessions are not usable nights")
+        let real = SleepAIContext(hasNight: true, durationSec: 4 * 3600, sleepScore: 70)
+        XCTAssertTrue(real.hasUsableNight)
+    }
+
+    func testContextPack_trivialNight_emitsNoNightDirective() {
+        let trivial = SleepAIContext(hasNight: true, durationSec: 30, sleepScore: 0)
+        let pack = trivial.llmContextPack()
+        XCTAssertTrue(pack.contains("NO_NIGHT_RECORDED"),
+                      "30s session must be packed as no-night so the LLM doesn't report 0-minute stages")
+    }
+
     func testContextPack_emptyContext_carriesNoNightDirective() {
         let pack = SleepAIContext.empty.llmContextPack()
         XCTAssertTrue(pack.contains("NO_NIGHT_RECORDED"))
