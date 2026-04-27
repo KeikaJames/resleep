@@ -2,5 +2,5 @@
 "CFBundleDisplayName" = "Circadia";
 "NSHealthShareUsageDescription" = "Circadia 在本机读取心率和 HRV，用于推断睡眠阶段。数据始终保留在你的设备上。";
 "NSHealthUpdateUsageDescription" = "Circadia 可以将睡眠分析写回「健康」（可选）。";
-"NSMicrophoneUsageDescription" = "如果开启，Circadia 仅在本机识别呼吸事件。录音不会上传，默认也不保存。";
+"NSMicrophoneUsageDescription" = "如果开启，Circadia 仅在本机识别呼吸事件。音频实时处理，永不保存、永不上传。";
 "NSMotionUsageDescription" = "Circadia 通过运动数据感知夜间翻身和清醒。";

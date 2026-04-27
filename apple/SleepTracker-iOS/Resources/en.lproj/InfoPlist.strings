@@ -2,5 +2,5 @@
 "CFBundleDisplayName" = "Circadia";
 "NSHealthShareUsageDescription" = "Circadia reads heart rate and HRV locally on-device to classify sleep stages. Data stays on this device.";
 "NSHealthUpdateUsageDescription" = "Circadia can optionally write sleep analysis back to HealthKit.";
-"NSMicrophoneUsageDescription" = "If enabled, Circadia listens for breathing events on-device. Audio stays on-device and is not saved by default.";
+"NSMicrophoneUsageDescription" = "If enabled, Circadia listens for breathing events on-device. Audio is processed in real time and never saved or uploaded.";
 "NSMotionUsageDescription" = "Circadia uses motion to detect restlessness while you sleep.";

@@ -39,7 +39,7 @@
 "onboarding.privacy.b3" = "没有账户、没有服务器、没有追踪。";
 "onboarding.privacy.b4" = "随时可在“设置”中清除全部数据。";
 "onboarding.perms.title" = "连接“健康”。";
-"onboarding.perms.body"  = "Sleep 可以读取“健康”里的心率与心率变异性,帮助更准确地识别睡眠阶段。你可以随时更改授权。";
+"onboarding.perms.body"  = "Circadia 可以读取“健康”里的心率与心率变异性,帮助更准确地识别睡眠阶段。你可以随时更改授权。";
 "onboarding.perms.allow" = "允许访问“健康”";
 "onboarding.perms.skip"  = "暂不允许";
 "onboarding.consent.title" = "开始前请先确认。";
@@ -52,7 +52,7 @@
 
 // Notifications
 "notification.bedtime.title" = "该放松了";
-"notification.bedtime.body"  = "保持规律的就寝时间有帮助。准备好后打开 Sleep。";
+"notification.bedtime.body"  = "保持规律的就寝时间有帮助。准备好后打开 Circadia。";
 
 // Alarm
 "alarm.shake.hint" = "摇一摇 iPhone 即可关闭闹钟。";
