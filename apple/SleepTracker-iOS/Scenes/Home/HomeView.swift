@@ -351,11 +351,34 @@ private struct SmartAlarmCard: View {
     @State private var showingWakePicker: Bool = false
 
     var body: some View {
+        // Observe the controller directly so binding writes through
+        // `$appState.alarm.target` / `.windowMinutes` actually re-render the
+        // display labels — `appState.alarm` is a nested ObservableObject and
+        // its publishes don't bubble up through `AppState.objectWillChange`.
+        SmartAlarmCardBody(
+            alarm: appState.alarm,
+            showingWakePicker: $showingWakePicker,
+            dismiss: { model.dismissAlarmFromPhone() }
+        )
+        .sheet(isPresented: $showingWakePicker) {
+            WakeTimeSheet(target: $appState.alarm.target)
+                .presentationDetents([.height(320)])
+                .presentationDragIndicator(.visible)
+        }
+    }
+}
+
+private struct SmartAlarmCardBody: View {
+    @ObservedObject var alarm: SmartAlarmController
+    @Binding var showingWakePicker: Bool
+    var dismiss: () -> Void
+
+    var body: some View {
         Card {
             VStack(alignment: .leading, spacing: 12) {
                 CardHeader(title: "card.smartAlarm")
 
-                Toggle("card.smartAlarm.enabled", isOn: $appState.alarm.isEnabled)
+                Toggle("card.smartAlarm.enabled", isOn: $alarm.isEnabled)
                     .tint(.accentColor)
 
                 // Tappable row that opens a half-sheet wheel picker — same
@@ -370,7 +393,7 @@ private struct SmartAlarmCard: View {
                         Text("card.smartAlarm.wakeBy")
                             .foregroundStyle(.primary)
                         Spacer()
-                        Text(appState.alarm.target, style: .time)
+                        Text(alarm.target, style: .time)
                             .font(.body.weight(.medium))
                             .foregroundStyle(.tint)
                         Image(systemName: "chevron.up.chevron.down")
@@ -380,32 +403,30 @@ private struct SmartAlarmCard: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .disabled(!appState.alarm.isEnabled)
 
                 Stepper(
                     String(format: NSLocalizedString("card.smartAlarm.windowFmt", comment: ""),
-                           appState.alarm.windowMinutes),
-                    value: $appState.alarm.windowMinutes,
+                           alarm.windowMinutes),
+                    value: $alarm.windowMinutes,
                     in: 5...45,
                     step: 5
                 )
-                .disabled(!appState.alarm.isEnabled)
 
                 Divider().opacity(0.5)
 
                 HStack {
                     Text("card.smartAlarm.state").foregroundStyle(.secondary).font(.subheadline)
                     Spacer()
-                    Text(alarmLabel(appState.alarm.state))
+                    Text(alarmLabel(alarm.state))
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(alarmColor(appState.alarm.state))
+                        .foregroundStyle(alarmColor(alarm.state))
                 }
 
-                if appState.alarm.state == .triggered
-                    || appState.alarm.state == .failedWatchUnreachable {
+                if alarm.state == .triggered
+                    || alarm.state == .failedWatchUnreachable {
                     Button(role: .destructive) {
                         Haptics.tapHeavy()
-                        model.dismissAlarmFromPhone()
+                        dismiss()
                     } label: {
                         Text("card.smartAlarm.dismiss")
                             .frame(maxWidth: .infinity)
@@ -421,15 +442,10 @@ private struct SmartAlarmCard: View {
                 }
             }
             .modifier(ShakeToSnoozeModifier(
-                isActive: appState.alarm.state == .triggered
-                    || appState.alarm.state == .failedWatchUnreachable,
-                onShake: { model.dismissAlarmFromPhone() }
+                isActive: alarm.state == .triggered
+                    || alarm.state == .failedWatchUnreachable,
+                onShake: dismiss
             ))
-        }
-        .sheet(isPresented: $showingWakePicker) {
-            WakeTimeSheet(target: $appState.alarm.target)
-                .presentationDetents([.height(320)])
-                .presentationDragIndicator(.visible)
         }
     }
 
