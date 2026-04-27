@@ -95,11 +95,12 @@ public final class WorkoutSessionManager: ObservableObject {
             do {
                 try await heartRateStream.start()
             } catch {
-                _ = try? engine.endSession()
-                currentSessionID = nil
-                sessionStartDate = nil
-                self.source = .idle
-                throw error
+                // Don't fail the whole session — on iOS Simulator, HealthKit
+                // returns no real heart-rate data and the stream throws. The
+                // engine itself can still run (accelerometer + rule-based
+                // inference). Surface the issue but keep tracking alive.
+                lastError = "Heart-rate stream unavailable: \(error.localizedDescription)"
+                heartRateStream.onSample = nil
             }
         }
 

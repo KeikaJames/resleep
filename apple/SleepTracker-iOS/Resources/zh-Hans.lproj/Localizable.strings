@@ -231,3 +231,49 @@
 "insight.deep.low.detail"          = "深睡少于 12%。睡前避免咖啡因和强光屏幕。";
 "insight.wake.high.title"          = "夜里偏躁动";
 "insight.wake.high.detail"         = "清醒时间超过 15%。保持卧室凉爽、黑暗。";
+
+"tab.ai"                           = "AI";
+
+"ai.hero.title"                    = "你的设备端睡眠 AI";
+"ai.hero.subtitle"                 = "个性化睡眠洞察与对话，全部在 iPhone 上完成。";
+
+"ai.consent.title"                 = "隐私优先";
+"ai.consent.body"                  = "睡眠 AI 会读取你的睡眠会话、得分和阶段，用来回答你关于睡眠的问题。任何内容都不会上传。";
+"ai.consent.bullet.onDevice"       = "所有处理都在这台 iPhone 上完成。";
+"ai.consent.bullet.noUpload"       = "你的原始音频和生理数据永远不会离开设备。";
+"ai.consent.bullet.optional"       = "可以随时在设置里关闭睡眠 AI。";
+"ai.consent.cta"                   = "启用睡眠 AI";
+
+"ai.download.title"                = "下载设备端模型";
+"ai.download.body"                 = "可选的 Gemma 级语言模型可让 AI 在设备端生成更丰富的总结。轻量助手在不下载的情况下也能用。";
+"ai.download.cta"                  = "下载模型";
+"ai.download.cancel"               = "取消";
+"ai.download.skip"                 = "可以跳过——轻量助手已经为你启用。";
+
+"ai.summary.title"                 = "昨晚";
+"ai.summary.empty"                 = "还没有记录的睡眠。今晚开始一次追踪，明早再来看看。";
+"ai.summary.template"              = "你睡了 {duration}，得分 {score}。\n深睡：{deep}。  REM：{rem}。\n清醒：{wake}。";
+"ai.summary.tail.better"           = "比你最近一周平均（{avg}）略好一点。";
+"ai.summary.tail.same"             = "和你最近一周的平均水平 {avg} 差不多。";
+"ai.summary.tail.worse"            = "比一周平均 {avg} 略差一点。偶尔一晚不理想很正常。";
+
+"ai.chat.title"                    = "和睡眠 AI 聊聊";
+"ai.chat.placeholder"              = "问问关于你睡眠的事…";
+"ai.chat.thinking"                 = "思考中…";
+
+"ai.followup.summarize"            = "总结昨晚";
+"ai.followup.deep"                 = "我的深睡怎么样？";
+"ai.followup.rem"                  = "REM 呢？";
+"ai.followup.advice"               = "改善睡眠的小建议";
+"ai.followup.howItWorks"           = "睡眠 AI 是怎么工作的？";
+"ai.followup.whatTracked"          = "你都追踪了哪些数据？";
+
+"ai.reply.noNight"                 = "我还没看到任何记录的睡眠。今晚追踪一次，明天我就能说出更多。";
+"ai.reply.deep"                    = "深睡大约占了你一晚的 {pct}%（{dur}）。成人通常在 13%–23% 之间。";
+"ai.reply.rem"                     = "REM 大约占了你一晚的 {pct}%（{dur}）。REM 一般在后半夜更多，所以睡得更久通常 REM 也更多。";
+"ai.reply.wake"                    = "夜里你大约清醒了 {dur}。短暂的微觉醒很正常，只有长时间清醒会明显拉低评分。";
+"ai.reply.score"                   = "昨晚得分 {score}，最近一周平均大约 {avg}。";
+"ai.reply.advice"                  = "对大多数人最有效的三件事：固定就寝时间、下午两点后不喝咖啡因、保持卧室凉爽黑暗。挑一个先坚持一周看看分数变化。";
+"ai.reply.hello.en"                = "Hi! I'm your on-device Sleep AI.";
+"ai.reply.hello.cn"                = "你好！我是你的设备端睡眠 AI。可以问昨晚情况、深睡、REM 或趋势。";
+"ai.reply.fallback"                = "我是个轻量的设备端助手——最擅长回答昨晚情况、深睡、REM、清醒时间和改善建议。试试下面的建议吧。";
