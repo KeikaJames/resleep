@@ -42,6 +42,13 @@
 "onboarding.perms.body" = "Sleep can read your heart rate and HRV from Health to improve stage detection. You can change this anytime.";
 "onboarding.perms.allow" = "Allow Health Access";
 "onboarding.perms.skip"  = "Not Now";
+"onboarding.consent.title" = "Before we begin.";
+"onboarding.consent.subtitle" = "Please review and accept the documents below to continue. Circadia is a general wellness product and is not a medical device.";
+"onboarding.consent.terms.accept" = "I have read and agree to the Circadia General Terms of Use.";
+"onboarding.consent.terms.read" = "Read the Terms of Use →";
+"onboarding.consent.privacy.accept" = "I have read and agree to the Circadia Privacy Notice.";
+"onboarding.consent.privacy.read" = "Read the Privacy Notice →";
+"common.done" = "Done";
 
 // Notifications
 "notification.bedtime.title" = "Time to wind down";
@@ -336,6 +343,7 @@ All on-device.";
 "settings.about.legalHeader" = "Legal";
 "settings.about.legalFooter" = "These documents ship with the app and are also published in the open-source repository.";
 "settings.about.thirdParty" = "Third-Party Notices";
+"settings.about.acknowledgmentsHeader" = "Acknowledgments";
 "settings.about.notMedicalDevice" = "Not a Medical Device";
 "home.permission.title" = "Heart-rate access is off";
 "home.permission.body" = "Circadia uses heart-rate samples for staging. Turn on Heart Rate in iOS Settings → Health → Data Access.";

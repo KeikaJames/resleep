@@ -42,6 +42,13 @@
 "onboarding.perms.body"  = "Sleep 可以读取“健康”里的心率与心率变异性,帮助更准确地识别睡眠阶段。你可以随时更改授权。";
 "onboarding.perms.allow" = "允许访问“健康”";
 "onboarding.perms.skip"  = "暂不允许";
+"onboarding.consent.title" = "开始前请先确认。";
+"onboarding.consent.subtitle" = "请阅读并同意以下文件后继续。Circadia 为一般健康类产品，并非医疗器械。";
+"onboarding.consent.terms.accept" = "我已阅读并同意《Circadia 一般使用条款》。";
+"onboarding.consent.terms.read" = "查看《一般使用条款》→";
+"onboarding.consent.privacy.accept" = "我已阅读并同意《Circadia 隐私说明》。";
+"onboarding.consent.privacy.read" = "查看《隐私说明》→";
+"common.done" = "完成";
 
 // Notifications
 "notification.bedtime.title" = "该放松了";
@@ -335,7 +342,8 @@
 "settings.ai.engineRuleBased" = "规则模板 · 本地";
 "settings.about.legalHeader" = "法律条款";
 "settings.about.legalFooter" = "以上文档随应用一同发布，也可在开源仓库中查阅。";
-"settings.about.thirdParty" = "第三方声明";
+"settings.about.thirdParty" = "第三方许可与声明";
+"settings.about.acknowledgmentsHeader" = "特别鸣谢";
 "settings.about.notMedicalDevice" = "非医疗器械";
 "home.permission.title" = "未开启心率读取权限";
 "home.permission.body" = "Circadia 用心率样本来判断睡眠阶段。请在「设置 → 健康 → 数据访问」中开启心率。";
