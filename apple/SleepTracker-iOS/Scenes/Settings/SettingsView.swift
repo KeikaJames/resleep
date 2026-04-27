@@ -155,31 +155,11 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Text("settings.compliance.l1")
-                    Text("settings.compliance.l2")
-                    Text("settings.compliance.l3")
-                } header: {
-                    Text("settings.section.compliance")
-                }
-
-                Section("settings.section.about") {
-                    LabeledContent("settings.about.appVersion", value: Self.versionString)
-                    LabeledContent("settings.about.build", value: Self.buildString)
-                    LabeledContent("settings.about.engine", value: "InMemory (rule-based)")
-                    NavigationLink("settings.about.privacy") {
-                        LegalDocumentView(titleKey: "settings.about.privacy",
-                                          text: LegalCopy.privacy(for: Locale.preferred))
+                    NavigationLink {
+                        AboutView()
+                    } label: {
+                        Label("settings.section.about", systemImage: "info.circle")
                     }
-                    NavigationLink("settings.about.terms") {
-                        LegalDocumentView(titleKey: "settings.about.terms",
-                                          text: LegalCopy.terms(for: Locale.preferred))
-                    }
-                    NavigationLink("settings.about.license") {
-                        LegalDocumentView(titleKey: "settings.about.license",
-                                          text: LegalCopy.license())
-                    }
-                    LabeledContent("settings.about.copyright",
-                                   value: "© 2026 BIRI GA")
                 }
             }
             .navigationTitle("settings.title")
@@ -255,8 +235,13 @@ struct SettingsView: View {
 
     private var aiModelStatusValue: String {
         // Honest one-liner about which engine the AI tab is currently using.
-        // Kept in sync with `GemmaSleepAIService.engineKind`.
+        // MLX cannot run on the iOS Simulator (Metal driver gap), so on the
+        // simulator we transparently fall back to the rule-based engine.
+        #if targetEnvironment(simulator)
+        return NSLocalizedString("settings.ai.engineRuleBased", comment: "")
+        #else
         return NSLocalizedString("settings.ai.engineGemma", comment: "")
+        #endif
     }
 
     private func aiEulaText() -> String {
@@ -299,6 +284,62 @@ extension Locale {
     }
 }
 
+// MARK: - About
+
+private struct AboutView: View {
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent("settings.about.appVersion", value: Self.versionString)
+                LabeledContent("settings.about.build", value: Self.buildString)
+                LabeledContent("settings.about.copyright", value: "© 2026 BIRI GA")
+            }
+
+            Section {
+                NavigationLink("settings.about.license") {
+                    LegalDocumentView(titleKey: "settings.about.license",
+                                      text: LegalCopy.license())
+                }
+                NavigationLink("settings.about.privacy") {
+                    LegalDocumentView(titleKey: "settings.about.privacy",
+                                      text: LegalCopy.privacy(for: Locale.preferred))
+                }
+                NavigationLink("settings.about.terms") {
+                    LegalDocumentView(titleKey: "settings.about.terms",
+                                      text: LegalCopy.terms(for: Locale.preferred))
+                }
+                NavigationLink("settings.ai.eula") {
+                    LegalDocumentView(titleKey: "settings.ai.eula",
+                                      text: Self.eulaText())
+                }
+            } header: {
+                Text("settings.about.legalHeader")
+            } footer: {
+                Text("settings.about.legalFooter")
+            }
+        }
+        .navigationTitle("settings.section.about")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private static var versionString: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+    }
+    private static var buildString: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+    }
+
+    private static func eulaText() -> String {
+        let preferred = Bundle.main.preferredLocalizations.first ?? "en"
+        let candidate = preferred.hasPrefix("zh") ? "EULA.zh-Hans" : "EULA.en"
+        if let url = Bundle.main.url(forResource: candidate, withExtension: "md"),
+           let s = try? String(contentsOf: url, encoding: .utf8) {
+            return s
+        }
+        return NSLocalizedString("ai.eula.short", comment: "")
+    }
+}
+
 private enum LegalCopy {
     static func privacy(for locale: Locale) -> String {
         locale.isChinese ? privacyZh : privacyEn
@@ -328,87 +369,87 @@ private enum LegalCopy {
     }
 
     private static let privacyEn = """
-    Sleep is offline-first. Everything you record stays on your device by default.
+    Circadia is offline-first. Everything you record stays on your device by default.
 
     What stays local
     • Heart rate, motion, and derived sleep stages.
     • Session history and diagnostic logs.
     • Any audio captured for breathing detection.
 
-    What we never do
-    • We never upload raw audio. The microphone, when enabled, runs on-device only.
+    What we don't do
+    • We do not upload raw audio. The microphone, when enabled, runs on-device only.
     • We do not include third-party analytics, advertising, or tracking SDKs.
     • We do not run a backend for your data.
 
     HealthKit
-    If you allow it, Sleep can read heart rate and HRV from HealthKit and write a sleep analysis sample back. You can revoke either at any time in the iOS Settings → Health → Data Access & Devices.
+    If you allow it, Circadia can read heart rate and HRV from HealthKit and write a sleep analysis sample back. You can revoke either at any time in the iOS Settings → Health → Data Access & Devices.
 
     Diagnostics
     A local diagnostic log records events such as session start/stop and Watch reachability so you can review what happened overnight. The log lives in this app's container and can be cleared from Settings → Diagnostics.
 
     Children
-    Sleep is not directed at children under 13.
+    Circadia is not directed at children under 13.
 
     Contact
     If you have questions, contact the developer through the App Store listing.
     """
 
     private static let privacyZh = """
-    Sleep 默认完全离线。你记录的一切默认都留在你的设备上。
+    Circadia 默认完全离线。你记录的一切默认都留在你的设备上。
 
     本地保存
     • 心率、运动数据，以及由此推断出的睡眠阶段。
     • 会话历史与诊断日志。
     • 用于呼吸检测的所有音频帧（仅在内存中）。
 
-    我们绝不会做的事
-    • 我们绝不上传原始音频。麦克风（启用时）只在设备本地运行。
+    我们不会做的事
+    • 我们不上传原始音频。麦克风（启用时）只在设备本地运行。
     • 我们不包含任何第三方分析、广告或跟踪 SDK。
     • 我们不为你的数据运行任何后端。
 
     HealthKit
-    如果你授权，Sleep 可以从 HealthKit 读取心率和 HRV，并写入一条睡眠分析样本。你可以随时在 iOS 设置 → 健康 → 数据访问与设备 中撤销。
+    如果你授权，Circadia 可以从 HealthKit 读取心率和 HRV，并写入一条睡眠分析样本。你可以随时在 iOS 设置 → 健康 → 数据访问与设备 中撤销。
 
     诊断
     本地诊断日志会记录会话开始/结束、Watch 可达性等事件，便于你查看夜间发生了什么。日志保存在本应用容器内，可在设置 → 诊断 中清除。
 
     儿童
-    Sleep 并非面向 13 岁以下儿童。
+    Circadia 并非面向 13 岁以下儿童。
 
     联系
     如有任何问题，请通过 App Store 列表联系开发者。
     """
 
     private static let termsEn = """
-    Sleep is provided as-is for personal wellness use.
+    Circadia is provided as-is for personal wellness use.
 
     Not a medical device
-    Sleep does not diagnose, treat, cure, or prevent any disease or condition. The sleep stages, score, and alarm features are estimates based on consumer sensors. Do not rely on Sleep for any medical decision. If you have a sleep disorder or any health concern, consult a qualified clinician.
+    Circadia does not diagnose, treat, cure, or prevent any disease or condition. The sleep stages, score, and alarm features are estimates based on consumer sensors. Do not rely on Circadia for any medical decision. If you have a sleep disorder or any health concern, consult a qualified clinician.
 
     Use at your own risk
-    Sleep may produce inaccurate results, miss alarms, or stop tracking unexpectedly. Do not rely on the smart alarm if missing it would cause harm.
+    Circadia may produce inaccurate results, miss alarms, or stop tracking unexpectedly. Do not rely on the smart alarm if missing it would cause harm.
 
     Your data
-    You are responsible for your device and your data. Sleep stores data locally; if you delete the app or your device, that data is lost.
+    You are responsible for your device and your data. Circadia stores data locally; if you delete the app or your device, that data is lost.
 
     Changes
-    These terms may change in future versions of Sleep. Continued use after an update means you accept the updated terms.
+    These terms may change in future versions of Circadia. Continued use after an update means you accept the updated terms.
     """
 
     private static let termsZh = """
-    Sleep 按"现状"提供，仅用于个人健康追踪。
+    Circadia 按"现状"提供，仅用于个人健康追踪。
 
     非医疗器械
-    Sleep 不诊断、治疗、治愈或预防任何疾病或健康状况。睡眠阶段、评分和闹钟功能均为基于消费级传感器的估计值。请勿将 Sleep 作为任何医疗决策的依据。如有睡眠障碍或健康问题，请咨询合格的临床医生。
+    Circadia 不诊断、治疗、治愈或预防任何疾病或健康状况。睡眠阶段、评分和闹钟功能均为基于消费级传感器的估计值。请勿将 Circadia 作为任何医疗决策的依据。如有睡眠障碍或健康问题，请咨询合格的临床医生。
 
     使用风险自负
-    Sleep 可能产生不准确的结果、错过闹钟或意外停止追踪。如果错过闹钟会造成伤害，请勿依赖智能闹钟。
+    Circadia 可能产生不准确的结果、错过闹钟或意外停止追踪。如果错过闹钟会造成伤害，请勿依赖智能闹钟。
 
     你的数据
-    你对自己的设备和数据负责。Sleep 在本地存储数据；删除应用或设备会导致数据丢失。
+    你对自己的设备和数据负责。Circadia 在本地存储数据；删除应用或设备会导致数据丢失。
 
     条款变更
-    这些条款可能在 Sleep 后续版本中更改。更新后继续使用即表示你接受更新后的条款。
+    这些条款可能在 Circadia 后续版本中更改。更新后继续使用即表示你接受更新后的条款。
     """
 }
 

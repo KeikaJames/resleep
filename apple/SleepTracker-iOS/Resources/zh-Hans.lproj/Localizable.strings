@@ -35,7 +35,7 @@
 "onboarding.welcome.body"  = "一种安静的方式去了解你的夜晚。心率、动作与呼吸,全部在你的 iPhone 上分析。";
 "onboarding.privacy.title" = "数据留在你这里。";
 "onboarding.privacy.b1" = "所有处理都在这台 iPhone 与 Apple Watch 上完成。";
-"onboarding.privacy.b2" = "永不录制、永不上传音频。";
+"onboarding.privacy.b2" = "音频只在本机处理，不上传。";
 "onboarding.privacy.b3" = "没有账户、没有服务器、没有追踪。";
 "onboarding.privacy.b4" = "随时可在“设置”中清除全部数据。";
 "onboarding.perms.title" = "连接“健康”。";
@@ -323,3 +323,8 @@
 "home.start.greeting" = "晚安";
 "settings.ai.engineGemma" = "Gemma 3n · 4‑bit · 本地（MLX）";
 "settings.ai.engineRuleBased" = "规则模板 · 本地";
+"settings.about.legalHeader" = "法律条款";
+"settings.about.legalFooter" = "以上文档随应用一同发布，也可在开源仓库中查阅。";
+"home.permission.title" = "未开启心率读取权限";
+"home.permission.body" = "Circadia 用心率样本来判断睡眠阶段。请在「设置 → 健康 → 数据访问」中开启心率。";
+"home.permission.open" = "前往设置";

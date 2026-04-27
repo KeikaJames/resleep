@@ -1,7 +1,12 @@
 import Foundation
 import SleepKit
 
-#if canImport(MLXLLM)
+// MLX-Swift's Metal kernels can only initialize on real Apple Silicon
+// devices (and macOS). On the iOS Simulator,
+// `mlx::core::metal::Device::Device()` aborts inside libc++ as soon as we
+// touch any MLX entry point — see crash report 2026-04-27. So MLX code
+// paths are gated behind `!targetEnvironment(simulator)`.
+#if canImport(MLXLLM) && !targetEnvironment(simulator)
 import MLXLLM
 import MLXLMCommon
 import MLX
@@ -45,7 +50,7 @@ public final class GemmaSleepAIService: SleepAIServiceProtocol, @unchecked Senda
     }
 
     public func reply(to prompt: String, context ctx: SleepAIContext) async -> String {
-        #if canImport(MLXLLM)
+        #if canImport(MLXLLM) && !targetEnvironment(simulator)
         do {
             let session = try await ensureSession()
             let user = composeUserMessage(prompt: prompt, ctx: ctx)
@@ -66,7 +71,7 @@ public final class GemmaSleepAIService: SleepAIServiceProtocol, @unchecked Senda
     private let weightsLocator: GemmaWeightsLocator
     private let ruleBased = SleepAIService()
 
-    #if canImport(MLXLLM)
+    #if canImport(MLXLLM) && !targetEnvironment(simulator)
     private var session: ChatSession?
     private var loadTask: Task<ChatSession, Error>?
 

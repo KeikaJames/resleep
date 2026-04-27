@@ -41,6 +41,11 @@ public final class AppState: ObservableObject {
     /// `nil` once the user finishes-and-saves or discards.
     @Published public private(set) var interruptedSessionStart: ActiveSessionMarker?
 
+    /// Latest snapshot of HealthKit heart-rate authorization. Updated on
+    /// app launch, foreground (so granting in iOS Settings.app and returning
+    /// reflects immediately), and after every explicit `requestAuthorization`.
+    @Published public private(set) var healthAuthorization: HealthAuthorizationStatus = .unknown
+
     // MARK: Simulation
     /// Replay harness. Always instantiated so its `@Published` state is
     /// bindable from the UI; idle until `startSimulation(_:)` is called.
@@ -497,6 +502,7 @@ public final class AppState: ObservableObject {
             inferencePipeline.personalizationEnabled = stored
         }
         await diagnostics.append(DiagnosticEvent(type: .appLaunch))
+        refreshHealthAuthorization()
         await detectInterruptedSession()
     }
 
@@ -504,6 +510,17 @@ public final class AppState: ObservableObject {
         Task { [diagnostics] in
             await diagnostics.append(DiagnosticEvent(type: .appForeground))
         }
+        // Re-poll HealthKit each time the user returns from background.
+        // Crucially this runs after the user grants permission in iOS
+        // Settings.app and switches back to Circadia — without it the
+        // start button stays gated on a stale "denied" state.
+        refreshHealthAuthorization()
+    }
+
+    /// Re-reads the latest HealthKit authorization status and republishes
+    /// it. Cheap; callers may invoke freely.
+    public func refreshHealthAuthorization() {
+        healthAuthorization = health.heartRateAuthorization()
     }
 
     public func appBackground() {

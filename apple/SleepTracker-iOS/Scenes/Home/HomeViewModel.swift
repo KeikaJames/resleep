@@ -56,6 +56,9 @@ final class HomeViewModel: ObservableObject {
         } catch {
             lastError = "HealthKit permission: \(error)"
         }
+        // Republish the latest status immediately so the UI reflects
+        // the new state without waiting for a foreground bounce.
+        appState.refreshHealthAuthorization()
 
         let useWatch = appState.connectivity.isReachable && appState.connectivity.isWatchAppInstalled
         let source: TrackingSource = useWatch ? .remoteWatch : .localPhone

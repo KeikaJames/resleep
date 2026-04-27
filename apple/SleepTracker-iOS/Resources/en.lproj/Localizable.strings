@@ -35,7 +35,7 @@
 "onboarding.welcome.body"  = "A quiet way to understand your nights. Heart rate, motion, and breathing — analyzed locally on your iPhone.";
 "onboarding.privacy.title" = "Your data stays here.";
 "onboarding.privacy.b1" = "All processing happens on this iPhone and Apple Watch.";
-"onboarding.privacy.b2" = "Audio is never recorded or uploaded.";
+"onboarding.privacy.b2" = "Audio stays on-device. Nothing is uploaded.";
 "onboarding.privacy.b3" = "No accounts, no servers, no tracking.";
 "onboarding.privacy.b4" = "Delete every byte from Settings at any time.";
 "onboarding.perms.title" = "Connect to Health.";
@@ -146,7 +146,7 @@
 "settings.section.insights"  = "Insights";
 "settings.snoreDetection"    = "Snore detection";
 "settings.personalization"   = "On-device personalization";
-"settings.insights.footer"   = "Snore detection runs entirely on this device and never records audio. Personalization adapts the model to your wake-up surveys; updates stay on this device.";
+"settings.insights.footer"   = "Snore detection runs entirely on this device and audio stays in memory only. Personalization adapts the model to your wake-up surveys; updates stay on this device.";
 "settings.section.reminders" = "Reminders";
 "settings.bedtimeReminder"   = "Daily wind-down reminder";
 "settings.bedtimeTime"       = "Reminder time";
@@ -242,7 +242,7 @@
 "ai.hero.prompt"                   = "How can I help?";
 
 "ai.consent.title"                 = "Sleep AI";
-"ai.consent.body"                  = "Runs on this iPhone. Your sleep data never leaves the device.";
+"ai.consent.body"                  = "Runs on this iPhone. Sleep data stays on the device.";
 "ai.consent.cta"                   = "Continue";
 
 "ai.download.title"                = "Larger model";
@@ -323,3 +323,8 @@ All on-device.";
 "home.start.greeting" = "Good night";
 "settings.ai.engineGemma" = "Gemma 3n · 4-bit · on-device (MLX)";
 "settings.ai.engineRuleBased" = "Rule-based · on-device";
+"settings.about.legalHeader" = "Legal";
+"settings.about.legalFooter" = "These documents ship with the app and are also published in the open-source repository.";
+"home.permission.title" = "Heart-rate access is off";
+"home.permission.body" = "Circadia uses heart-rate samples for staging. Turn on Heart Rate in iOS Settings → Health → Data Access.";
+"home.permission.open" = "Open Settings";

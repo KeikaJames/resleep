@@ -179,6 +179,7 @@ private struct TonightStatusCard: View {
 
                 HStack(spacing: 6) {
                     StatusDot(color: statusColor)
+                        .animation(.easeInOut(duration: 0.4), value: statusColor)
                     Text(statusTitle)
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
@@ -197,6 +198,11 @@ private struct TonightStatusCard: View {
                     }
                 }
 
+                if needsHealthPermission {
+                    HealthPermissionBanner()
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+
                 Button(action: {
                     Task { await model.toggleSession() }
                 }) {
@@ -205,11 +211,16 @@ private struct TonightStatusCard: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(appState.workout.isTracking ? .red : .accentColor)
+                .buttonStyle(PressableProminentButtonStyle(tint: appState.workout.isTracking ? .red : .accentColor))
                 .disabled(model.isPreparingPermissions)
             }
+            .animation(.easeInOut(duration: 0.35), value: appState.workout.isTracking)
+            .animation(.easeInOut(duration: 0.35), value: needsHealthPermission)
         }
+    }
+
+    private var needsHealthPermission: Bool {
+        appState.healthAuthorization == .sharingDenied && !appState.workout.isTracking
     }
 
     /// The big focal element of the card. Three modes:
@@ -821,5 +832,65 @@ private struct ShakeToSnoozeModifier: ViewModifier {
         if isActive {
             detector.start { onShake() }
         }
+    }
+}
+
+// MARK: - Polished prominent button
+
+/// A `.borderedProminent`-style button with subtle press feedback —
+/// 0.97 scale + soft opacity dip — so the start/stop control feels
+/// tactile rather than flat.
+private struct PressableProminentButtonStyle: ButtonStyle {
+    let tint: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(.white)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(tint.opacity(configuration.isPressed ? 0.85 : 1.0))
+            )
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(.easeOut(duration: 0.18), value: configuration.isPressed)
+    }
+}
+
+// MARK: - Permission banner
+
+/// Inline nudge that appears when HealthKit heart-rate read access is
+/// denied. Tapping deep-links into iOS Settings.app for the user; on
+/// returning to the foreground `AppState.appForeground()` re-polls and
+/// the banner self-dismisses without any restart.
+private struct HealthPermissionBanner: View {
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "heart.text.square")
+                .font(.title3)
+                .foregroundStyle(.pink)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("home.permission.title")
+                    .font(.subheadline.weight(.semibold))
+                Text("home.permission.body")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            Button {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            } label: {
+                Text("home.permission.open")
+                    .font(.footnote.weight(.semibold))
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.pink.opacity(0.08))
+        )
     }
 }
