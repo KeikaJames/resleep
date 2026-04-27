@@ -152,6 +152,11 @@ struct SleepAIView: View {
     /// Drives the dynamic composer collapse + the "scroll to latest" FAB.
     /// Updated by the visibility of an invisible 1pt bottom sentinel.
     @State private var scrolledAtBottom: Bool = true
+    /// Namespace shared between the expanded composer's background pill
+    /// and the collapsed chevron disc, so `matchedGeometryEffect` actually
+    /// morphs the same shape between the two states (instead of two
+    /// independent views fading in/out).
+    @Namespace private var composerMorph
 
     var body: some View {
         NavigationStack {
@@ -312,66 +317,106 @@ struct SleepAIView: View {
         }
     }
 
-    /// The morphing bottom area. When the user is at the latest message we
-    /// show the full composer + disclaimer. The moment they scroll up we
-    /// swap in a single chevron pill, anchored bottom-trailing — same
-    /// position the send button occupies in the composer, so it reads as
-    /// the input "collapsing into" a small floating control. Tapping the
-    /// pill scrolls back to the latest message and re-focuses the input,
-    /// which is what users describe as "the icon becoming the input box".
+    /// The morphing bottom area. We render a single `Capsule` background
+    /// that is tagged with `matchedGeometryEffect(id:in:)`. When
+    /// `scrolledAtBottom` flips, SwiftUI animates that one shape between
+    /// (a) full-width composer pill at the bottom and (b) a 44pt circle
+    /// in the trailing corner. The text-field / chevron content is just
+    /// an overlay on top of the morphing shape, with a quick cross-fade.
+    /// The result is the input box visibly *becoming* the chevron icon
+    /// (and vice-versa on tap) — what the user kept asking for.
     @ViewBuilder
     private func bottomBar(proxy: ScrollViewProxy) -> some View {
         ZStack(alignment: .bottomTrailing) {
             if scrolledAtBottom {
-                VStack(spacing: 0) {
-                    disclaimer
-                    composer
-                }
-                .transition(.asymmetric(
-                    insertion: .opacity.animation(.easeOut(duration: 0.22).delay(0.04)),
-                    removal: .opacity.animation(.easeIn(duration: 0.14))
-                ))
+                expandedComposer
             } else if !model.messages.isEmpty {
-                Button {
-                    Haptics.selection()
-                    withAnimation(.spring(response: 0.36, dampingFraction: 0.84)) {
-                        scrolledAtBottom = true
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) {
-                        if let last = model.messages.last {
-                            withAnimation(.easeOut(duration: 0.28)) {
-                                proxy.scrollTo(last.id, anchor: .bottom)
-                            }
-                        }
-                    }
-                } label: {
-                    Image(systemName: "chevron.down")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.primary.opacity(0.85))
-                        .frame(width: 40, height: 40)
-                        .background(
-                            Circle()
-                                .fill(.ultraThinMaterial)
-                                .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
-                        )
-                        .overlay(
-                            Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-                        )
-                }
-                .padding(.trailing, 16)
-                .padding(.bottom, 12)
-                .transition(.asymmetric(
-                    insertion: .scale(scale: 0.6).combined(with: .opacity).animation(.spring(response: 0.34, dampingFraction: 0.78).delay(0.06)),
-                    removal: .scale(scale: 0.7).combined(with: .opacity).animation(.easeIn(duration: 0.14))
-                ))
-                .accessibilityLabel(Text("ai.scrollToBottom"))
+                collapsedFAB(proxy: proxy)
             }
         }
-        // Stable container height: equals the composer's natural height
-        // so the swap doesn't change layout (which is what was causing
-        // the "twitching" — the height collapse animated every focus
-        // change). 70pt = 12 disclaimer + ~52 composer + ~6 padding.
+        // Reserve a constant amount of space so layout doesn't pump up
+        // and down as the morph runs. 76pt ≈ disclaimer + composer.
         .frame(maxWidth: .infinity, minHeight: 76, alignment: .bottomTrailing)
+        .animation(.spring(response: 0.42, dampingFraction: 0.84), value: scrolledAtBottom)
+    }
+
+    private var expandedComposer: some View {
+        VStack(spacing: 0) {
+            disclaimer
+            HStack(spacing: 10) {
+                HStack(spacing: 8) {
+                    TextField(text: $model.draft, axis: .vertical) {
+                        Text("ai.chat.placeholder")
+                    }
+                    .focused($composerFocused)
+                    .lineLimit(1...5)
+                    .submitLabel(.send)
+                    .onSubmit { submit() }
+                    .transition(.opacity)
+
+                    if !model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button { submit() } label: {
+                            Image(systemName: "arrow.up")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(Color(.systemBackground))
+                                .padding(7)
+                                .background(Circle().fill(Color.primary))
+                        }
+                        .disabled(model.isReplying)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    // The shape that morphs. Full-width here, becomes a
+                    // circle in `collapsedFAB` via the same matched ID.
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(Color(.secondarySystemGroupedBackground))
+                        .matchedGeometryEffect(id: "ai.composer.shell", in: composerMorph)
+                )
+                .appleIntelligenceStroke(cornerRadius: 22, lineWidth: 1.2)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 10)
+            .background(
+                Color(.systemGroupedBackground)
+                    .overlay(Divider(), alignment: .top)
+            )
+        }
+    }
+
+    private func collapsedFAB(proxy: ScrollViewProxy) -> some View {
+        Button {
+            Haptics.selection()
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.84)) {
+                scrolledAtBottom = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                if let last = model.messages.last {
+                    withAnimation(.easeOut(duration: 0.28)) {
+                        proxy.scrollTo(last.id, anchor: .bottom)
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "chevron.down")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.primary.opacity(0.85))
+                .frame(width: 44, height: 44)
+                .background(
+                    // SAME id as expandedComposer's pill — SwiftUI
+                    // interpolates corner radius + size + position so
+                    // the rounded rectangle visibly shrinks into a
+                    // circle in the bottom-trailing corner.
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(Color(.secondarySystemGroupedBackground))
+                        .matchedGeometryEffect(id: "ai.composer.shell", in: composerMorph)
+                        .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+                )
+        }
+        .padding(.trailing, 16)
+        .padding(.bottom, 12)
+        .accessibilityLabel(Text("ai.scrollToBottom"))
     }
 
     private var heroHeader: some View {
@@ -435,44 +480,6 @@ struct SleepAIView: View {
             .padding(.horizontal, 16)
             .padding(.top, 6)
             .padding(.bottom, 4)
-    }
-
-    private var composer: some View {
-        HStack(spacing: 10) {
-            HStack(spacing: 8) {
-                TextField(text: $model.draft, axis: .vertical) {
-                    Text("ai.chat.placeholder")
-                }
-                .focused($composerFocused)
-                .lineLimit(1...5)
-                .submitLabel(.send)
-                .onSubmit { submit() }
-
-                if !model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Button { submit() } label: {
-                        Image(systemName: "arrow.up")
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(Color(.systemBackground))
-                            .padding(7)
-                            .background(Circle().fill(Color.primary))
-                    }
-                    .disabled(model.isReplying)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(Color(.secondarySystemGroupedBackground))
-            )
-            .appleIntelligenceStroke(cornerRadius: 22, lineWidth: 1.2)
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 10)
-        .background(
-            Color(.systemGroupedBackground)
-                .overlay(Divider(), alignment: .top)
-        )
     }
 
     private func submit() {
