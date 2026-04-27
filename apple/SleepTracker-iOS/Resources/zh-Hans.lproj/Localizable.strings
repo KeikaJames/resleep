@@ -92,7 +92,7 @@
 "home.notes"  = "添加备注";
 
 // Home — status
-"home.title" = "Sleep";
+"home.title" = "Circadia";
 "home.eyebrow.tracking" = "正在追踪";
 "home.eyebrow.last"     = "昨晚";
 "home.eyebrow.tonight"  = "今晚";
@@ -317,4 +317,9 @@
 • 可选的 **呼吸** / 鼾声事件
 
 所有处理都在本机。";
-"settings.ai.modelPending" = "Gemma 3n · 4‑bit · 推理待集成";
+
+"settings.about.license" = "开源许可（MIT）";
+"settings.about.copyright" = "版权所有";
+"home.start.greeting" = "晚安";
+"settings.ai.engineGemma" = "Gemma 3n · 4‑bit · 本地（MLX）";
+"settings.ai.engineRuleBased" = "规则模板 · 本地";

@@ -1,6 +1,6 @@
 /* Sleep Tracker watchOS — Simplified Chinese */
 
-"watch.title"           = "睡眠";
+"watch.title"           = "Circadia";
 "watch.state.tracking"  = "追踪中";
 "watch.state.idle"      = "待机";
 "watch.link.reachable"  = "iPhone 已连接";

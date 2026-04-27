@@ -92,7 +92,7 @@
 "home.notes"  = "Add Notes";
 
 // Home — status
-"home.title" = "Sleep";
+"home.title" = "Circadia";
 "home.eyebrow.tracking" = "Now tracking";
 "home.eyebrow.last"     = "Last night";
 "home.eyebrow.tonight"  = "Tonight";
@@ -317,4 +317,9 @@ Pick one and stick with it for a week.";
 • Optional **breathing** / snore events
 
 All on-device.";
-"settings.ai.modelPending" = "Gemma 3n · 4‑bit · pending on‑device runtime";
+
+"settings.about.license" = "License (MIT)";
+"settings.about.copyright" = "Copyright";
+"home.start.greeting" = "Good night";
+"settings.ai.engineGemma" = "Gemma 3n · 4-bit · on-device (MLX)";
+"settings.ai.engineRuleBased" = "Rule-based · on-device";

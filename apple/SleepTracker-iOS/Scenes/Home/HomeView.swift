@@ -1,5 +1,6 @@
 import SwiftUI
 import SleepKit
+import UIKit
 
 /// iPhone home screen. Quiet, Apple-style, dark-first. Sections, in order:
 ///   A. Tonight Status        — mode/source/stage/confidence + primary action
@@ -11,14 +12,23 @@ struct HomeView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var model = HomeViewModel()
 
+    /// Drives the cinematic "settling in" curtain shown right after the user
+    /// taps Start tracking. Lives in HomeView (not the VM) because it's pure
+    /// presentation and must reset on every fresh start.
+    @State private var showStartCurtain: Bool = false
+
     var body: some View {
         NavigationStack {
-            Group {
+            ZStack {
                 if appState.workout.isTracking {
                     TrackingHeroView()
                         .environmentObject(appState)
                         .environmentObject(model)
                         .toolbar(.hidden, for: .navigationBar)
+                        .transition(.asymmetric(
+                            insertion: .opacity.animation(.easeOut(duration: 0.55)),
+                            removal: .opacity.animation(.easeIn(duration: 0.35))
+                        ))
                 } else {
                     ScrollView {
                         VStack(spacing: 28) {
@@ -46,9 +56,23 @@ struct HomeView: View {
                     .background(Color(.systemGroupedBackground).ignoresSafeArea())
                     .navigationTitle(Text("home.title"))
                     .navigationBarTitleDisplayMode(.large)
+                    .transition(.opacity)
+                }
+
+                if showStartCurtain {
+                    StartCurtainView()
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+                        .zIndex(10)
                 }
             }
+            .animation(.easeInOut(duration: 0.55), value: appState.workout.isTracking)
             .onAppear { model.bind(appState: appState) }
+            .onChange(of: appState.workout.isTracking) { _, nowTracking in
+                if nowTracking {
+                    triggerStartCurtain()
+                }
+            }
             .sheet(item: Binding<IdentifiedString?>(
                 get: { model.pendingSurveySessionId.map(IdentifiedString.init) },
                 set: { newValue in model.pendingSurveySessionId = newValue?.id }
@@ -70,6 +94,64 @@ struct HomeView: View {
                 .presentationDetents([.medium, .large])
             }
             .environmentObject(model)
+        }
+    }
+
+    /// Briefly cover the screen with a dark cinematic curtain when a session
+    /// starts. Two beats: in (~0.4 s) → hold (~1.0 s) → out (~0.6 s) so the
+    /// jump from "Idle home" to "Hero" reads as intentional motion instead
+    /// of a hard cut. Also fires a soft success haptic.
+    private func triggerStartCurtain() {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        withAnimation(.easeOut(duration: 0.4)) {
+            showStartCurtain = true
+        }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_400_000_000)
+            withAnimation(.easeIn(duration: 0.6)) {
+                showStartCurtain = false
+            }
+        }
+    }
+}
+
+/// Dark "settling in" overlay shown for ~1.4 s after Start. A single deep
+/// gradient with a slow pulsing radial highlight and a soft, fading
+/// localized phrase. No copy crunch — just breath.
+private struct StartCurtainView: View {
+    @State private var phase: CGFloat = 0
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.02, green: 0.02, blue: 0.06),
+                    Color(red: 0.05, green: 0.04, blue: 0.12),
+                    Color.black
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            RadialGradient(
+                colors: [
+                    Color(red: 0.45, green: 0.40, blue: 0.85).opacity(0.32),
+                    .clear
+                ],
+                center: .center,
+                startRadius: 0,
+                endRadius: 320
+            )
+            .scaleEffect(0.85 + 0.18 * phase)
+            .blur(radius: 28)
+
+            Text("home.start.greeting")
+                .font(.system(size: 28, weight: .light, design: .default))
+                .foregroundStyle(.white.opacity(0.85))
+                .tracking(2)
+                .opacity(0.4 + 0.6 * phase)
+        }
+        .preferredColorScheme(.dark)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.0)) { phase = 1 }
         }
     }
 }

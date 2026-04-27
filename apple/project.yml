@@ -43,6 +43,9 @@ settings:
 packages:
   SleepKit:
     path: SleepKit
+  mlx-swift-lm:
+    url: https://github.com/ml-explore/mlx-swift-lm
+    from: 2.31.3
 
 targets:
 
@@ -65,6 +68,10 @@ targets:
     dependencies:
       - package: SleepKit
         product: SleepKit
+      - package: mlx-swift-lm
+        product: MLXLLM
+      - package: mlx-swift-lm
+        product: MLXLMCommon
       - target: SleepTracker-Watch
     settings:
       base:

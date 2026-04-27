@@ -134,7 +134,9 @@ private struct IntelligenceGlow: View {
 
 struct SleepAIView: View {
     @EnvironmentObject private var appState: AppState
-    @StateObject private var model = SleepAIViewModel()
+    @StateObject private var model = SleepAIViewModel(
+        service: GemmaSleepAIService()
+    )
     @FocusState private var composerFocused: Bool
     @State private var historyOpen: Bool = false
 

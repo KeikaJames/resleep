@@ -174,6 +174,12 @@ struct SettingsView: View {
                         LegalDocumentView(titleKey: "settings.about.terms",
                                           text: LegalCopy.terms(for: Locale.preferred))
                     }
+                    NavigationLink("settings.about.license") {
+                        LegalDocumentView(titleKey: "settings.about.license",
+                                          text: LegalCopy.license())
+                    }
+                    LabeledContent("settings.about.copyright",
+                                   value: "© 2026 BIRI GA")
                 }
             }
             .navigationTitle("settings.title")
@@ -248,12 +254,9 @@ struct SettingsView: View {
     }
 
     private var aiModelStatusValue: String {
-        // Honesty pass: the 4-bit weights live in the dev workspace at
-        // models/gemma-3n-E2B-it-4bit (see project README). They cannot
-        // ship inside the app bundle (~3 GB). Until the on-device MLX-Swift
-        // runtime is wired up, surface a clear "pending integration" label
-        // instead of pretending the model is loaded.
-        return NSLocalizedString("settings.ai.modelPending", comment: "")
+        // Honest one-liner about which engine the AI tab is currently using.
+        // Kept in sync with `GemmaSleepAIService.engineKind`.
+        return NSLocalizedString("settings.ai.engineGemma", comment: "")
     }
 
     private func aiEulaText() -> String {
@@ -302,6 +305,26 @@ private enum LegalCopy {
     }
     static func terms(for locale: Locale) -> String {
         locale.isChinese ? termsZh : termsEn
+    }
+
+    /// MIT License text — sourced from the bundled `LICENSE` file when
+    /// available, with an inline fallback so the row never shows blank.
+    static func license() -> String {
+        if let url = Bundle.main.url(forResource: "LICENSE", withExtension: nil),
+           let text = try? String(contentsOf: url, encoding: .utf8) {
+            return text
+        }
+        return """
+        MIT License
+
+        Copyright (c) 2026 BIRI GA
+
+        Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+        The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+        """
     }
 
     private static let privacyEn = """

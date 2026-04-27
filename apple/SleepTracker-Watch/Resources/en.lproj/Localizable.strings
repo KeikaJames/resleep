@@ -1,6 +1,6 @@
 /* Sleep Tracker watchOS — English */
 
-"watch.title"           = "Sleep";
+"watch.title"           = "Circadia";
 "watch.state.tracking"  = "Tracking";
 "watch.state.idle"      = "Idle";
 "watch.link.reachable"  = "Phone reachable";
