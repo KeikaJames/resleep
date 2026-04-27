@@ -142,6 +142,36 @@ final class SleepAIServiceTests: XCTestCase {
         XCTAssertTrue(r.localizedCaseInsensitiveContains("caffeine"))
         XCTAssertTrue(r.contains("70"))
     }
+
+    // MARK: Skill router
+
+    func testSkillReply_summarizeChinese_routesDeterministic() {
+        let ctx = SleepAIContext(hasNight: true, durationSec: 6 * 3600, sleepScore: 72)
+        let r = svc.skillReply(to: "总结昨晚", context: ctx)
+        // Test bundle has no Localizable.strings, so the deterministic
+        // result is the localization key itself — what matters is that
+        // the router *did* match (non-nil) and didn't escalate.
+        XCTAssertNotNil(r, "Chinese summarize must hit deterministic skill")
+        XCTAssertFalse(r!.isEmpty)
+    }
+
+    func testSkillReply_emptyContextSummarize_returnsEmptyTemplate() {
+        let r = svc.skillReply(to: "总结昨晚", context: .empty)
+        XCTAssertNotNil(r)
+        // Either localized "no night" copy or its key fallback — never nil.
+        XCTAssertFalse(r!.isEmpty)
+    }
+
+    func testSkillReply_unknownPrompt_returnsNilForLLMEscalation() {
+        let r = svc.skillReply(to: "我做了一个奇怪的梦，感觉在飞", context: .empty)
+        XCTAssertNil(r, "Free-form non-skill prompts must return nil so the caller escalates to the LLM")
+    }
+
+    func testContextPack_emptyContext_carriesNoNightDirective() {
+        let pack = SleepAIContext.empty.llmContextPack()
+        XCTAssertTrue(pack.contains("NO_NIGHT_RECORDED"))
+        XCTAssertTrue(pack.localizedCaseInsensitiveContains("never invent"))
+    }
 }
 
 final class SleepAIModelManagerTests: XCTestCase {

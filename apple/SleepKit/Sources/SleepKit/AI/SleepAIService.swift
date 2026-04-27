@@ -185,7 +185,8 @@ public struct SleepAIContext: Sendable, Equatable {
         if hasNight {
             lines.append("Latest: duration=\(Self.formatHours(durationSec)); score=\(sleepScore); deep=\(Self.formatHours(timeInDeepSec)); REM=\(Self.formatHours(timeInRemSec)); light=\(Self.formatHours(timeInLightSec)); awake=\(Self.formatMinutes(timeInWakeSec)).")
         } else {
-            lines.append("Latest: no completed tracked night available.")
+            lines.append("Latest: NO_NIGHT_RECORDED.")
+            lines.append("If the user asks about last night, sleep score, deep/REM/wake, trends, or factors: tell them no night has been tracked yet on this device and suggest starting a session tonight. NEVER invent numbers, percentages, durations, or trends. Do not echo the user's question back as your reply.")
         }
 
         if weeklyAverageScore > 0 {
@@ -346,9 +347,14 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
         case .allow, .borderline:
             break
         }
+        return skillReply(to: prompt, context: ctx) ?? Self.local("ai.reply.fallback")
+    }
 
-        // Rule pattern — very small intent classifier. Localized output
-        // strings live in the host bundle.
+    /// Skill router used by both the rule-based service (as the body of
+    /// `reply`) and the LLM-backed service (as a deterministic shortcut
+    /// before invoking the model). Returns `nil` only when no skill
+    /// pattern matched — callers escalate to the LLM in that case.
+    public func skillReply(to prompt: String, context ctx: SleepAIContext) -> String? {
         let p = prompt.lowercased()
 
         if Self.matches(p, ["summary", "summarize", "总结", "概括", "summary?"]) {
@@ -407,8 +413,8 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
         if Self.matches(p, ["hello", "hi", "你好", "嗨"]) {
             return Self.local("ai.reply.hello")
         }
-        // Fallback
-        return Self.local("ai.reply.fallback")
+        // No skill matched — caller decides whether to escalate.
+        return nil
     }
 
     public func suggestedFollowUps(context ctx: SleepAIContext) -> [String] {
