@@ -328,3 +328,6 @@
 "home.permission.title" = "未开启心率读取权限";
 "home.permission.body" = "Circadia 用心率样本来判断睡眠阶段。请在「设置 → 健康 → 数据访问」中开启心率。";
 "home.permission.open" = "前往设置";
+"ai.engine.badge.gemma" = "Gemma 3n · 本机推理";
+"ai.engine.badge.simulator" = "规则模式 · 模拟器（真机才能跑 Gemma）";
+"ai.engine.badge.ruleBased" = "规则模式 · 本机";

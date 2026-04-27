@@ -328,3 +328,6 @@ All on-device.";
 "home.permission.title" = "Heart-rate access is off";
 "home.permission.body" = "Circadia uses heart-rate samples for staging. Turn on Heart Rate in iOS Settings → Health → Data Access.";
 "home.permission.open" = "Open Settings";
+"ai.engine.badge.gemma" = "Gemma 3n · on-device";
+"ai.engine.badge.simulator" = "Rule-based · simulator (install on device for Gemma)";
+"ai.engine.badge.ruleBased" = "Rule-based · on-device";

@@ -170,6 +170,19 @@ struct SleepAIView: View {
         }
     }
 
+    /// Honest one-line label for the chat header.
+    /// • Real device with MLXLLM compiled in → "Gemma 3n · on-device"
+    /// • Simulator (or build without MLX) → "Rule-based · simulator"
+    private var engineBadge: LocalizedStringKey {
+        #if canImport(MLXLLM) && !targetEnvironment(simulator)
+        return "ai.engine.badge.gemma"
+        #elseif targetEnvironment(simulator)
+        return "ai.engine.badge.simulator"
+        #else
+        return "ai.engine.badge.ruleBased"
+        #endif
+    }
+
     // MARK: Toolbar
 
     @ToolbarContentBuilder
@@ -184,9 +197,14 @@ struct SleepAIView: View {
                 .accessibilityLabel(Text("ai.toolbar.history"))
             }
             ToolbarItem(placement: .principal) {
-                Text("Sleep AI")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
+                VStack(spacing: 1) {
+                    Text("Sleep AI")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.secondary)
+                    Text(engineBadge)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
