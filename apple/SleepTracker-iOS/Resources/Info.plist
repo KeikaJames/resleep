@@ -21,12 +21,12 @@
   <key>UIRequiredDeviceCapabilities</key>
   <array><string>arm64</string></array>
   <key>NSHealthShareUsageDescription</key>
-  <string>Sleep reads heart rate and HRV locally on-device to classify sleep stages. Data never leaves your device.</string>
+  <string>Circadia reads heart rate and HRV locally on-device to classify sleep stages. Data never leaves your device.</string>
   <key>NSHealthUpdateUsageDescription</key>
-  <string>Sleep can optionally write sleep analysis back to HealthKit.</string>
+  <string>Circadia can optionally write sleep analysis back to HealthKit.</string>
   <key>NSMicrophoneUsageDescription</key>
-  <string>If enabled, Sleep listens for breathing events on-device. Audio is never uploaded and not saved by default.</string>
+  <string>If enabled, Circadia listens for breathing events on-device. Audio is never uploaded or saved.</string>
   <key>NSMotionUsageDescription</key>
-  <string>Sleep uses motion to detect restlessness while you sleep.</string>
+  <string>Circadia uses motion to detect restlessness while you sleep.</string>
 </dict>
 </plist>

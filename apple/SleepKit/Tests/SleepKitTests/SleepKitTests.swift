@@ -218,10 +218,22 @@ final class SleepKitTests: XCTestCase {
         b.addAccelWindow(meanX: 0, meanY: 0, meanZ: 1, energy: 0.5, variance: 0.1, at: t0)
         let v = b.currentFeatureVector(now: t0.addingTimeInterval(20))
         XCTAssertEqual(v.count, StageInferenceHyperparameters.default.featureDim)
-        XCTAssertEqual(v[StageFeature.hrMean.rawValue], 64, accuracy: 0.001)
+        // Values are normalized: 64 bpm / 100 = 0.64; accel mag 1 g clamps to 1.0.
+        XCTAssertEqual(v[StageFeature.hrMean.rawValue], 0.64, accuracy: 0.001)
         XCTAssertGreaterThan(v[StageFeature.hrSlope.rawValue], 0)
+        XCTAssertLessThanOrEqual(v[StageFeature.hrSlope.rawValue], 1.0)
         XCTAssertEqual(v[StageFeature.accelEnergy.rawValue], 0.5, accuracy: 0.001)
-        XCTAssertEqual(v[StageFeature.accelMean.rawValue], 1, accuracy: 0.001)
+        XCTAssertEqual(v[StageFeature.accelMean.rawValue], 1.0, accuracy: 0.001)
+        // All values must be in [0, 1] (slope can be in [-1, 1]).
+        for (i, x) in v.enumerated() {
+            if i == StageFeature.hrSlope.rawValue {
+                XCTAssertGreaterThanOrEqual(x, -1)
+                XCTAssertLessThanOrEqual(x, 1)
+            } else {
+                XCTAssertGreaterThanOrEqual(x, 0)
+                XCTAssertLessThanOrEqual(x, 1)
+            }
+        }
     }
 
     // MARK: - M5: sequence buffer fills and rolls

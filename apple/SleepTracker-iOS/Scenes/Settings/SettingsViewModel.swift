@@ -2,8 +2,7 @@ import Foundation
 import Combine
 
 /// Privacy defaults are explicitly conservative to match product principles:
-/// - audioUploadEnabled = false
-/// - saveRawAudio = false
+/// - audio is never recorded, saved or uploaded (no toggles exposed)
 /// - cloudSyncEnabled = false
 /// - shareWithHealthKit = false (user must opt in)
 ///
@@ -14,8 +13,6 @@ import Combine
 @MainActor
 final class SettingsViewModel: ObservableObject {
     private enum Key {
-        static let saveRawAudio       = "settings.saveRawAudio"
-        static let audioUploadEnabled = "settings.audioUploadEnabled"
         static let cloudSyncEnabled   = "settings.cloudSyncEnabled"
         static let shareWithHealthKit = "settings.shareWithHealthKit"
         static let snoreDetection     = "settings.enableSnoreDetection"
@@ -23,13 +20,14 @@ final class SettingsViewModel: ObservableObject {
         static let bedtimeEnabled     = "settings.bedtimeReminderEnabled"
         static let bedtimeHour        = "settings.bedtimeReminderHour"
         static let bedtimeMinute      = "settings.bedtimeReminderMinute"
+        // Legacy keys retained only so we can wipe stale `true` values.
+        static let legacySaveRawAudio       = "settings.saveRawAudio"
+        static let legacyAudioUploadEnabled = "settings.audioUploadEnabled"
     }
 
     private let defaults: UserDefaults
     private var bag: Set<AnyCancellable> = []
 
-    @Published var saveRawAudio: Bool
-    @Published var audioUploadEnabled: Bool
     @Published var cloudSyncEnabled: Bool
     @Published var shareWithHealthKit: Bool
     @Published var snoreDetectionEnabled: Bool
@@ -40,12 +38,10 @@ final class SettingsViewModel: ObservableObject {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         // Privacy invariant: raw audio is never persisted and never uploaded.
-        // Both flags are pinned off — any stale `true` from a prior build is
-        // proactively cleared so the on-disk state matches the published policy.
-        self.saveRawAudio       = false
-        self.audioUploadEnabled = false
-        defaults.set(false, forKey: Key.saveRawAudio)
-        defaults.set(false, forKey: Key.audioUploadEnabled)
+        // Wipe any stale `true` left over from older builds so the on-disk
+        // state matches the published policy and the docs.
+        defaults.removeObject(forKey: Key.legacySaveRawAudio)
+        defaults.removeObject(forKey: Key.legacyAudioUploadEnabled)
         self.cloudSyncEnabled   = defaults.bool(forKey: Key.cloudSyncEnabled)
         self.shareWithHealthKit = defaults.bool(forKey: Key.shareWithHealthKit)
         self.snoreDetectionEnabled = defaults.bool(forKey: Key.snoreDetection)
@@ -63,12 +59,6 @@ final class SettingsViewModel: ObservableObject {
         comps.minute = minute
         self.bedtimeReminderTime = Calendar.current.date(from: comps) ?? Date()
 
-        $saveRawAudio.dropFirst()
-            .sink { [defaults] in defaults.set($0, forKey: Key.saveRawAudio) }
-            .store(in: &bag)
-        $audioUploadEnabled.dropFirst()
-            .sink { [defaults] in defaults.set($0, forKey: Key.audioUploadEnabled) }
-            .store(in: &bag)
         $cloudSyncEnabled.dropFirst()
             .sink { [defaults] in defaults.set($0, forKey: Key.cloudSyncEnabled) }
             .store(in: &bag)

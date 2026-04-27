@@ -53,7 +53,7 @@ Tip: enable HealthKit on both. Watch needs it because the Watch target reads hea
 
 On https://appstoreconnect.apple.com/apps:
 
-- [ ] New App → iOS, Bundle ID `com.<your>.sleep.ios`, Primary Language English, name "Sleep" (must be unique on the store; if taken, pick a free alternative — you can change later).
+- [ ] New App → iOS, Bundle ID `com.<your>.sleep.ios`, Primary Language English, name "Circadia" (must be unique on the store; if taken, pick a free alternative — you can change later).
 - [ ] App Privacy section: paste the data-collection answers from `docs/M8_TESTFLIGHT_CHECKLIST.md` → "App Privacy answers" below.
 - [ ] Privacy Policy URL: paste the URL you hosted in step 0.
 
@@ -71,7 +71,7 @@ to run if `DEVELOPMENT_TEAM` is missing.
 
 Pick one:
 
-- **Transporter.app** (Mac App Store): drag `build/export/Sleep.ipa` in.
+- **Transporter.app** (Mac App Store): drag `build/export/Circadia.ipa` in.
 - Command line:
   ```bash
   xcrun altool --upload-app -f build/export/*.ipa --type ios \
@@ -95,14 +95,15 @@ minutes (and "Processing" for ~10 more).
 - [ ] Reviewer notes (paste into App Store Connect → TestFlight → Test Information):
 
 ```
-This app tracks sleep using Apple Watch heart rate, HRV, and motion. To
-review without sleeping for a real night:
+Circadia tracks sleep using Apple Watch heart rate, HRV, and motion. To
+review without sleeping a real night:
 
 1. Launch the app. The first run shows the legal-consent screen — accept
    the Terms of Use and Privacy Statement to enter Home.
-2. On Home, tap **Start Tracking**. The hold-to-end CTA appears in the
-   tracking hero. Synthetic sensor data drives the hypnogram in under a
-   minute when no Apple Watch is paired (this is the reviewer mode).
+2. On Home, tap **Start Tracking**. The tracking hero appears with a
+   hold-to-end CTA. If no Apple Watch is paired the iPhone falls back to
+   HealthKit-only sampling, so live HR may be sparse during a short demo;
+   the summary card and hypnogram still render at end.
 3. Press and hold **End** for one second to stop. A summary card slides
    into History.
 

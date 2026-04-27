@@ -27,7 +27,7 @@ test-rust:
 	cd rust && cargo test --workspace
 
 test-python:
-	cd python && python -m pytest -q || echo "(no tests yet)"
+	cd python && python3 -m pytest -q
 
 lint:
 	cd rust && cargo fmt --check

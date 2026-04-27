@@ -41,17 +41,17 @@ apple/SleepKit/Sources/SleepKit/Generated/
 apple/SleepTracker.xcodeproj/
 apple/SleepTracker.xcworkspace/
 build/
-Cargo.lock
 DerivedData/
 local_data/
 models/
-Package.resolved
 python/runs/
 rust/target-xcframework/
 target/
 tmp/
 venv/
 xcuserdata/
+
+# Cargo.lock and Package.resolved are committed for reproducible builds.
 
 # Sleep-AI LoRA fine-tune artifacts (regenerable, large)
 python/training/llm/dataset/
