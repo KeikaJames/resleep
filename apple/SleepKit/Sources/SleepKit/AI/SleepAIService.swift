@@ -370,8 +370,10 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
         // Single-word affirmations / fillers that have nothing to ground on.
         // Without this guard the LLM treats them as translation requests
         // ("可以" → 'I can translate "you can"…') or generic chitchat.
+        // Reply with a *varied* natural line so it doesn't feel like the
+        // bot is reading from a card every time.
         if Self.isTrivialFiller(trimmed) {
-            return Self.local("ai.reply.fallback")
+            return Self.fillerReply(for: trimmed, context: ctx)
         }
 
         // "Look at my recent sleep" family. People rarely use the word
@@ -483,6 +485,67 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
             return true
         }
         return false
+    }
+
+    /// Conversational replies for one/two-word fillers. Picks from a small
+    /// rotating pool so the bot doesn't sound like it's reading from the
+    /// same card every time the user types "可以" or "ok". Branches on:
+    ///   - thanks vs affirmative vs negative
+    ///   - whether there's a usable night to talk about
+    /// Stays short (one sentence, one offer) so it feels like a friend
+    /// answering, not a menu.
+    static func fillerReply(for text: String, context ctx: SleepAIContext) -> String {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let isChinese = t.range(of: #"\p{Han}"#, options: .regularExpression) != nil
+
+        let thanks: Set<String> = ["thanks", "thx", "thank you", "谢谢", "多谢"]
+        let negatives: Set<String> = ["no", "nope", "不用", "不", "没事"]
+        let isThanks = thanks.contains(t)
+        let isNegative = negatives.contains(t)
+
+        if isThanks {
+            let zh = ["不客气，睡得稳是大事。", "随时找我。", "举手之劳——好梦。"]
+            let en = ["Anytime — sleep well.", "Glad to help. Rest easy.", "You got it. Good night."]
+            return (isChinese ? zh : en).randomElement()!
+        }
+
+        if isNegative {
+            let zh = ["好嘞，那不打扰。需要的时候喊我。", "OK，先这样。"]
+            let en = ["Got it — I'll be here if you change your mind.", "Sounds good, no problem."]
+            return (isChinese ? zh : en).randomElement()!
+        }
+
+        // Affirmatives ("可以 / 好 / 嗯 / ok"). Offer one concrete next step,
+        // grounded in whether the user actually has a night recorded.
+        if ctx.hasUsableNight {
+            let zh = [
+                "那我先帮你看看昨晚？",
+                "嗯，那从昨晚说起好不好？",
+                "好，先看看你昨晚的睡眠？",
+                "行——要不我先讲讲昨晚怎么样？",
+            ]
+            let en = [
+                "Cool — want me to start with last night?",
+                "Sure. Want a quick read on last night?",
+                "Alright — shall I walk you through last night?",
+                "Got it. Want me to look at last night first?",
+            ]
+            return (isChinese ? zh : en).randomElement()!
+        } else {
+            let zh = [
+                "嗯——还没有可看的记录。今晚试一下追踪？",
+                "好啊。等你跑一晚，我就能讲细节了。",
+                "行。先记录一晚，明早咱们再聊？",
+                "可以呀——不过得先有一晚的数据，我才好下嘴。",
+            ]
+            let en = [
+                "Mm — nothing tracked yet. Want to try a night?",
+                "Sure. Once we have a night logged I can dig in.",
+                "Sounds good — track a night and I'll have something to say tomorrow.",
+                "Alright — I'll need at least one night before I can be specific.",
+            ]
+            return (isChinese ? zh : en).randomElement()!
+        }
     }
 
     private static func trendReply(context ctx: SleepAIContext, chinese: Bool) -> String {

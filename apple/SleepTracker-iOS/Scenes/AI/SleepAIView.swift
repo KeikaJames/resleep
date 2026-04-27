@@ -282,9 +282,10 @@ struct SleepAIView: View {
                     }
                 }
                 .overlay(alignment: .bottomTrailing) {
-                    // Floating "jump to latest" affordance — shown only
-                    // when the user has scrolled away from the bottom and
-                    // there's actually a chat to jump back to.
+                    // Floating "jump to latest" affordance — iMessage /
+                    // Telegram pattern. Composer stays put; this just
+                    // floats above it, opacity-only so the chat under it
+                    // is still readable.
                     if !scrolledAtBottom && !model.messages.isEmpty {
                         Button {
                             Haptics.selection()
@@ -298,32 +299,31 @@ struct SleepAIView: View {
                         } label: {
                             Image(systemName: "chevron.down")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Color(.systemBackground))
-                                .frame(width: 38, height: 38)
+                                .foregroundStyle(Color.primary.opacity(0.85))
+                                .frame(width: 36, height: 36)
                                 .background(
                                     Circle()
-                                        .fill(Color.primary.opacity(0.85))
-                                        .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
+                                        .fill(.ultraThinMaterial)
+                                        .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+                                )
+                                .overlay(
+                                    Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
                                 )
                         }
-                        .padding(.trailing, 16)
-                        .padding(.bottom, 12)
-                        .transition(.scale(scale: 0.6).combined(with: .opacity))
+                        .padding(.trailing, 14)
+                        .padding(.bottom, 10)
+                        .transition(.scale(scale: 0.7).combined(with: .opacity))
                         .accessibilityLabel(Text("ai.scrollToBottom"))
                     }
                 }
             }
             disclaimer
-            // The composer collapses out of view when the user is reading
-            // back through the chat. Tapping the floating arrow scrolls
-            // to the bottom and brings it back. Saves vertical space and
-            // makes the screen feel responsive instead of nailed-down.
-            if scrolledAtBottom || model.messages.isEmpty {
-                composer
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
+            // Composer is always present — hiding it on scroll-up felt
+            // like the screen was breaking. iMessage keeps the input
+            // bar pinned and floats a "scroll to bottom" pill above it.
+            composer
         }
-        .animation(.easeInOut(duration: 0.22), value: scrolledAtBottom)
+        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: scrolledAtBottom)
     }
 
     private var heroHeader: some View {
