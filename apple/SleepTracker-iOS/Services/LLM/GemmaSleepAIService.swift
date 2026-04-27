@@ -195,8 +195,8 @@ public struct GemmaWeightsLocator: Sendable {
     public let devFallbackPath: String?
 
     public static let `default` = GemmaWeightsLocator(
-        dirName: "gemma-3n-E2B-it-4bit",
-        devFallbackPath: "/Users/gabiri/projects/resleep/sleep-tracker/models/gemma-3n-E2B-it-4bit"
+        dirName: "circadia-sleep-2b-4bit",
+        devFallbackPath: "/Users/gabiri/projects/resleep/sleep-tracker/python/training/llm/fused-circadia-sleep"
     )
 
     public func locate() throws -> URL {

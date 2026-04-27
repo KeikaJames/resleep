@@ -39,10 +39,14 @@ class Conversation:
     assistant: str
 
     def to_messages(self) -> dict:
+        # Gemma's chat template does not support a `system` role, so we
+        # prepend the system instruction to the first user turn. This keeps
+        # the behavioral conditioning in-context while remaining compatible
+        # with mlx-lm's tokenizer.apply_chat_template path.
+        merged_user = f"{self.system}\n\n{self.user}" if self.system else self.user
         return {
             "messages": [
-                {"role": "system", "content": self.system},
-                {"role": "user", "content": self.user},
+                {"role": "user", "content": merged_user},
                 {"role": "assistant", "content": self.assistant},
             ]
         }
