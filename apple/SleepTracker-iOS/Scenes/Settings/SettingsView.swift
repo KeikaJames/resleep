@@ -13,36 +13,36 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Permissions") {
-                    Toggle("Share with HealthKit", isOn: $vm.shareWithHealthKit)
+                Section("settings.section.permissions") {
+                    Toggle("settings.shareWithHealth", isOn: $vm.shareWithHealthKit)
                 }
 
-                Section("Privacy") {
-                    Toggle("Save raw audio", isOn: $vm.saveRawAudio)
-                    Toggle("Allow audio upload", isOn: $vm.audioUploadEnabled)
-                    Toggle("Cloud sync (future)", isOn: $vm.cloudSyncEnabled).disabled(true)
+                Section("settings.section.privacy") {
+                    Toggle("settings.saveRawAudio", isOn: $vm.saveRawAudio)
+                    Toggle("settings.allowAudioUpload", isOn: $vm.audioUploadEnabled)
+                    Toggle("settings.cloudSync", isOn: $vm.cloudSyncEnabled).disabled(true)
                 }
 
                 Section {
-                    Toggle("Snore detection", isOn: $vm.snoreDetectionEnabled)
-                    Toggle("On-device personalization", isOn: $vm.personalizationEnabled)
+                    Toggle("settings.snoreDetection", isOn: $vm.snoreDetectionEnabled)
+                    Toggle("settings.personalization", isOn: $vm.personalizationEnabled)
                 } header: {
-                    Text("Insights")
+                    Text("settings.section.insights")
                 } footer: {
-                    Text("Snore detection runs entirely on this device and never records audio. Personalization adapts the model to your wake-up surveys; updates stay on this device.")
+                    Text("settings.insights.footer")
                 }
 
                 Section {
-                    Toggle("Daily wind-down reminder", isOn: $vm.bedtimeReminderEnabled)
+                    Toggle("settings.bedtimeReminder", isOn: $vm.bedtimeReminderEnabled)
                     if vm.bedtimeReminderEnabled {
-                        DatePicker("Reminder time",
+                        DatePicker("settings.bedtimeTime",
                                    selection: $vm.bedtimeReminderTime,
                                    displayedComponents: [.hourAndMinute])
                     }
                 } header: {
-                    Text("Reminders")
+                    Text("settings.section.reminders")
                 } footer: {
-                    Text("A local notification only. Sleep does not use remote push.")
+                    Text("settings.reminders.footer")
                 }
                 .onChange(of: vm.bedtimeReminderEnabled) { _, on in
                     Task { await applyBedtime(on: on, at: vm.bedtimeReminderTime) }
@@ -56,20 +56,23 @@ struct SettingsView: View {
                     appState.inferencePipeline.personalizationEnabled = on
                 }
 
-                Section("Apple Watch") {
-                    LabeledContent("Reachable",
-                                   value: appState.router.watchReachable ? "Yes" : "No")
-                    LabeledContent("Last sync",
+                Section("settings.section.watch") {
+                    LabeledContent("card.deviceSync.reachable",
+                                   value: appState.router.watchReachable
+                                        ? NSLocalizedString("card.deviceSync.yes", comment: "")
+                                        : NSLocalizedString("card.deviceSync.no", comment: ""))
+                    LabeledContent("card.deviceSync.lastSync",
                                    value: relativeDate(appState.router.lastBatchAt))
                 }
 
-                Section("Model") {
-                    LabeledContent("Backend",
+                Section("settings.section.model") {
+                    LabeledContent("settings.model.backend",
                                    value: appState.inferencePipeline.descriptor.isRealModel
-                                            ? "Core ML" : "Heuristic fallback")
-                    LabeledContent("Name", value: appState.inferencePipeline.descriptor.name)
+                                            ? NSLocalizedString("settings.model.coreml", comment: "")
+                                            : NSLocalizedString("settings.model.heuristic", comment: ""))
+                    LabeledContent("settings.model.name", value: appState.inferencePipeline.descriptor.name)
                     if let v = appState.inferencePipeline.descriptor.version {
-                        LabeledContent("Version", value: v)
+                        LabeledContent("settings.model.version", value: v)
                     }
                     if let reason = appState.inferenceFallbackReason {
                         Text(reason).font(.footnote).foregroundStyle(.orange)
@@ -80,12 +83,12 @@ struct SettingsView: View {
                     NavigationLink {
                         DiagnosticsView()
                     } label: {
-                        Label("View Diagnostics", systemImage: "doc.text.magnifyingglass")
+                        Label("settings.diag.view", systemImage: "doc.text.magnifyingglass")
                     }
                     Button {
                         Task { await refreshDiagSummary() }
                     } label: {
-                        Label("Refresh Summary", systemImage: "arrow.clockwise")
+                        Label("settings.diag.refresh", systemImage: "arrow.clockwise")
                     }
                     Text(diagSummary)
                         .font(.footnote)
@@ -94,75 +97,79 @@ struct SettingsView: View {
                     Button(role: .destructive) {
                         Task { await clearDiagnostics() }
                     } label: {
-                        Label("Clear Diagnostics", systemImage: "trash")
+                        Label("settings.diag.clear", systemImage: "trash")
                     }
                     if let clearedDiagAt {
-                        Text("Cleared \(relativeDate(clearedDiagAt))")
+                        Text("\(NSLocalizedString("settings.cleared", comment: "")) \(relativeDate(clearedDiagAt))")
                             .font(.footnote).foregroundStyle(.tertiary)
                     }
                 } header: {
-                    Text("Diagnostics")
+                    Text("settings.section.diagnostics")
                 } footer: {
-                    Text("Local diagnostic events. Used to inspect what happened during unattended overnight tests.")
+                    Text("settings.diag.footer")
                 }
 
                 Section {
                     Button(role: .destructive) {
                         showDeleteConfirm = true
                     } label: {
-                        Label("Delete Local Sleep Data", systemImage: "trash")
+                        Label("settings.localData.delete", systemImage: "trash")
                     }
                     if let deletedAt {
-                        Text("Cleared \(relativeDate(deletedAt))")
+                        Text("\(NSLocalizedString("settings.cleared", comment: "")) \(relativeDate(deletedAt))")
                             .font(.footnote).foregroundStyle(.tertiary)
                     }
                     if let err = deleteError {
                         Text(err).font(.footnote).foregroundStyle(.red)
                     }
                 } header: {
-                    Text("Local Data")
+                    Text("settings.section.localData")
                 } footer: {
-                    Text("Removes all sessions, summaries, and timeline entries stored on this device. This cannot be undone.")
+                    Text("settings.localData.footer")
                 }
 
-                Section("Developer") {
-                    LabeledContent("Runtime",
-                                   value: appState.runtimeMode == .simulated ? "Simulated" : "Live")
-                    Text("Simulation controls live in the Developer section on Home.")
+                Section("settings.section.developer") {
+                    LabeledContent("settings.dev.runtime",
+                                   value: appState.runtimeMode == .simulated
+                                        ? NSLocalizedString("settings.dev.simulated", comment: "")
+                                        : NSLocalizedString("settings.dev.live", comment: ""))
+                    Text("settings.dev.note")
                         .font(.footnote).foregroundStyle(.tertiary)
                 }
 
                 Section {
-                    Text("Offline-first. Health data stays on this device by default.")
-                    Text("No raw audio is uploaded.")
-                    Text("Not a medical device. Does not diagnose or treat sleep disorders.")
+                    Text("settings.compliance.l1")
+                    Text("settings.compliance.l2")
+                    Text("settings.compliance.l3")
                 } header: {
-                    Text("Compliance")
+                    Text("settings.section.compliance")
                 }
 
-                Section("About") {
-                    LabeledContent("App version", value: Self.versionString)
-                    LabeledContent("Build", value: Self.buildString)
-                    LabeledContent("Engine", value: "InMemory (rule-based)")
-                    NavigationLink("Privacy Policy") {
-                        LegalDocumentView(title: "Privacy Policy", text: LegalCopy.privacy)
+                Section("settings.section.about") {
+                    LabeledContent("settings.about.appVersion", value: Self.versionString)
+                    LabeledContent("settings.about.build", value: Self.buildString)
+                    LabeledContent("settings.about.engine", value: "InMemory (rule-based)")
+                    NavigationLink("settings.about.privacy") {
+                        LegalDocumentView(titleKey: "settings.about.privacy",
+                                          text: LegalCopy.privacy(for: Locale.preferred))
                     }
-                    NavigationLink("Terms of Use") {
-                        LegalDocumentView(title: "Terms of Use", text: LegalCopy.terms)
+                    NavigationLink("settings.about.terms") {
+                        LegalDocumentView(titleKey: "settings.about.terms",
+                                          text: LegalCopy.terms(for: Locale.preferred))
                     }
                 }
             }
-            .navigationTitle("Settings")
+            .navigationTitle("settings.title")
             .task { await refreshDiagSummary() }
             .confirmationDialog(
-                "Delete all local sleep data?",
+                "settings.localData.confirmTitle",
                 isPresented: $showDeleteConfirm,
                 titleVisibility: .visible
             ) {
-                Button("Delete", role: .destructive) {
+                Button("settings.localData.confirmDelete", role: .destructive) {
                     Task { await deleteAllLocalData() }
                 }
-                Button("Cancel", role: .cancel) {}
+                Button("settings.localData.confirmCancel", role: .cancel) {}
             } message: {
                 Text("Sessions, summaries, and timelines stored on this device will be removed.")
             }
@@ -227,7 +234,7 @@ struct SettingsView: View {
 // MARK: - Legal document viewer
 
 private struct LegalDocumentView: View {
-    let title: String
+    let titleKey: LocalizedStringKey
     let text: String
 
     var body: some View {
@@ -239,13 +246,29 @@ private struct LegalDocumentView: View {
                 .padding(.vertical, 18)
                 .textSelection(.enabled)
         }
-        .navigationTitle(title)
+        .navigationTitle(titleKey)
         .navigationBarTitleDisplayMode(.inline)
     }
 }
 
+extension Locale {
+    static var preferred: Locale {
+        Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en")
+    }
+    var isChinese: Bool {
+        (language.languageCode?.identifier ?? identifier).hasPrefix("zh")
+    }
+}
+
 private enum LegalCopy {
-    static let privacy = """
+    static func privacy(for locale: Locale) -> String {
+        locale.isChinese ? privacyZh : privacyEn
+    }
+    static func terms(for locale: Locale) -> String {
+        locale.isChinese ? termsZh : termsEn
+    }
+
+    private static let privacyEn = """
     Sleep is offline-first. Everything you record stays on your device by default.
 
     What stays local
@@ -271,7 +294,33 @@ private enum LegalCopy {
     If you have questions, contact the developer through the App Store listing.
     """
 
-    static let terms = """
+    private static let privacyZh = """
+    Sleep 默认完全离线。你记录的一切默认都留在你的设备上。
+
+    本地保存
+    • 心率、运动数据，以及由此推断出的睡眠阶段。
+    • 会话历史与诊断日志。
+    • 用于呼吸检测的所有音频帧（仅在内存中）。
+
+    我们绝不会做的事
+    • 我们绝不上传原始音频。麦克风（启用时）只在设备本地运行。
+    • 我们不包含任何第三方分析、广告或跟踪 SDK。
+    • 我们不为你的数据运行任何后端。
+
+    HealthKit
+    如果你授权，Sleep 可以从 HealthKit 读取心率和 HRV，并写入一条睡眠分析样本。你可以随时在 iOS 设置 → 健康 → 数据访问与设备 中撤销。
+
+    诊断
+    本地诊断日志会记录会话开始/结束、Watch 可达性等事件，便于你查看夜间发生了什么。日志保存在本应用容器内，可在设置 → 诊断 中清除。
+
+    儿童
+    Sleep 并非面向 13 岁以下儿童。
+
+    联系
+    如有任何问题，请通过 App Store 列表联系开发者。
+    """
+
+    private static let termsEn = """
     Sleep is provided as-is for personal wellness use.
 
     Not a medical device
@@ -285,6 +334,22 @@ private enum LegalCopy {
 
     Changes
     These terms may change in future versions of Sleep. Continued use after an update means you accept the updated terms.
+    """
+
+    private static let termsZh = """
+    Sleep 按"现状"提供，仅用于个人健康追踪。
+
+    非医疗器械
+    Sleep 不诊断、治疗、治愈或预防任何疾病或健康状况。睡眠阶段、评分和闹钟功能均为基于消费级传感器的估计值。请勿将 Sleep 作为任何医疗决策的依据。如有睡眠障碍或健康问题，请咨询合格的临床医生。
+
+    使用风险自负
+    Sleep 可能产生不准确的结果、错过闹钟或意外停止追踪。如果错过闹钟会造成伤害，请勿依赖智能闹钟。
+
+    你的数据
+    你对自己的设备和数据负责。Sleep 在本地存储数据；删除应用或设备会导致数据丢失。
+
+    条款变更
+    这些条款可能在 Sleep 后续版本中更改。更新后继续使用即表示你接受更新后的条款。
     """
 }
 

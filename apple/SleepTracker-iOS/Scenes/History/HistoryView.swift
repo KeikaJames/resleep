@@ -10,9 +10,9 @@ struct HistoryView: View {
             Group {
                 if vm.sessions.isEmpty {
                     ContentUnavailableView(
-                        "No sleep records yet",
+                        "history.empty.title",
                         systemImage: "moon.zzz",
-                        description: Text("Track a night to see it here.")
+                        description: Text("history.empty.subtitle")
                     )
                 } else {
                     ScrollView {
@@ -34,7 +34,7 @@ struct HistoryView: View {
                     .background(Color(.systemGroupedBackground).ignoresSafeArea())
                 }
             }
-            .navigationTitle("History")
+            .navigationTitle("history.title")
             .task { await vm.load(appState: appState) }
             .refreshable { await vm.load(appState: appState) }
         }
@@ -54,9 +54,9 @@ struct HistoryView: View {
             )
         } else {
             ContentUnavailableView(
-                "Summary unavailable",
+                "history.summaryUnavailable.title",
                 systemImage: "exclamationmark.triangle",
-                description: Text("This session has no stored summary yet.")
+                description: Text("history.summaryUnavailable.body")
             )
         }
     }
@@ -77,7 +77,7 @@ private struct SessionRow: View {
                         .font(.subheadline)
                         .foregroundStyle(.tertiary)
                 } else {
-                    Text("In progress")
+                    Text("history.inProgress")
                         .font(.subheadline)
                         .foregroundStyle(.green)
                 }
@@ -88,7 +88,7 @@ private struct SessionRow: View {
                     Text(formatDuration(summary.durationSec))
                         .font(.title3.weight(.semibold))
                         .monospacedDigit()
-                    Text("Score \(summary.sleepScore)")
+                    Text("\(NSLocalizedString("history.score", comment: "")) \(summary.sleepScore)")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }

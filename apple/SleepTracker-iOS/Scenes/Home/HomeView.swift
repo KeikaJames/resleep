@@ -36,7 +36,7 @@ struct HomeView: View {
                 .padding(.bottom, 32)
             }
             .background(Color(.systemGroupedBackground).ignoresSafeArea())
-            .navigationTitle("Sleep")
+            .navigationTitle(Text("home.title"))
             .navigationBarTitleDisplayMode(.large)
             .onAppear { model.bind(appState: appState) }
             .sheet(item: Binding<IdentifiedString?>(
@@ -77,7 +77,7 @@ private struct TonightStatusCard: View {
     var body: some View {
         Card {
             VStack(alignment: .leading, spacing: 18) {
-                if let eyebrow = eyebrowLabel {
+                if let eyebrow = eyebrowLabel as LocalizedStringKey? {
                     Text(eyebrow)
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
@@ -94,9 +94,9 @@ private struct TonightStatusCard: View {
                     Text(statusTitle)
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
-                    if !sourceLabel.isEmpty {
+                    if let src = sourceLabel {
                         Text("·").foregroundStyle(.tertiary)
-                        Text(sourceLabel)
+                        Text(src)
                             .font(.subheadline)
                             .foregroundStyle(.tertiary)
                     }
@@ -112,7 +112,7 @@ private struct TonightStatusCard: View {
                 Button(action: {
                     Task { await model.toggleSession() }
                 }) {
-                    Text(appState.workout.isTracking ? "Stop Tracking" : "Start Tracking")
+                    Text(appState.workout.isTracking ? LocalizedStringKey("home.action.stop") : LocalizedStringKey("home.action.start"))
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -131,40 +131,40 @@ private struct TonightStatusCard: View {
         return .secondary
     }
 
-    private var statusTitle: String {
-        if model.isPreparingPermissions { return "Preparing" }
-        if appState.runtimeMode == .simulated { return "Simulated" }
-        if appState.workout.isTracking { return "Tracking" }
-        if appState.latestSummary != nil { return "Ended" }
-        return "Idle"
+    private var statusTitle: LocalizedStringKey {
+        if model.isPreparingPermissions { return "home.status.preparing" }
+        if appState.runtimeMode == .simulated { return "home.status.simulated" }
+        if appState.workout.isTracking { return "home.status.tracking" }
+        if appState.latestSummary != nil { return "home.status.ended" }
+        return "home.status.idle"
     }
 
-    private var sourceLabel: String {
-        if appState.runtimeMode == .simulated { return "Simulation" }
+    private var sourceLabel: LocalizedStringKey? {
+        if appState.runtimeMode == .simulated { return "home.source.simulation" }
         switch appState.workout.source {
-        case .idle: return ""
-        case .localPhone: return "iPhone fallback"
-        case .remoteWatch: return "Apple Watch"
+        case .idle: return nil
+        case .localPhone: return "home.source.iphone"
+        case .remoteWatch: return "home.source.watch"
         }
     }
 
-    private var eyebrowLabel: String? {
-        if appState.workout.isTracking { return "Now tracking" }
-        if appState.latestSummary != nil { return "Last night" }
-        return "Tonight"
+    private var eyebrowLabel: LocalizedStringKey {
+        if appState.workout.isTracking { return "home.eyebrow.tracking" }
+        if appState.latestSummary != nil { return "home.eyebrow.last" }
+        return "home.eyebrow.tonight"
     }
 
-    private var stageLabel: String {
+    private var stageLabel: LocalizedStringKey {
         if appState.workout.isTracking {
             switch appState.workout.currentStage {
-            case .wake:  return "Awake"
-            case .light: return "Light"
-            case .deep:  return "Deep"
-            case .rem:   return "REM"
+            case .wake:  return "stage.wake"
+            case .light: return "stage.light"
+            case .deep:  return "stage.deep"
+            case .rem:   return "stage.rem"
             }
         }
-        if appState.latestSummary != nil { return "Ended" }
-        return "Ready"
+        if appState.latestSummary != nil { return "home.stage.ended" }
+        return "home.stage.ready"
     }
 }
 
@@ -177,20 +177,21 @@ private struct SmartAlarmCard: View {
     var body: some View {
         Card {
             VStack(alignment: .leading, spacing: 12) {
-                CardHeader(title: "Smart Alarm")
+                CardHeader(title: "card.smartAlarm")
 
-                Toggle("Enabled", isOn: $appState.alarm.isEnabled)
+                Toggle("card.smartAlarm.enabled", isOn: $appState.alarm.isEnabled)
                     .tint(.accentColor)
 
                 DatePicker(
-                    "Wake by",
+                    "card.smartAlarm.wakeBy",
                     selection: $appState.alarm.target,
                     displayedComponents: [.hourAndMinute]
                 )
                 .disabled(!appState.alarm.isEnabled)
 
                 Stepper(
-                    "Window: \(appState.alarm.windowMinutes) min",
+                    String(format: NSLocalizedString("card.smartAlarm.windowFmt", comment: ""),
+                           appState.alarm.windowMinutes),
                     value: $appState.alarm.windowMinutes,
                     in: 5...45,
                     step: 5
@@ -200,7 +201,7 @@ private struct SmartAlarmCard: View {
                 Divider().opacity(0.5)
 
                 HStack {
-                    Text("State").foregroundStyle(.secondary).font(.subheadline)
+                    Text("card.smartAlarm.state").foregroundStyle(.secondary).font(.subheadline)
                     Spacer()
                     Text(alarmLabel(appState.alarm.state))
                         .font(.subheadline.weight(.medium))
@@ -212,7 +213,7 @@ private struct SmartAlarmCard: View {
                     Button(role: .destructive) {
                         model.dismissAlarmFromPhone()
                     } label: {
-                        Text("Dismiss Alarm")
+                        Text("card.smartAlarm.dismiss")
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 6)
                     }
@@ -233,13 +234,13 @@ private struct SmartAlarmCard: View {
         }
     }
 
-    private func alarmLabel(_ s: AlarmState) -> String {
+    private func alarmLabel(_ s: AlarmState) -> LocalizedStringKey {
         switch s {
-        case .idle: return "Idle"
-        case .armed: return "Armed"
-        case .triggered: return "Triggered"
-        case .dismissed: return "Dismissed"
-        case .failedWatchUnreachable: return "Watch unreachable"
+        case .idle: return "alarm.state.idle"
+        case .armed: return "alarm.state.armed"
+        case .triggered: return "alarm.state.triggered"
+        case .dismissed: return "alarm.state.dismissed"
+        case .failedWatchUnreachable: return "alarm.state.unreachable"
         }
     }
 
@@ -262,7 +263,7 @@ private struct LastSummaryCard: View {
     var body: some View {
         Card {
             VStack(alignment: .leading, spacing: 12) {
-                CardHeader(title: "Last Session")
+                CardHeader(title: "card.lastSession")
 
                 if let summary = appState.latestSummary {
                     HStack(alignment: .firstTextBaseline) {
@@ -270,7 +271,7 @@ private struct LastSummaryCard: View {
                             Text(formatDuration(summary.durationSec))
                                 .font(.system(size: 30, weight: .semibold, design: .rounded))
                                 .monospacedDigit()
-                            Text("Total sleep")
+                            Text("card.lastSession.total")
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)
                         }
@@ -279,16 +280,16 @@ private struct LastSummaryCard: View {
                             Text("\(summary.sleepScore)")
                                 .font(.system(size: 30, weight: .semibold, design: .rounded))
                                 .monospacedDigit()
-                            Text("Score")
+                            Text("card.lastSession.score")
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)
                         }
                     }
 
                     HStack(spacing: 14) {
-                        StatChip(label: "Deep",  value: formatDuration(summary.timeInDeepSec))
-                        StatChip(label: "REM",   value: formatDuration(summary.timeInRemSec))
-                        StatChip(label: "Light", value: formatDuration(summary.timeInLightSec))
+                        StatChip(label: "stage.deep",  value: formatDuration(summary.timeInDeepSec))
+                        StatChip(label: "stage.rem",   value: formatDuration(summary.timeInRemSec))
+                        StatChip(label: "stage.light", value: formatDuration(summary.timeInLightSec))
                     }
 
                     NavigationLink {
@@ -299,7 +300,7 @@ private struct LastSummaryCard: View {
                                           alarmWindowMinutes: appState.alarm.windowMinutes)
                     } label: {
                         HStack {
-                            Text("View Details")
+                            Text("card.lastSession.viewDetails")
                             Spacer()
                             Image(systemName: "chevron.right")
                                 .font(.caption.weight(.semibold))
@@ -321,7 +322,7 @@ private struct LastSummaryCard: View {
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                 } else {
-                    Text("Start a sleep session tonight. Your summary will appear here in the morning.")
+                    Text("card.lastSession.empty")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -339,28 +340,23 @@ private struct DeviceSyncCard: View {
     var body: some View {
         Card {
             VStack(spacing: 10) {
-                CardHeader(title: "Device & Sync")
+                CardHeader(title: "card.deviceSync")
 
-                Row(label: "Apple Watch",
-                    value: appState.router.watchReachable ? "Reachable" : "Not reachable",
+                Row(label: "home.source.watch",
+                    value: appState.router.watchReachable
+                        ? NSLocalizedString("card.deviceSync.reachable", comment: "")
+                        : NSLocalizedString("card.deviceSync.no", comment: ""),
                     valueColor: appState.router.watchReachable ? .green : .secondary)
-                Row(label: "Last sync", value: relativeDate(appState.router.lastBatchAt))
-                Row(label: "Source", value: sourceLabel)
-                Row(label: "Model",
-                    value: appState.inferencePipeline.descriptor.isRealModel ? "Core ML" : "Fallback",
+                Row(label: "card.deviceSync.lastSync", value: relativeDate(appState.router.lastBatchAt))
+                Row(label: "settings.section.model",
+                    value: appState.inferencePipeline.descriptor.isRealModel
+                        ? NSLocalizedString("settings.model.coreml", comment: "")
+                        : NSLocalizedString("settings.model.heuristic", comment: ""),
                     valueColor: appState.inferencePipeline.descriptor.isRealModel ? .green : .orange)
             }
         }
     }
 
-    private var sourceLabel: String {
-        if appState.runtimeMode == .simulated { return "Simulation" }
-        switch appState.workout.source {
-        case .idle: return "—"
-        case .localPhone: return "iPhone fallback"
-        case .remoteWatch: return "Apple Watch"
-        }
-    }
 }
 
 // MARK: - Developer debug (collapsed)
@@ -462,7 +458,7 @@ private struct Card<Content: View>: View {
 }
 
 private struct CardHeader: View {
-    let title: String
+    let title: LocalizedStringKey
     var body: some View {
         Text(title)
             .font(.title3.weight(.bold))
@@ -473,7 +469,7 @@ private struct CardHeader: View {
 }
 
 private struct Row: View {
-    let label: String
+    let label: LocalizedStringKey
     let value: String
     var valueColor: Color = .secondary
     var body: some View {
@@ -486,7 +482,7 @@ private struct Row: View {
 }
 
 private struct StatChip: View {
-    let label: String
+    let label: LocalizedStringKey
     let value: String
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {

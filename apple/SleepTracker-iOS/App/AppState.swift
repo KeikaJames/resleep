@@ -492,6 +492,10 @@ public final class AppState: ObservableObject {
     /// Emit `appLaunch` and detect an interrupted session marker, if any.
     /// Idempotent: callers may invoke once per process via `.task { ... }`.
     public func appLaunch() async {
+        // Apply persisted user preferences before any inference runs.
+        if let stored = UserDefaults.standard.object(forKey: "settings.personalizationEnabled") as? Bool {
+            inferencePipeline.personalizationEnabled = stored
+        }
         await diagnostics.append(DiagnosticEvent(type: .appLaunch))
         await detectInterruptedSession()
     }
