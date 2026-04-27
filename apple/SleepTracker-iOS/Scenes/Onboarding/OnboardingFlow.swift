@@ -135,6 +135,8 @@ private struct PermissionsPage: View {
                     Task {
                         requesting = true
                         _ = try? await appState.health.requestAuthorization()
+                        await appState.health.probeHeartRateReadAccess()
+                        appState.refreshHealthAuthorization()
                         requesting = false
                         onFinish()
                     }

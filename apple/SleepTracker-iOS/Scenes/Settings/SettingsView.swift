@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import SleepKit
 
 struct SettingsView: View {
@@ -14,6 +15,7 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section("settings.section.permissions") {
+                    HealthAuthorizationRow()
                     Toggle("settings.shareWithHealth", isOn: $vm.shareWithHealthKit)
                 }
 
@@ -252,6 +254,108 @@ private struct LegalDocumentView: View {
 
     var body: some View {
         MarkdownDocumentView(titleKey: titleKey, text: text, eyebrow: eyebrow)
+    }
+}
+
+// MARK: - Health authorization status row
+
+/// Shows the live HealthKit read-access state and offers a one-tap path
+/// to either re-prompt the user (when not yet asked) or to open iOS
+/// Settings.app on the Circadia → Health entry (when the user denied).
+///
+/// Important: HealthKit's `authorizationStatus(for:)` only reflects WRITE
+/// permission. The *real* read state is determined by a one-shot probe
+/// query in `HealthPermissionService.probeHeartRateReadAccess()`. We
+/// re-run that probe on every appearance of this row so users who
+/// just granted access in Settings.app and switched back see the
+/// updated state immediately.
+private struct HealthAuthorizationRow: View {
+    @EnvironmentObject private var appState: AppState
+    @State private var rechecking: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 22)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("settings.health.title")
+                        .font(.body)
+                    Text(statusKey)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                if rechecking {
+                    ProgressView().controlSize(.small)
+                }
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    Task { await recheck() }
+                } label: {
+                    Text("settings.health.recheck")
+                        .font(.footnote.weight(.semibold))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                if appState.healthAuthorization == .sharingDenied
+                    || appState.healthAuthorization == .unknown {
+                    Button {
+                        openSettings()
+                    } label: {
+                        Text("settings.health.openSettings")
+                            .font(.footnote.weight(.semibold))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+        .task { await recheck() }
+    }
+
+    private var icon: String {
+        switch appState.healthAuthorization {
+        case .sharingAuthorized: return "checkmark.seal.fill"
+        case .sharingDenied:     return "exclamationmark.triangle.fill"
+        case .notDetermined:     return "questionmark.circle.fill"
+        case .unknown:           return "minus.circle.fill"
+        }
+    }
+    private var tint: Color {
+        switch appState.healthAuthorization {
+        case .sharingAuthorized: return .green
+        case .sharingDenied:     return .orange
+        case .notDetermined:     return .blue
+        case .unknown:           return .secondary
+        }
+    }
+    private var statusKey: LocalizedStringKey {
+        switch appState.healthAuthorization {
+        case .sharingAuthorized: return "settings.health.status.granted"
+        case .sharingDenied:     return "settings.health.status.denied"
+        case .notDetermined:     return "settings.health.status.notDetermined"
+        case .unknown:           return "settings.health.status.unknown"
+        }
+    }
+
+    private func recheck() async {
+        rechecking = true
+        await appState.health.probeHeartRateReadAccess()
+        appState.refreshHealthAuthorization()
+        rechecking = false
+    }
+
+    private func openSettings() {
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
     }
 }
 
@@ -579,33 +683,51 @@ private enum LegalCopy {
     """
 
     private static let thirdPartyFallback = """
-    # Third-Party Notices
+    # Third-Party Notices & Acknowledgments
 
-    Circadia is built on open-source software. The following notices apply to components included in this app.
+    Circadia is built on the work of many open-source projects, research datasets, and platform frameworks. We are grateful to every author whose code, models, or data made this app possible.
 
-    ## MLX-Swift · Apache License 2.0
+    ## Google DeepMind — Gemma · *Gemma Terms of Use*
 
-    Copyright © Apple Inc. Distributed under the Apache License, Version 2.0. See <https://www.apache.org/licenses/LICENSE-2.0>.
+    Sleep AI uses model weights from Google DeepMind's **Gemma** family. Architecture and weights © Google LLC / Google DeepMind. Use is subject to the **Gemma Terms of Use** and **Gemma Prohibited Use Policy** at <https://ai.google.dev/gemma/terms>. Circadia does not redistribute Gemma weights.
 
-    ## MLX Swift Examples (MLXLLM, MLXLMCommon) · MIT License
+    ## Apple Inc. — MLX, MLX-Swift, MLX Examples, SoundAnalysis
 
-    Copyright © Apple Inc. and contributors. Distributed under the MIT License.
+    - MLX (MIT) and MLX-Swift (Apache 2.0) © Apple Inc.
+    - MLX Swift Examples (`MLXLLM`, `MLXLMCommon`, MIT) © Apple Inc. and contributors.
+    - **SoundAnalysis** framework + bundled `SNClassifierIdentifier.version1` © Apple Inc., shipped as part of iOS.
 
-    ## Google Gemma model weights · Gemma Terms of Use
+    ## Karol J. Piczak — *ESC-50: Dataset for Environmental Sound Classification* · CC BY-NC 3.0
 
-    Use of Gemma model weights is subject to the **Gemma Terms of Use** and the **Gemma Prohibited Use Policy**. See <https://ai.google.dev/gemma/terms>.
+    The optional fallback snore CNN is trained on **ESC-50**. Citation: K. J. Piczak, *ESC: Dataset for Environmental Sound Classification*, ACM Multimedia 2015. Licensed CC BY-NC 3.0 — see <https://github.com/karolpiczak/ESC-50>. ESC-50 itself is not redistributed by Circadia.
+
+    ## swift-bridge · Apache 2.0 / MIT
+    Copyright © the swift-bridge authors.
 
     ## SQLite · Public Domain
-
     SQLite is in the public domain. See <https://www.sqlite.org/copyright.html>.
 
-    ## SF Symbols · Apple Inc.
+    ## Python scientific stack
+    PyTorch (BSD-3), NumPy (BSD-3), coremltools (BSD-3), PyYAML (MIT), tqdm (MIT/MPL-2.0). Used only on developer machines.
 
-    SF Symbols are provided by Apple Inc. for use in Apple platform apps under the SF Symbols license terms.
+    ## Rust crates
+    `rusqlite`, `serde`, `tokio`, `chrono` and others — see `Cargo.lock` and each crate's `LICENSE`.
+
+    ## SF Symbols · Apple Inc.
+    Provided by Apple Inc. for use in Apple-platform apps under SF Symbols license terms.
+
+    ## Hugging Face Hub
+    Public Gemma checkpoints used during development are hosted on the Hugging Face Hub. Re-quantized variants are credited to their respective uploaders under the Gemma Terms of Use.
 
     ---
 
-    *Components above retain their original copyright. The remainder of Circadia is © 2026 BIRI GA.*
+    ## Acknowledgments
+
+    Thank you to **Google DeepMind**, **Apple's MLX team**, **Apple's SoundAnalysis team**, **Karol J. Piczak**, and the maintainers of **PyTorch, NumPy, SQLite, Rust, swift-bridge, mlx-lm, coremltools, Hugging Face Transformers** and every other open-source project we depend on but did not name individually. Circadia would not exist without you. 🙏
+
+    ---
+
+    *Components above retain their original copyright notices and licenses. The remainder of Circadia is © 2026 BIRI GA. All rights reserved.*
     """
 }
 

@@ -139,6 +139,13 @@
 "settings.title"          = "设置";
 "settings.section.permissions" = "权限";
 "settings.shareWithHealth"   = "与“健康”共享";
+"settings.health.title"                = "“健康”访问权限";
+"settings.health.status.granted"       = "心率读取权限 · 已授权";
+"settings.health.status.denied"        = "心率读取权限 · 已拒绝 — 请在 iOS 设置中开启";
+"settings.health.status.notDetermined" = "心率读取权限 · 尚未请求";
+"settings.health.status.unknown"       = "心率读取权限 · 未知";
+"settings.health.recheck"              = "重新检测";
+"settings.health.openSettings"         = "打开 iOS 设置";
 "settings.section.privacy"   = "隐私";
 "settings.saveRawAudio"      = "保存原始录音";
 "settings.allowAudioUpload"  = "允许上传音频";

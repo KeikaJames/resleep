@@ -502,6 +502,7 @@ public final class AppState: ObservableObject {
             inferencePipeline.personalizationEnabled = stored
         }
         await diagnostics.append(DiagnosticEvent(type: .appLaunch))
+        await health.probeHeartRateReadAccess()
         refreshHealthAuthorization()
         await detectInterruptedSession()
     }
@@ -514,7 +515,16 @@ public final class AppState: ObservableObject {
         // Crucially this runs after the user grants permission in iOS
         // Settings.app and switches back to Circadia — without it the
         // start button stays gated on a stale "denied" state.
-        refreshHealthAuthorization()
+        //
+        // We MUST run a real sample-query probe here because
+        // `authorizationStatus(for:)` only reflects WRITE permission;
+        // for read-only types it returns `.sharingDenied` even after the
+        // user grants access (Apple privacy design).
+        Task { [weak self] in
+            guard let self else { return }
+            await self.health.probeHeartRateReadAccess()
+            await MainActor.run { self.refreshHealthAuthorization() }
+        }
     }
 
     /// Re-reads the latest HealthKit authorization status and republishes

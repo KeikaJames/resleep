@@ -139,6 +139,13 @@
 "settings.title"          = "Settings";
 "settings.section.permissions" = "Permissions";
 "settings.shareWithHealth"   = "Share with HealthKit";
+"settings.health.title"                = "HealthKit access";
+"settings.health.status.granted"       = "Heart-rate read access · Granted";
+"settings.health.status.denied"        = "Heart-rate read access · Denied — open iOS Settings to allow.";
+"settings.health.status.notDetermined" = "Heart-rate read access · Not yet requested";
+"settings.health.status.unknown"       = "Heart-rate read access · Unknown";
+"settings.health.recheck"              = "Re-check";
+"settings.health.openSettings"         = "Open iOS Settings";
 "settings.section.privacy"   = "Privacy";
 "settings.saveRawAudio"      = "Save raw audio";
 "settings.allowAudioUpload"  = "Allow audio upload";

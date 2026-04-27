@@ -18,7 +18,15 @@ class LoRAConfig:
     # ── Base model ──────────────────────────────────────────────────────
     # Hugging Face repo id of the base instruct model. Must already be in
     # MLX format (the `mlx-community/...` mirrors are the easiest path).
-    base_model: str = "mlx-community/gemma-3n-E2B-it-4bit"
+    #
+    # NOTE: We use Gemma-2-2B-IT here rather than Gemma-3n. mlx-lm's
+    # `models/gemma3n.py` has a known bug sanitizing the quantized
+    # 3n variant (`KeyError: 'model'` during weight loading). Gemma-2-2B
+    # is well-supported by mlx-lm.lora and is the right size for a
+    # behavioral-only fine-tune. The fused result is loaded by the iOS
+    # app via `CIRCADIA_GEMMA_DIR`; update `GemmaWeightsLocator.dirName`
+    # if you want it to be the default.
+    base_model: str = "mlx-community/gemma-2-2b-it-4bit"
 
     # ── Dataset ─────────────────────────────────────────────────────────
     dataset_dir: Path = Path("python/training/llm/dataset")
@@ -31,7 +39,7 @@ class LoRAConfig:
 
     # ── Training schedule ───────────────────────────────────────────────
     batch_size: int  = 2
-    iters: int       = 600
+    iters: int       = 200
     learning_rate: float = 1e-4
     grad_checkpoint: bool = True
     seed: int = 1729

@@ -56,6 +56,10 @@ final class HomeViewModel: ObservableObject {
         } catch {
             lastError = "HealthKit permission: \(error)"
         }
+        // After the system prompt closes, probe with a real query so we
+        // know whether READ access was granted (HealthKit refuses to
+        // tell us this through `authorizationStatus(for:)`).
+        await appState.health.probeHeartRateReadAccess()
         // Republish the latest status immediately so the UI reflects
         // the new state without waiting for a foreground bounce.
         appState.refreshHealthAuthorization()
