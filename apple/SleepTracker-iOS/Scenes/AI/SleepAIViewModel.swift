@@ -166,13 +166,23 @@ final class SleepAIViewModel: ObservableObject {
             return SleepAIModelCatalog.defaultBrand(for: region)
         }()
         let tier = SleepAIModelCatalog.descriptor(for: resolvedBrand, in: region)
-        self.selectedTier = tier
-        self.availableTiers = SleepAIModelCatalog.available(in: region)
+        let bundled = SleepAIModelCatalog.available(in: region)
+        // If the persisted brand's weights are no longer in the bundle
+        // (e.g. user picked Pro on a build that didn't ship Pro weights,
+        // or the App Store build dropped a tier to stay under 4 GB), fall
+        // back to the first available tier instead of erroring on first
+        // message with `notFound(...)`.
+        let safeTier: SleepAIModelTier = {
+            if bundled.contains(where: { $0.brand == tier.brand }) { return tier }
+            return bundled.first ?? tier
+        }()
+        self.selectedTier = safeTier
+        self.availableTiers = bundled
         // With the brand-tier model the picker is region-stable: Instant /
         // Pro both exist everywhere, so a persisted selection can never be
         // out of region.
         self.regionBlocksSelection = false
-        self.service = serviceFactory(tier)
+        self.service = serviceFactory(safeTier)
         // Initial phase honours the persisted EULA acceptance: without this
         // a fresh install would land on the empty "ready" screen instead of
         // showing the EULA gate, and the user would have to manually tap

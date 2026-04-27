@@ -376,6 +376,14 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
             return Self.fillerReply(for: trimmed, context: ctx)
         }
 
+        // Meta-conversation: user is calling out the bot's tone. Don't
+        // try to skill-answer ("为什么这么说" alone used to land on the
+        // tag-insights matcher and dump unrelated advice). Apologize and
+        // pivot to a useful offer.
+        if Self.isMetaComplaint(p) {
+            return Self.metaApologyReply(chinese: Self.isChinese(p))
+        }
+
         // "Look at my recent sleep" family. People rarely use the word
         // "summary" in natural Chinese; they say 看 / 看看 / 最近 / 这几晚.
         if Self.matches(p, [
@@ -414,11 +422,24 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
         if Self.matches(p, ["trend", "change", "changed", "better", "worse", "趋势", "变化", "变好", "变差"]) {
             return Self.trendReply(context: ctx, chinese: Self.isChinese(p))
         }
-        if Self.matches(p, [
-            "why", "affect", "factor", "caffeine", "coffee", "alcohol", "stress", "screen",
+        // Tag-insight: split into "strong" tag-name triggers (auto-match)
+        // and "weak" wh-style triggers ("why", "为什么", "原因", "影响")
+        // which only count when paired with a sleep-context word. Bare
+        // "为什么" used to grab unrelated meta questions like "你为什么
+        //这么说 这很不礼貌" → tag advice. Now those fall through to the
+        // LLM (or the meta-apology branch above, when detected).
+        let strongTagTriggers = [
+            "caffeine", "coffee", "alcohol", "stress", "screen",
             "exercise", "late meal", "travel", "medication",
-            "为什么", "原因", "影响", "咖啡", "咖啡因", "酒", "压力", "屏幕", "运动", "夜宵", "旅行", "药"
-        ]) {
+            "咖啡", "咖啡因", "酒", "压力", "屏幕", "运动", "夜宵", "旅行", "药"
+        ]
+        let weakWhyTriggers = ["why", "affect", "factor", "为什么", "原因", "影响"]
+        let sleepContextWords = [
+            "sleep", "score", "night", "last night", "deep", "rem", "wake",
+            "睡", "睡眠", "睡觉", "得分", "评分", "昨晚", "今晚", "深睡", "浅睡", "醒"
+        ]
+        if Self.matches(p, strongTagTriggers)
+            || (Self.matches(p, weakWhyTriggers) && Self.matches(p, sleepContextWords)) {
             return Self.tagInsightReply(context: ctx, chinese: Self.isChinese(p))
         }
         if Self.matches(p, [
@@ -466,11 +487,54 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
         return false
     }
 
+    /// Detects when the user is complaining about the bot itself —
+    /// politeness, tone, repetition, irrelevance. Routing these into the
+    /// skill matchers used to dump unrelated advice on top of the original
+    /// offence; routing them into the LLM with no context is also bad
+    /// because small models tend to double down. Handle here with a soft,
+    /// human apology.
+    static func isMetaComplaint(_ lowered: String) -> Bool {
+        let needles = [
+            // English
+            "rude", "that was rude", "be polite", "you're rude", "youre rude",
+            "stop saying that", "why did you say that", "why are you saying",
+            "that's not helpful", "thats not helpful", "you didn't answer",
+            "you didnt answer", "dont be condescending", "don't be condescending",
+            // Chinese
+            "不礼貌", "无礼", "没礼貌", "礼貌点", "客气点", "语气", "口气",
+            "为什么这么说", "为啥这么说", "你怎么说话",
+            "你没回答", "答非所问", "牛头不对马嘴", "胡说",
+            "别说教", "别教训", "瞧不起", "看不起"
+        ]
+        for n in needles where lowered.contains(n) { return true }
+        return false
+    }
+
+    /// Soft apology + offer one concrete next step. Pulled from a small
+    /// pool so repeated complaints don't loop on the same line.
+    static func metaApologyReply(chinese: Bool) -> String {
+        if chinese {
+            return [
+                "抱歉，刚才那句确实生硬了。我换一种说法 — 想从睡眠的哪一面聊起？",
+                "对不起，那句话不太合适。我重新来：你想看 **昨晚** 的情况，还是聊点睡前习惯？",
+                "嗯，是我没说好。换个方式 — 我可以讲一下你最近的睡眠，或给点小建议，挑一个？",
+                "抱歉。我回得有点机械。你具体想问什么，我尽量直接答。"
+            ].randomElement()!
+        } else {
+            return [
+                "Sorry — that came out blunt. Let me try again. What part of sleep do you want to dig into?",
+                "Apologies, that wasn't great. Want me to look at last night, or chat about wind-down habits?",
+                "You're right, that wasn't helpful. Tell me what you actually want to know and I'll keep it direct.",
+                "Sorry — let me reset. Pick one: a read on last night, or a tip to help you sleep better."
+            ].randomElement()!
+        }
+    }
+
     /// One- or two-character affirmations / fillers that have no semantic
     /// content for a sleep coach to act on. Without this guard a Gemma-class
     /// model latches onto them as translation requests ("可以" → "I can
-    /// translate that to English…") or generic chitchat. We answer with the
-    /// canonical idle copy instead.
+    /// translate that to English…") or generic chitchat. We answer with a
+    /// short conversational filler reply instead.
     static func isTrivialFiller(_ text: String) -> Bool {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if t.isEmpty { return true }

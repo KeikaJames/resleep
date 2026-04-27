@@ -127,14 +127,47 @@ public enum SleepAIModelCatalog {
         }
     }
 
-    /// Tiers offered to the user in this region. Always exactly two,
-    /// `[Instant, Pro]`, independent of region — but the underlying weights
-    /// for Instant differ between Mainland China (Qwen) and Global (Gemma).
+    /// Tiers offered to the user in this region. Filtered to only those
+    /// whose weights are actually present in the .app bundle (or have
+    /// been side-loaded into Documents/Models/). The build phase ships a
+    /// subset to stay under Apple's 4 GB cap; we must never surface a
+    /// tier the user can pick that then errors with `notFound(...)`.
     public static func available(in region: SleepAIRegion) -> [SleepAIModelTier] {
-        [
+        let all = [
             descriptor(for: .instant, in: region),
             descriptor(for: .pro, in: region)
         ]
+        let bundled = all.filter { isBundled($0) }
+        // Edge case: nothing bundled at all (running in Sim with no model
+        // copied). Show both so the picker isn't empty; the service layer
+        // will fall through to the rule-based engine on load failure.
+        return bundled.isEmpty ? all : bundled
+    }
+
+    /// True when the tier's weights directory is reachable from the running
+    /// process. Checks the app bundle first, then `Documents/Models/`.
+    public static func isBundled(_ tier: SleepAIModelTier) -> Bool {
+        let fm = FileManager.default
+        if let url = Bundle.main.url(forResource: tier.bundleDirName, withExtension: nil),
+           fm.fileExists(atPath: url.path) {
+            return true
+        }
+        if let docs = try? fm.url(for: .documentDirectory, in: .userDomainMask,
+                                  appropriateFor: nil, create: false) {
+            let candidate = docs
+                .appendingPathComponent("Models", isDirectory: true)
+                .appendingPathComponent(tier.bundleDirName, isDirectory: true)
+            if fm.fileExists(atPath: candidate.path) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /// First available tier — used to recover when a previously selected
+    /// brand has been removed from the bundle in a newer build.
+    public static func firstAvailable(in region: SleepAIRegion) -> SleepAIModelTier {
+        available(in: region).first ?? descriptor(for: .instant, in: region)
     }
 
     /// Default brand tier for a fresh install. Always **Instant** — a small,
