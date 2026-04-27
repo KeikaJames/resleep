@@ -160,17 +160,15 @@
 "settings.health.openSettings"         = "打开 iOS 设置";
 "settings.section.privacy"   = "隐私";
 "settings.privacy.audio.title" = "不录原始音频";
-"settings.privacy.audio.body"  = "鼾声只在本机实时处理，原始录音不会保存，也不会上传。";
-"settings.privacy.footer"      = "全部在本机执行。这一版没有云端同步。";
+"settings.privacy.audio.body"  = "鼾声仅在本地处理，我们不会收集您的原始录音。";
 "settings.cloudSync"         = "云端同步（暂未提供）";
 "settings.section.insights"  = "洞察";
 "settings.snoreDetection"    = "鼾声检测";
 "settings.personalization"   = "本地个性化";
-"settings.insights.footer"   = "分析都在你的 iPhone 上跑，不上传，不共享。";
+"settings.insights.footer"   = "所有分析将在您的 iPhone 上完成。";
 "settings.section.reminders" = "提醒";
 "settings.bedtimeReminder"   = "每日就寝提醒";
 "settings.bedtimeTime"       = "提醒时间";
-"settings.reminders.footer"  = "本机本地通知。Circadia 不用远程推送。";
 "settings.section.watch"     = "Apple Watch";
 "settings.section.model"     = "模型";
 "settings.model.backend"     = "后端";
@@ -182,13 +180,12 @@
 "settings.diag.view"           = "查看诊断";
 "settings.diag.refresh"        = "刷新摘要";
 "settings.diag.clear"          = "清除诊断";
-"settings.diag.empty"          = "暂时没有事件。";
-"settings.diag.footer"         = "最近一晚的本地日志，仅供你自己排查。";
+"settings.diag.empty"          = "暂无事件。";
 "settings.section.localData"   = "本地数据";
-"settings.localData.delete"    = "删除本地数据";
-"settings.localData.footer"    = "会清掉本机的会话、摘要和时间线。删了找不回来。";
-"settings.localData.confirmTitle" = "确认删除所有本地数据？";
-"settings.localData.confirmMessage" = "本机的会话、摘要和时间线都会被清空。";
+"settings.localData.delete"    = "删除本地睡眠数据";
+"settings.localData.footer"    = "操作不可撤销。";
+"settings.localData.confirmTitle" = "确认删除全部本地睡眠数据？";
+"settings.localData.confirmMessage" = "本机上保存的会话、汇总、时间线都会被删除。";
 "settings.localData.confirmDelete"  = "删除";
 "settings.localData.confirmCancel"  = "取消";
 "settings.section.developer"   = "开发者";
@@ -199,7 +196,7 @@
 "settings.section.compliance"  = "合规";
 "settings.compliance.l1"       = "离线优先。健康数据默认留在这台设备上。";
 "settings.compliance.l2"       = "录音永远不上传。";
-"settings.compliance.l3"       = "不是医疗器械，不诊断也不治疗任何睡眠问题。";
+"settings.compliance.l3"       = "并非医疗器械，不用于诊断或治疗任何睡眠障碍。";
 "settings.section.about"       = "关于";
 "settings.about.appVersion"    = "应用版本";
 "settings.about.build"         = "构建号";
@@ -242,7 +239,6 @@
 "recovery.bodyFormat" = "开始于 %@。应用在结束前被关闭。";
 "recovery.finish"     = "完成并保存";
 "recovery.discard"    = "丢弃";
-"settings.localData.confirmMessage" = "本机存储的会话、摘要和时间轴将被删除。";
 
 // Insights
 "insights.header"                  = "睡眠建议";

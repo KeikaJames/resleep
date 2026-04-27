@@ -34,8 +34,6 @@ struct SettingsView: View {
                     Toggle("settings.cloudSync", isOn: $vm.cloudSyncEnabled).disabled(true)
                 } header: {
                     Text("settings.section.privacy")
-                } footer: {
-                    Text("settings.privacy.footer")
                 }
 
                 Section {
@@ -56,8 +54,6 @@ struct SettingsView: View {
                     }
                 } header: {
                     Text("settings.section.reminders")
-                } footer: {
-                    Text("settings.reminders.footer")
                 }
                 .onChange(of: vm.bedtimeReminderEnabled) { _, on in
                     Task { await applyBedtime(on: on, at: vm.bedtimeReminderTime) }
@@ -128,8 +124,6 @@ struct SettingsView: View {
                     }
                 } header: {
                     Text("settings.section.diagnostics")
-                } footer: {
-                    Text("settings.diag.footer")
                 }
 
                 Section {
