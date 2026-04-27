@@ -132,6 +132,16 @@ private struct IntelligenceGlow: View {
 
 // MARK: - Root view
 
+/// Preference carrying the bottom-sentinel's maxY in the chat ScrollView's
+/// coord space, so we can compare to viewport height and decide whether
+/// to show the "jump to latest" FAB.
+private struct BottomVisibilityKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 struct SleepAIView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var model = SleepAIViewModel(
@@ -221,109 +231,119 @@ struct SleepAIView: View {
     private var main: some View {
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(spacing: 28) {
-                        if model.messages.isEmpty {
-                            heroHeader
-                                .padding(.top, 40)
-                                .padding(.horizontal, 24)
-                            if !model.summaryText.isEmpty {
-                                contextSnapshotCard
+                GeometryReader { outer in
+                    ScrollView {
+                        VStack(spacing: 28) {
+                            if model.messages.isEmpty {
+                                heroHeader
+                                    .padding(.top, 40)
+                                    .padding(.horizontal, 24)
+                                if !model.summaryText.isEmpty {
+                                    contextSnapshotCard
+                                        .padding(.horizontal, 20)
+                                }
+                                suggestionsGrid
                                     .padding(.horizontal, 20)
-                            }
-                            suggestionsGrid
+                                    .padding(.top, 8)
+                            } else {
+                                VStack(alignment: .leading, spacing: 14) {
+                                    ForEach(model.messages) { msg in
+                                        ChatBubble(message: msg)
+                                            .id(msg.id)
+                                            .transition(.asymmetric(
+                                                insertion: .move(edge: .bottom).combined(with: .opacity),
+                                                removal: .opacity
+                                            ))
+                                    }
+                                    if model.isReplying {
+                                        ThinkingDots().id("__thinking__")
+                                    }
+                                }
                                 .padding(.horizontal, 20)
-                                .padding(.top, 8)
-                        } else {
-                            VStack(alignment: .leading, spacing: 14) {
-                                ForEach(model.messages) { msg in
-                                    ChatBubble(message: msg)
-                                        .id(msg.id)
-                                        .transition(.asymmetric(
-                                            insertion: .move(edge: .bottom).combined(with: .opacity),
-                                            removal: .opacity
-                                        ))
-                                }
-                                if model.isReplying {
-                                    ThinkingDots().id("__thinking__")
-                                }
+                                .padding(.top, 16)
                             }
-                            .padding(.horizontal, 20)
-                            .padding(.top, 16)
-                        }
 
-                        // Invisible bottom sentinel — its appearance/
-                        // disappearance drives the scroll-to-bottom FAB. A
-                        // 1pt LazyVStack child only renders when on-screen,
-                        // so onAppear fires when the user is at the bottom
-                        // and onDisappear fires when they scroll up.
-                        Color.clear
-                            .frame(height: 1)
-                            .id("__bottom_sentinel__")
-                            .onAppear {
-                                withAnimation(.easeInOut(duration: 0.18)) {
-                                    scrolledAtBottom = true
-                                }
-                            }
-                            .onDisappear {
-                                withAnimation(.easeInOut(duration: 0.18)) {
-                                    scrolledAtBottom = false
-                                }
-                            }
-                    }
-                    .padding(.bottom, 16)
-                }
-                .scrollDismissesKeyboard(.interactively)
-                .onChange(of: model.messages.count) { _, _ in
-                    if let last = model.messages.last {
-                        withAnimation(.easeOut(duration: 0.25)) {
-                            proxy.scrollTo(last.id, anchor: .bottom)
-                        }
-                    }
-                }
-                .overlay(alignment: .bottomTrailing) {
-                    // Floating "jump to latest" affordance — iMessage /
-                    // Telegram pattern. Composer stays put; this just
-                    // floats above it, opacity-only so the chat under it
-                    // is still readable.
-                    if !scrolledAtBottom && !model.messages.isEmpty {
-                        Button {
-                            Haptics.selection()
-                            withAnimation(.easeOut(duration: 0.28)) {
-                                if let last = model.messages.last {
-                                    proxy.scrollTo(last.id, anchor: .bottom)
-                                } else {
-                                    proxy.scrollTo("__bottom_sentinel__", anchor: .bottom)
-                                }
-                            }
-                        } label: {
-                            Image(systemName: "chevron.down")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Color.primary.opacity(0.85))
-                                .frame(width: 36, height: 36)
+                            // Bottom sentinel — read its frame in the
+                            // ScrollView's coordinate space and compare to
+                            // the viewport height. This is more reliable
+                            // than LazyVStack's onAppear/onDisappear, which
+                            // fires inconsistently for sub-pixel-sized
+                            // markers right at the edge.
+                            Color.clear
+                                .frame(height: 1)
+                                .id("__bottom_sentinel__")
                                 .background(
-                                    Circle()
-                                        .fill(.ultraThinMaterial)
-                                        .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
-                                )
-                                .overlay(
-                                    Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                                    GeometryReader { inner in
+                                        Color.clear.preference(
+                                            key: BottomVisibilityKey.self,
+                                            value: inner.frame(in: .named("ai.scroll")).maxY
+                                        )
+                                    }
                                 )
                         }
-                        .padding(.trailing, 14)
-                        .padding(.bottom, 10)
-                        .transition(.scale(scale: 0.7).combined(with: .opacity))
-                        .accessibilityLabel(Text("ai.scrollToBottom"))
+                        .padding(.bottom, 16)
+                    }
+                    .coordinateSpace(name: "ai.scroll")
+                    .scrollDismissesKeyboard(.interactively)
+                    .onPreferenceChange(BottomVisibilityKey.self) { sentinelY in
+                        // sentinelY is the bottom-edge Y of the 1pt sentinel
+                        // expressed in the ScrollView's coord space; the
+                        // viewport extends from 0 to `outer.size.height`.
+                        // Add a small slop (40pt) so the FAB doesn't flicker
+                        // on a half-pixel bounce.
+                        let nearBottom = sentinelY <= outer.size.height + 4
+                        if scrolledAtBottom != nearBottom {
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                                scrolledAtBottom = nearBottom
+                            }
+                        }
+                    }
+                    .onChange(of: model.messages.count) { _, _ in
+                        if let last = model.messages.last {
+                            withAnimation(.easeOut(duration: 0.25)) {
+                                proxy.scrollTo(last.id, anchor: .bottom)
+                            }
+                        }
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        // Floating "jump to latest" affordance — iMessage /
+                        // Telegram pattern. Composer stays pinned; this
+                        // just floats above-right when the user scrolls up.
+                        if !scrolledAtBottom && !model.messages.isEmpty {
+                            Button {
+                                Haptics.selection()
+                                withAnimation(.easeOut(duration: 0.28)) {
+                                    if let last = model.messages.last {
+                                        proxy.scrollTo(last.id, anchor: .bottom)
+                                    } else {
+                                        proxy.scrollTo("__bottom_sentinel__", anchor: .bottom)
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "chevron.down")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(Color.primary.opacity(0.85))
+                                    .frame(width: 36, height: 36)
+                                    .background(
+                                        Circle()
+                                            .fill(.ultraThinMaterial)
+                                            .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+                                    )
+                                    .overlay(
+                                        Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                                    )
+                            }
+                            .padding(.trailing, 14)
+                            .padding(.bottom, 10)
+                            .transition(.scale(scale: 0.7).combined(with: .opacity))
+                            .accessibilityLabel(Text("ai.scrollToBottom"))
+                        }
                     }
                 }
             }
             disclaimer
-            // Composer is always present — hiding it on scroll-up felt
-            // like the screen was breaking. iMessage keeps the input
-            // bar pinned and floats a "scroll to bottom" pill above it.
             composer
         }
-        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: scrolledAtBottom)
     }
 
     private var heroHeader: some View {

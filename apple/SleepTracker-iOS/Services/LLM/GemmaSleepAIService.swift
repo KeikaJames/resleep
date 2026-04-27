@@ -74,13 +74,13 @@ public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendabl
             return skill
         }
 
-        // No usable tracked night (none recorded, or session was a few
-        // seconds of start/stop testing) → never invoke the LLM. Without
-        // grounding it will hallucinate numbers or echo the user. Use the
-        // rule-based "no night" copy instead.
-        if !ctx.hasUsableNight {
-            return await ruleBased.reply(to: prompt, context: ctx)
-        }
+        // NOTE: we previously short-circuited to rule-based when there was
+        // no usable night. That meant any free-form chitchat ("im fine how
+        // about you", "你不会做其他的吗") got the templated menu copy
+        // instead of the model — making the bot feel like a button menu.
+        // The context pack already tells the model NO_NIGHT_RECORDED + to
+        // never invent numbers, and `sanitize()` catches translation /
+        // echo failures, so the LLM is the right place to handle this now.
 
         #if canImport(MLXLLM) && !targetEnvironment(simulator)
         do {
