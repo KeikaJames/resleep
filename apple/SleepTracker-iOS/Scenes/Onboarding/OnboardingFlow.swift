@@ -25,7 +25,7 @@ struct OnboardingFlow: View {
                 PrivacyPage().tag(2)
                 PermissionsPage(onFinish: finish).tag(3)
             }
-            .tabViewStyle(.page(indexDisplayMode: .always))
+            .tabViewStyle(.page(indexDisplayMode: .never))
             .indexViewStyle(.page(backgroundDisplayMode: .always))
 
             HStack(spacing: 12) {
