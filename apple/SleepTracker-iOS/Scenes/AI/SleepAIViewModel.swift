@@ -173,7 +173,14 @@ final class SleepAIViewModel: ObservableObject {
         // out of region.
         self.regionBlocksSelection = false
         self.service = serviceFactory(tier)
-        self.phase = Self.computePhase(blocked: false, hasMessages: false)
+        // Initial phase honours the persisted EULA acceptance: without this
+        // a fresh install would land on the empty "ready" screen instead of
+        // showing the EULA gate, and the user would have to manually tap
+        // "new chat" before anything appeared.
+        let eulaOK = UserDefaults.standard.bool(forKey: Self.eulaKey)
+        self.phase = eulaOK
+            ? Self.computePhase(blocked: false, hasMessages: false)
+            : .needsEULA
         loadHistory()
     }
 
