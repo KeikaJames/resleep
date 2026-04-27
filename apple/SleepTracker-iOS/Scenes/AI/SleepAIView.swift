@@ -348,9 +348,7 @@ struct SleepAIView: View {
             .padding(.bottom, 18)
 
             ScrollView {
-                Text(markdown(model.eulaMarkdown()))
-                    .font(.callout)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                MarkdownBody(text: model.eulaMarkdown())
                     .padding(.horizontal, 22)
                     .padding(.bottom, 24)
                     .textSelection(.enabled)
@@ -378,18 +376,6 @@ struct SleepAIView: View {
             }
             .padding(.bottom, 24)
         }
-    }
-
-    private func markdown(_ raw: String) -> AttributedString {
-        if let attr = try? AttributedString(
-            markdown: raw,
-            options: AttributedString.MarkdownParsingOptions(
-                interpretedSyntax: .inlineOnlyPreservingWhitespace
-            )
-        ) {
-            return attr
-        }
-        return AttributedString(raw)
     }
 }
 

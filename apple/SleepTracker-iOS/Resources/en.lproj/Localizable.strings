@@ -325,6 +325,8 @@ All on-device.";
 "settings.ai.engineRuleBased" = "Rule-based · on-device";
 "settings.about.legalHeader" = "Legal";
 "settings.about.legalFooter" = "These documents ship with the app and are also published in the open-source repository.";
+"settings.about.thirdParty" = "Third-Party Notices";
+"settings.about.notMedicalDevice" = "Not a Medical Device";
 "home.permission.title" = "Heart-rate access is off";
 "home.permission.body" = "Circadia uses heart-rate samples for staging. Turn on Heart Rate in iOS Settings → Health → Data Access.";
 "home.permission.open" = "Open Settings";

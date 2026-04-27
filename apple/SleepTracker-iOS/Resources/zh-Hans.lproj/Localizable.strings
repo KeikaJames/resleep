@@ -325,6 +325,8 @@
 "settings.ai.engineRuleBased" = "规则模板 · 本地";
 "settings.about.legalHeader" = "法律条款";
 "settings.about.legalFooter" = "以上文档随应用一同发布，也可在开源仓库中查阅。";
+"settings.about.thirdParty" = "第三方声明";
+"settings.about.notMedicalDevice" = "非医疗器械";
 "home.permission.title" = "未开启心率读取权限";
 "home.permission.body" = "Circadia 用心率样本来判断睡眠阶段。请在「设置 → 健康 → 数据访问」中开启心率。";
 "home.permission.open" = "前往设置";

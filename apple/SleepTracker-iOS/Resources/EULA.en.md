@@ -1,31 +1,37 @@
 # Sleep AI Terms of Use
 
-*Please read these terms before using the Sleep AI assistant.*
+*Effective: 2026 · Provider: BIRI GA*
 
-## 1. Informational Only
+> **Important — Not a medical device.** Sleep AI is a general wellness feature. It is **not** intended to diagnose, treat, cure, mitigate, or prevent any disease or medical condition.
 
-All content from Sleep AI is **for informational reference only** and does not constitute medical advice, diagnosis, or treatment. For any health concern, consult a qualified medical professional.
+## 1. On-device processing
 
-## 2. On‑Device Processing
+Sleep AI runs a generative language model **on this iPhone**. Your prompts, your sleep context, and the model's replies are processed locally and do not leave the device unless you actively share them.
 
-Sleep AI runs locally on your iPhone. Your sleep data and conversations do not leave this device unless you actively share them.
+## 2. AI-generated content
 
-## 3. Generative Output
+- Replies are produced by a generative model and are clearly labeled as AI-generated.
+- The model can produce **inaccurate, incomplete, or misleading** output.
+- Output is **not** a medical diagnosis, clinical recommendation, or basis for treatment, medication, or any safety-critical decision.
 
-- Replies are produced by a language model running on this device.
-- The model may generate inaccurate, incomplete, or misleading output.
-- Output is **not** a clinical recommendation, medical diagnosis, or basis for treatment.
+## 3. Wellness only
 
-## 4. Your Responsibility
+Sleep AI is provided for general wellness and self-tracking. It is not a substitute for advice from a qualified clinician. **In an emergency, contact your local emergency services immediately.**
 
-- Do not rely on Sleep AI for any medical decision.
-- Do not enter another person's medical information into the assistant.
-- In an emergency, contact your local emergency services immediately.
+## 4. Your responsibility
 
-## 5. Changes
+- Do not rely on Sleep AI for any medical, financial, legal, or safety decision.
+- Do not enter another person's medical or other sensitive information into the assistant.
+- You may withdraw consent at any time in **Settings → AI Assistant Terms**.
 
-The assistant's capabilities, model version, and availability may change in future releases. Continued use means you accept the then‑current terms.
+## 5. Children
+
+Sleep AI is not directed at children under 13 (or under 14 in mainland China).
+
+## 6. Changes
+
+The assistant's capabilities, model version, and availability may change in future releases. Continued use means you accept the then-current terms.
 
 ---
 
-*Maintained by the Sleep team. To edit, modify `apple/SleepTracker-iOS/Resources/EULA.en.md`.*
+*© 2026 BIRI GA. Sleep AI is part of Circadia, a general wellness product, not a medical device.*
