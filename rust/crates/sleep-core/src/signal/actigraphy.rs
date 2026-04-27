@@ -30,7 +30,7 @@ pub fn cole_kripke(activity_counts: &[f32]) -> Vec<bool> {
     const W: [f32; 7] = [106.0, 54.0, 58.0, 76.0, 230.0, 74.0, 67.0];
     let n = activity_counts.len();
     let mut out = vec![false; n];
-    for i in 0..n {
+    for (i, slot) in out.iter_mut().enumerate().take(n) {
         let mut s = 0.0_f32;
         for (k, &w) in W.iter().enumerate() {
             // offset -4 .. +2 maps to k 0..=6
@@ -41,7 +41,7 @@ pub fn cole_kripke(activity_counts: &[f32]) -> Vec<bool> {
             }
             s += w * activity_counts[idx as usize];
         }
-        out[i] = (P * s) >= 1.0;
+        *slot = (P * s) >= 1.0;
     }
     out
 }
@@ -58,13 +58,13 @@ pub fn cole_kripke(activity_counts: &[f32]) -> Vec<bool> {
 pub fn sadeh(activity_counts: &[f32]) -> Vec<bool> {
     let n = activity_counts.len();
     let mut out = vec![false; n];
-    for i in 0..n {
+    for (i, slot) in out.iter_mut().enumerate().take(n) {
         // AVG5: window i-2 .. i+2
         let lo5 = i.saturating_sub(2);
         let hi5 = (i + 2).min(n.saturating_sub(1));
         let win5 = &activity_counts[lo5..=hi5];
         let avg5 = mean(win5);
-        let nat5 = win5.iter().filter(|&&v| v >= 50.0 && v < 100.0).count() as f32;
+        let nat5 = win5.iter().filter(|&&v| (50.0..100.0).contains(&v)).count() as f32;
 
         // SD6: window i-5 .. i  (6 epochs ending at i)
         let lo6 = i.saturating_sub(5);
@@ -72,9 +72,8 @@ pub fn sadeh(activity_counts: &[f32]) -> Vec<bool> {
         let sd6 = std(win6);
 
         let ac = activity_counts[i];
-        let score =
-            7.601 - 0.065 * avg5 - 1.08 * nat5 - 0.056 * sd6 - 0.703 * (ac + 1.0).log10();
-        out[i] = score < 0.0; // wake when negative
+        let score = 7.601 - 0.065 * avg5 - 1.08 * nat5 - 0.056 * sd6 - 0.703 * (ac + 1.0).log10();
+        *slot = score < 0.0; // wake when negative
     }
     out
 }

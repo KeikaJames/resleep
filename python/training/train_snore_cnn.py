@@ -18,19 +18,52 @@ from training.data.snore_dataset import SnoreDataset
 from training.models.snore_cnn import SnoreCNN, SnoreCNNConfig
 
 
+def _build_datasets(args: argparse.Namespace, cfg: SnoreCNNConfig):
+    if args.dataset == "esc50":
+        from training.data.esc50_snore import ESC50SnoreDataset, download_esc50
+
+        root = args.esc50_path or download_esc50(args.out / "esc50")
+        train_ds = ESC50SnoreDataset(
+            esc50_root=root, val_fold=args.val_fold, held_out=False, seed=cfg.seed
+        )
+        val_ds = ESC50SnoreDataset(
+            esc50_root=root,
+            val_fold=args.val_fold,
+            held_out=True,
+            seed=cfg.seed + 1,
+            augment=False,
+        )
+        return train_ds, val_ds
+    train_ds = SnoreDataset(n_samples=args.samples, seed=cfg.seed)
+    val_ds = SnoreDataset(n_samples=args.samples // 4, seed=cfg.seed + 1)
+    return train_ds, val_ds
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--out", type=Path, default=Path("runs"))
     p.add_argument("--epochs", type=int, default=8)
     p.add_argument("--samples", type=int, default=4096)
+    p.add_argument(
+        "--dataset",
+        choices=["synthetic", "esc50"],
+        default="synthetic",
+        help="synthetic = generated mel; esc50 = real ESC-50 'snoring' class",
+    )
+    p.add_argument(
+        "--esc50-path",
+        type=Path,
+        default=None,
+        help="path to ESC-50-master/ (skip download)",
+    )
+    p.add_argument("--val-fold", type=int, default=5, help="ESC-50 holdout fold (1-5)")
     args = p.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
     cfg = SnoreCNNConfig(epochs=args.epochs)
     torch.manual_seed(cfg.seed)
 
-    train_ds = SnoreDataset(n_samples=args.samples, seed=cfg.seed)
-    val_ds = SnoreDataset(n_samples=args.samples // 4, seed=cfg.seed + 1)
+    train_ds, val_ds = _build_datasets(args, cfg)
     train_dl = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=True)
     val_dl = DataLoader(val_ds, batch_size=cfg.batch_size)
 
