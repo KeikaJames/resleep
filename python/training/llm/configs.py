@@ -39,7 +39,7 @@ class LoRAConfig:
 
     # ── Training schedule ───────────────────────────────────────────────
     batch_size: int  = 2
-    iters: int       = 400
+    iters: int       = 600
     learning_rate: float = 1e-4
     grad_checkpoint: bool = True
     seed: int = 1729

@@ -697,10 +697,6 @@ private enum LegalCopy {
     - MLX Swift Examples (`MLXLLM`, `MLXLMCommon`, MIT) © Apple Inc. and contributors.
     - **SoundAnalysis** framework + bundled `SNClassifierIdentifier.version1` © Apple Inc., shipped as part of iOS.
 
-    ## Karol J. Piczak — *ESC-50: Dataset for Environmental Sound Classification* · CC BY-NC 3.0
-
-    The optional fallback snore CNN is trained on **ESC-50**. Citation: K. J. Piczak, *ESC: Dataset for Environmental Sound Classification*, ACM Multimedia 2015. Licensed CC BY-NC 3.0 — see <https://github.com/karolpiczak/ESC-50>. ESC-50 itself is not redistributed by Circadia.
-
     ## swift-bridge · Apache 2.0 / MIT
     Copyright © the swift-bridge authors.
 
@@ -723,7 +719,7 @@ private enum LegalCopy {
 
     ## Acknowledgments
 
-    Thank you to **Google DeepMind**, **Apple's MLX team**, **Apple's SoundAnalysis team**, **Karol J. Piczak**, and the maintainers of **PyTorch, NumPy, SQLite, Rust, swift-bridge, mlx-lm, coremltools, Hugging Face Transformers** and every other open-source project we depend on but did not name individually. Circadia would not exist without you. 🙏
+    Thank you to **Google DeepMind**, **Apple's MLX team**, **Apple's SoundAnalysis team**, and the maintainers of **PyTorch, NumPy, SQLite, Rust, swift-bridge, mlx-lm, coremltools, Hugging Face Transformers** and every other open-source project we depend on but did not name individually. Circadia would not exist without you. 🙏
 
     ---
 

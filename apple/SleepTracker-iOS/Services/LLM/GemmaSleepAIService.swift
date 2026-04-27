@@ -209,7 +209,15 @@ public struct GemmaWeightsLocator: Sendable {
             return URL(fileURLWithPath: envPath, isDirectory: true)
         }
 
-        // 2. Documents/Models/<dir>
+        // 2. App bundle (the model is shipped inside the .app via the
+        //    "Embed Circadia LLM" build phase). This is the production path.
+        if let bundled = Bundle.main.url(forResource: dirName, withExtension: nil),
+           fm.fileExists(atPath: bundled.path) {
+            return bundled
+        }
+
+        // 3. Documents/Models/<dir> — used when the user has manually
+        //    side-loaded a different model.
         if let docs = try? fm.url(for: .documentDirectory, in: .userDomainMask,
                                   appropriateFor: nil, create: false) {
             let candidate = docs
@@ -220,7 +228,9 @@ public struct GemmaWeightsLocator: Sendable {
             }
         }
 
-        // 3. Dev workspace fallback (simulator)
+        // 4. Dev workspace fallback (simulator only). Used as a safety net
+        //    when the build phase couldn't copy weights (e.g. fresh clone
+        //    that hasn't run `make train-llm` yet).
         if let dev = devFallbackPath, fm.fileExists(atPath: dev) {
             return URL(fileURLWithPath: dev, isDirectory: true)
         }
