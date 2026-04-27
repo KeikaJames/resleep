@@ -2,12 +2,67 @@ import Foundation
 import SwiftUI
 import SleepKit
 
+// MARK: - Persistent chat history
+
+/// One saved conversation. Persisted as JSON in `UserDefaults` (small data,
+/// foreground feature — fine without a real DB table).
+struct StoredChat: Identifiable, Codable, Equatable {
+    let id: UUID
+    var createdAt: Date
+    var title: String
+    var messages: [PersistableMessage]
+
+    static func make(from messages: [SleepAIMessage]) -> StoredChat {
+        StoredChat(
+            id: UUID(),
+            createdAt: Date(),
+            title: titleFrom(messages: messages),
+            messages: messages.map(PersistableMessage.init(from:))
+        )
+    }
+
+    static func titleFrom(messages: [SleepAIMessage]) -> String {
+        let firstUser = messages.first { $0.role == .user }?.text
+            ?? messages.first?.text
+            ?? ""
+        let trimmed = firstUser.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return NSLocalizedString("ai.history.empty", comment: "") }
+        let cap = 28
+        return trimmed.count > cap
+            ? String(trimmed.prefix(cap)) + "…"
+            : trimmed
+    }
+}
+
+struct PersistableMessage: Codable, Equatable {
+    enum Role: String, Codable { case user, assistant }
+    var id: String
+    var role: Role
+    var text: String
+    var createdAt: Date
+
+    init(from m: SleepAIMessage) {
+        self.id = m.id
+        self.role = (m.role == .user) ? .user : .assistant
+        self.text = m.text
+        self.createdAt = m.createdAt
+    }
+
+    func toMessage() -> SleepAIMessage {
+        SleepAIMessage(
+            id: id,
+            role: role == .user ? .user : .assistant,
+            text: text,
+            createdAt: createdAt
+        )
+    }
+}
+
 @MainActor
 final class SleepAIViewModel: ObservableObject {
 
     enum Phase {
-        case needsConsent
-        case needsModel
+        case needsEULA
         case ready
         case chatting
     }
@@ -20,27 +75,25 @@ final class SleepAIViewModel: ObservableObject {
 
     // MARK: Published
 
-    @Published var phase: Phase = .needsConsent
+    @Published var phase: Phase = .needsEULA
     @Published var messages: [SleepAIMessage] = []
     @Published var suggestions: [String] = []
     @Published var draft: String = ""
     @Published var isReplying: Bool = false
 
-    @Published var modelStatus: SleepAIModelStatus = .notInstalled
-    @Published private(set) var modelDescriptor: SleepAIModelDescriptor =
-        SleepAIModelManager.defaultDescriptor
-
     @Published var summaryText: String = ""
+
+    @Published var history: [StoredChat] = []
 
     /// Suggestion cards rendered as a 2x2 grid on the idle screen.
     var suggestionCards: [SuggestionCard] {
         let glyphs: [String: (String, Color)] = [
-            local("ai.suggestion.summarize"):  ("moon.stars",                .purple),
-            local("ai.suggestion.deep"):       ("waveform.path",             .indigo),
-            local("ai.suggestion.rem"):        ("eye",                       .pink),
-            local("ai.suggestion.advice"):     ("lightbulb",                 .orange),
-            local("ai.suggestion.howItWorks"): ("sparkles",                  .blue),
-            local("ai.suggestion.whatTracked"):("heart.text.square",         .red)
+            local("ai.suggestion.summarize"):   ("moon.stars",          .purple),
+            local("ai.suggestion.deep"):        ("waveform.path",       .indigo),
+            local("ai.suggestion.rem"):         ("eye",                 .pink),
+            local("ai.suggestion.advice"):      ("lightbulb",           .orange),
+            local("ai.suggestion.howItWorks"):  ("sparkles",            .blue),
+            local("ai.suggestion.whatTracked"): ("heart.text.square",   .red)
         ]
         return suggestions.map { text in
             let g = glyphs[text] ?? ("sparkles", .gray)
@@ -48,8 +101,7 @@ final class SleepAIViewModel: ObservableObject {
         }
     }
 
-    /// Picks a greeting key based on current local time. Mirrors the
-    /// Apple Intelligence "Good morning / afternoon / evening" feel.
+    /// Greeting key based on current local time.
     var timeBasedGreetingKey: String {
         let hour = Calendar.current.component(.hour, from: Date())
         switch hour {
@@ -64,41 +116,22 @@ final class SleepAIViewModel: ObservableObject {
 
     private weak var appState: AppState?
     private let service: SleepAIServiceProtocol
-    private let modelManager: SleepAIModelManager
-    private var statusObservation: Task<Void, Never>?
 
     // MARK: Persistence keys
 
-    private static let consentKey   = "sleep.ai.consent.granted"
+    private static let eulaKey      = "sleep.ai.eula.accepted.v1"
+    private static let historyKey   = "sleep.ai.history.v1"
+    private static let activeChatKey = "sleep.ai.history.activeId.v1"
+
+    private var activeChatId: UUID?
 
     // MARK: Init
 
-    init(service: SleepAIServiceProtocol = SleepAIService(),
-         modelManager: SleepAIModelManager? = nil) {
+    init(service: SleepAIServiceProtocol = SleepAIService()) {
         self.service = service
-        let mm = modelManager ?? SleepAIModelManager()
-        self.modelManager = mm
-        self.modelStatus = mm.status
-        self.modelDescriptor = mm.descriptor
         self.phase = computePhase()
-        // Mirror manager status into our @Published so the view re-renders.
-        statusObservation = Task { [weak self] in
-            guard let self else { return }
-            // Naive polling — manager exposes @Published but it's MainActor;
-            // Combine bridging would also work. Polling is fine for a small,
-            // foreground-only sheet.
-            while !Task.isCancelled {
-                let st = self.modelManager.status
-                if self.modelStatus != st {
-                    self.modelStatus = st
-                    self.phase = self.computePhase()
-                }
-                try? await Task.sleep(nanoseconds: 120_000_000)
-            }
-        }
+        loadHistory()
     }
-
-    deinit { statusObservation?.cancel() }
 
     // MARK: Wiring
 
@@ -112,23 +145,31 @@ final class SleepAIViewModel: ObservableObject {
         suggestions = service.suggestedFollowUps(context: ctx)
     }
 
-    // MARK: Consent / model
+    // MARK: EULA
 
-    func grantConsent() {
-        UserDefaults.standard.set(true, forKey: Self.consentKey)
+    var eulaAccepted: Bool { UserDefaults.standard.bool(forKey: Self.eulaKey) }
+
+    func acceptEULA() {
+        UserDefaults.standard.set(true, forKey: Self.eulaKey)
         phase = computePhase()
         Task { await refreshContext() }
     }
 
-    func resetChat() {
-        messages = []
-        draft = ""
-        phase = computePhase()
-        Task { await refreshContext() }
+    /// Returns localized EULA markdown text, loading the bundled file
+    /// matching the user's preferred language. Falls back to English.
+    func eulaMarkdown() -> String {
+        let preferred = Bundle.main.preferredLocalizations.first ?? "en"
+        let candidate = preferred.hasPrefix("zh") ? "EULA.zh-Hans" : "EULA.en"
+        if let url = Bundle.main.url(forResource: candidate, withExtension: "md"),
+           let s = try? String(contentsOf: url, encoding: .utf8) {
+            return s
+        }
+        if let url = Bundle.main.url(forResource: "EULA.en", withExtension: "md"),
+           let s = try? String(contentsOf: url, encoding: .utf8) {
+            return s
+        }
+        return NSLocalizedString("ai.eula.short", comment: "")
     }
-
-    func startDownload() { modelManager.startDownload() }
-    func cancelDownload() { modelManager.cancelDownload() }
 
     // MARK: Chat
 
@@ -139,26 +180,83 @@ final class SleepAIViewModel: ObservableObject {
         isReplying = true
         let ctx = await buildContext()
         let reply = await service.reply(to: prompt, context: ctx)
-        // Tiny delay so the typing indicator is visible — purely cosmetic.
         try? await Task.sleep(nanoseconds: 250_000_000)
         messages.append(SleepAIMessage(role: .assistant, text: reply))
         isReplying = false
         if phase == .ready { phase = .chatting }
         suggestions = service.suggestedFollowUps(context: ctx)
+        persistActiveChat()
+    }
+
+    // MARK: History
+
+    func startNewChat() {
+        if !messages.isEmpty {
+            persistActiveChat() // make sure the current one is saved
+        }
+        activeChatId = nil
+        messages = []
+        draft = ""
+        phase = computePhase()
+        Task { await refreshContext() }
+    }
+
+    func openChat(_ chat: StoredChat) {
+        if !messages.isEmpty, activeChatId != chat.id {
+            persistActiveChat()
+        }
+        activeChatId = chat.id
+        messages = chat.messages.map { $0.toMessage() }
+        phase = messages.isEmpty ? .ready : .chatting
+    }
+
+    func deleteChat(_ chat: StoredChat) {
+        history.removeAll { $0.id == chat.id }
+        if activeChatId == chat.id { startNewChat() }
+        saveHistory()
+    }
+
+    func clearAllHistory() {
+        history = []
+        saveHistory()
+        startNewChat()
     }
 
     // MARK: Internals
 
     private func computePhase() -> Phase {
-        let consented = UserDefaults.standard.bool(forKey: Self.consentKey)
-        guard consented else { return .needsConsent }
-        // Lightweight rule-based assistant is always available — model
-        // download is a separate, optional Settings concern.
+        guard eulaAccepted else { return .needsEULA }
         return messages.isEmpty ? .ready : .chatting
     }
 
     private func local(_ key: String) -> String {
         Bundle.main.localizedString(forKey: key, value: key, table: nil)
+    }
+
+    private func persistActiveChat() {
+        guard !messages.isEmpty else { return }
+        if let id = activeChatId, let idx = history.firstIndex(where: { $0.id == id }) {
+            history[idx].messages = messages.map(PersistableMessage.init(from:))
+            history[idx].title = StoredChat.titleFrom(messages: messages)
+        } else {
+            let chat = StoredChat.make(from: messages)
+            activeChatId = chat.id
+            history.insert(chat, at: 0)
+        }
+        saveHistory()
+    }
+
+    private func loadHistory() {
+        guard let data = UserDefaults.standard.data(forKey: Self.historyKey) else { return }
+        if let decoded = try? JSONDecoder().decode([StoredChat].self, from: data) {
+            history = decoded.sorted { $0.createdAt > $1.createdAt }
+        }
+    }
+
+    private func saveHistory() {
+        if let data = try? JSONEncoder().encode(history) {
+            UserDefaults.standard.set(data, forKey: Self.historyKey)
+        }
     }
 
     private func buildContext() async -> SleepAIContext {

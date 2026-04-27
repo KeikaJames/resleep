@@ -80,6 +80,25 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    LabeledContent("settings.ai.modelPath",
+                                   value: aiModelInstalled
+                                        ? "gemma‑3n‑E2B‑4bit"
+                                        : NSLocalizedString("settings.ai.modelMissing", comment: ""))
+                    NavigationLink {
+                        LegalDocumentView(titleKey: "settings.ai.eula",
+                                          text: aiEulaText())
+                    } label: {
+                        Label("settings.ai.eula", systemImage: "doc.text")
+                    }
+                    Text("settings.ai.disclaimer")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } header: {
+                    Text("settings.section.aiAssistant")
+                }
+
+                Section {
                     NavigationLink {
                         DiagnosticsView()
                     } label: {
@@ -228,6 +247,29 @@ struct SettingsView: View {
 
     private static var buildString: String {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+    }
+
+    private var aiModelInstalled: Bool {
+        // The model lives in the dev workspace (gitignored, ~3 GB). We
+        // surface its presence to be honest with the user — the runtime
+        // wiring (MLX‑Swift inference) is a separate, future step.
+        guard let url = Bundle.main.url(forResource: "EULA.en", withExtension: "md") else {
+            return false
+        }
+        let candidate = url
+            .deletingLastPathComponent()
+            .appendingPathComponent("gemma-3n-E2B-it-4bit", isDirectory: true)
+        return FileManager.default.fileExists(atPath: candidate.path)
+    }
+
+    private func aiEulaText() -> String {
+        let preferred = Bundle.main.preferredLocalizations.first ?? "en"
+        let candidate = preferred.hasPrefix("zh") ? "EULA.zh-Hans" : "EULA.en"
+        if let url = Bundle.main.url(forResource: candidate, withExtension: "md"),
+           let s = try? String(contentsOf: url, encoding: .utf8) {
+            return s
+        }
+        return NSLocalizedString("ai.eula.short", comment: "")
     }
 }
 

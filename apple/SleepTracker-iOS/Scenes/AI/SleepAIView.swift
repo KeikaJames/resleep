@@ -1,10 +1,9 @@
 import SwiftUI
 import SleepKit
 
-// MARK: - Apple Intelligence shimmer / border atoms
+// MARK: - Apple Intelligence atoms
 
-/// Animated multi-color stroke. Used sparingly — only on the composer pill
-/// and the small "Sleep AI" pill on the consent sheet.
+/// Animated multi‑color stroke. Used on the composer pill and consent UI.
 struct AppleIntelligenceStroke: ViewModifier {
     var cornerRadius: CGFloat
     var lineWidth: CGFloat = 1.5
@@ -44,8 +43,7 @@ extension View {
     }
 }
 
-/// A drifting rainbow gradient text fill — the "Apple Intelligence look".
-/// Used for the hero greeting word + the prompt.
+/// Drifting gradient text fill. Used for the prompt headline.
 struct ShimmerText: ViewModifier {
     @State private var offset: CGFloat = -1
 
@@ -73,12 +71,48 @@ extension View {
     func aiShimmer() -> some View { modifier(ShimmerText()) }
 }
 
+/// Full‑screen rotating rainbow border that lives at the device's edge.
+/// Quietly visible behind the navigation chrome — signals "Apple Intelligence
+/// is on" without taking focus.
+private struct RainbowEdgeOverlay: View {
+    @State private var rotation: Double = 0
+
+    var body: some View {
+        GeometryReader { geo in
+            let r = max(min(geo.size.width, geo.size.height) * 0.18, 38)
+            RoundedRectangle(cornerRadius: r, style: .continuous)
+                .strokeBorder(
+                    AngularGradient(
+                        gradient: Gradient(colors: [
+                            .purple, .pink, .orange, .yellow,
+                            .mint, .cyan, .blue, .purple
+                        ]),
+                        center: .center,
+                        angle: .degrees(rotation)
+                    ),
+                    lineWidth: 2.5
+                )
+                .blur(radius: 0.4)
+                .opacity(0.85)
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+        .onAppear {
+            withAnimation(.linear(duration: 7).repeatForever(autoreverses: false)) {
+                rotation = 360
+            }
+        }
+    }
+}
+
 // MARK: - Root view
 
 struct SleepAIView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var model = SleepAIViewModel()
     @FocusState private var composerFocused: Bool
+    @State private var historyOpen: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -86,39 +120,60 @@ struct SleepAIView: View {
                 Color(.systemGroupedBackground).ignoresSafeArea()
 
                 switch model.phase {
-                case .needsConsent:
-                    consent
-                case .needsModel, .ready, .chatting:
+                case .needsEULA:
+                    eulaScreen
+                case .ready, .chatting:
                     main
+                }
+
+                // Rainbow marquee — only when actually using the assistant.
+                if model.phase != .needsEULA {
+                    RainbowEdgeOverlay()
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("Sleep AI")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
-                }
-                if case .chatting = model.phase {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            withAnimation(.easeInOut) { model.resetChat() }
-                        } label: {
-                            Image(systemName: "arrow.counterclockwise")
-                                .font(.body)
-                        }
-                        .accessibilityLabel(Text("ai.consent.cta"))
-                    }
-                }
-            }
+            .toolbar { toolbarContent }
             .task {
                 model.attach(appState: appState)
                 await model.refreshContext()
             }
+            .sheet(isPresented: $historyOpen) {
+                HistorySheet(model: model, isPresented: $historyOpen)
+            }
         }
     }
 
-    // MARK: Main scene (idle + chat)
+    // MARK: Toolbar
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        if model.phase != .needsEULA {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    historyOpen = true
+                } label: {
+                    HamburgerIcon()
+                }
+                .accessibilityLabel(Text("ai.toolbar.history"))
+            }
+            ToolbarItem(placement: .principal) {
+                Text("Sleep AI")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    withAnimation(.easeInOut) { model.startNewChat() }
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                        .font(.body)
+                }
+                .accessibilityLabel(Text("ai.toolbar.newChat"))
+            }
+        }
+    }
+
+    // MARK: Main scene
 
     private var main: some View {
         VStack(spacing: 0) {
@@ -143,8 +198,7 @@ struct SleepAIView: View {
                                         ))
                                 }
                                 if model.isReplying {
-                                    ThinkingDots()
-                                        .id("__thinking__")
+                                    ThinkingDots().id("__thinking__")
                                 }
                             }
                             .padding(.horizontal, 20)
@@ -162,11 +216,10 @@ struct SleepAIView: View {
                     }
                 }
             }
+            disclaimer
             composer
         }
     }
-
-    // MARK: Hero
 
     private var heroHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -180,13 +233,12 @@ struct SleepAIView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    // MARK: Suggestions
-
     private var suggestionsGrid: some View {
         let cols = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
         return LazyVGrid(columns: cols, spacing: 10) {
             ForEach(Array(model.suggestionCards.enumerated()), id: \.offset) { _, card in
                 Button {
+                    composerFocused = false
                     Task { await model.send(prompt: card.text) }
                 } label: {
                     SuggestionCard(card: card)
@@ -196,7 +248,17 @@ struct SleepAIView: View {
         }
     }
 
-    // MARK: Composer
+    // MARK: Disclaimer + composer
+
+    private var disclaimer: some View {
+        Text("ai.disclaimer.short")
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.horizontal, 16)
+            .padding(.top, 6)
+            .padding(.bottom, 4)
+    }
 
     private var composer: some View {
         HStack(spacing: 10) {
@@ -207,13 +269,10 @@ struct SleepAIView: View {
                 .focused($composerFocused)
                 .lineLimit(1...5)
                 .submitLabel(.send)
-                .onSubmit {
-                    submit()
-                }
-                if !model.draft.isEmpty {
-                    Button {
-                        submit()
-                    } label: {
+                .onSubmit { submit() }
+
+                if !model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Button { submit() } label: {
                         Image(systemName: "arrow.up")
                             .font(.subheadline.weight(.bold))
                             .foregroundStyle(Color(.systemBackground))
@@ -232,7 +291,7 @@ struct SleepAIView: View {
             .appleIntelligenceStroke(cornerRadius: 22, lineWidth: 1.2)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.bottom, 10)
         .background(
             Color(.systemGroupedBackground)
                 .overlay(Divider(), alignment: .top)
@@ -245,38 +304,187 @@ struct SleepAIView: View {
         Task { await model.send(prompt: text) }
     }
 
-    // MARK: Consent (first launch)
+    // MARK: EULA gate
 
-    private var consent: some View {
+    private var eulaScreen: some View {
         VStack(spacing: 0) {
-            Spacer()
-            VStack(spacing: 16) {
+            VStack(spacing: 10) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 56, weight: .semibold))
+                    .font(.system(size: 40, weight: .semibold))
                     .aiShimmer()
-                Text("ai.consent.title")
+                Text("ai.eula.title")
                     .font(.title2.weight(.semibold))
-                Text("ai.consent.body")
-                    .font(.subheadline)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.top, 28)
+            .padding(.bottom, 18)
+
+            ScrollView {
+                Text(markdown(model.eulaMarkdown()))
+                    .font(.callout)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 22)
+                    .padding(.bottom, 24)
+                    .textSelection(.enabled)
+            }
+
+            VStack(spacing: 10) {
+                Text("ai.eula.short")
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 36)
+                    .padding(.horizontal, 32)
+
+                Button {
+                    withAnimation(.easeInOut) { model.acceptEULA() }
+                } label: {
+                    Text("ai.eula.accept")
+                        .font(.body.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.primary)
+                .foregroundStyle(Color(.systemBackground))
+                .padding(.horizontal, 24)
             }
-            Spacer()
-            Button {
-                withAnimation(.easeInOut) { model.grantConsent() }
-            } label: {
-                Text("ai.consent.cta")
-                    .font(.body.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.primary)
-            .foregroundStyle(Color(.systemBackground))
-            .padding(.horizontal, 24)
-            .padding(.bottom, 28)
+            .padding(.bottom, 24)
         }
+    }
+
+    private func markdown(_ raw: String) -> AttributedString {
+        if let attr = try? AttributedString(
+            markdown: raw,
+            options: AttributedString.MarkdownParsingOptions(
+                interpretedSyntax: .inlineOnlyPreservingWhitespace
+            )
+        ) {
+            return attr
+        }
+        return AttributedString(raw)
+    }
+}
+
+// MARK: - Hamburger icon (varied bar lengths)
+
+private struct HamburgerIcon: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            bar(width: 18)
+            bar(width: 13)
+            bar(width: 16)
+        }
+        .frame(width: 22, height: 22, alignment: .leading)
+    }
+
+    private func bar(width: CGFloat) -> some View {
+        Capsule()
+            .frame(width: width, height: 2)
+            .foregroundStyle(.primary)
+    }
+}
+
+// MARK: - History sheet
+
+private struct HistorySheet: View {
+    @ObservedObject var model: SleepAIViewModel
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if model.history.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "tray")
+                            .font(.system(size: 36))
+                            .foregroundStyle(.tertiary)
+                        Text("ai.history.empty")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        ForEach(grouped, id: \.key) { section in
+                            Section(section.key) {
+                                ForEach(section.value) { chat in
+                                    Button {
+                                        model.openChat(chat)
+                                        isPresented = false
+                                    } label: {
+                                        HStack {
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(chat.title)
+                                                    .font(.body)
+                                                    .foregroundStyle(.primary)
+                                                    .lineLimit(1)
+                                                Text(chat.createdAt, format: .dateTime.hour().minute())
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                            Spacer()
+                                            Image(systemName: "chevron.right")
+                                                .font(.caption)
+                                                .foregroundStyle(.tertiary)
+                                        }
+                                    }
+                                    .buttonStyle(.plain)
+                                    .swipeActions {
+                                        Button(role: .destructive) {
+                                            model.deleteChat(chat)
+                                        } label: {
+                                            Label("ai.history.delete", systemImage: "trash")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("ai.history.title")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("settings.localData.confirmCancel") {
+                        isPresented = false
+                    }
+                }
+                if !model.history.isEmpty {
+                    ToolbarItem(placement: .bottomBar) {
+                        Button(role: .destructive) {
+                            model.clearAllHistory()
+                            isPresented = false
+                        } label: {
+                            Label("ai.history.clearAll", systemImage: "trash")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var grouped: [(key: String, value: [StoredChat])] {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let yesterday = cal.date(byAdding: .day, value: -1, to: today) ?? today
+
+        var todayList: [StoredChat] = []
+        var yLst: [StoredChat] = []
+        var earlier: [StoredChat] = []
+
+        for c in model.history {
+            let day = cal.startOfDay(for: c.createdAt)
+            if day == today { todayList.append(c) }
+            else if day == yesterday { yLst.append(c) }
+            else { earlier.append(c) }
+        }
+
+        var out: [(String, [StoredChat])] = []
+        if !todayList.isEmpty { out.append((NSLocalizedString("ai.history.today", comment: ""), todayList)) }
+        if !yLst.isEmpty { out.append((NSLocalizedString("ai.history.yesterday", comment: ""), yLst)) }
+        if !earlier.isEmpty { out.append((NSLocalizedString("ai.history.title", comment: ""), earlier)) }
+        return out
     }
 }
 
@@ -307,7 +515,7 @@ private struct SuggestionCard: View {
     }
 }
 
-// MARK: - Chat bubble + thinking
+// MARK: - Chat bubble (markdown) + thinking
 
 private struct ChatBubble: View {
     let message: SleepAIMessage
@@ -315,10 +523,7 @@ private struct ChatBubble: View {
     var body: some View {
         HStack(alignment: .bottom) {
             if message.role == .assistant {
-                Text(message.text)
-                    .font(.body)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
+                bubble
                     .background(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .fill(Color(.secondarySystemGroupedBackground))
@@ -339,6 +544,29 @@ private struct ChatBubble: View {
                     .frame(maxWidth: 320, alignment: .trailing)
             }
         }
+    }
+
+    private var bubble: some View {
+        Text(rendered)
+            .font(.body)
+            .textSelection(.enabled)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+    }
+
+    /// Render assistant text as Markdown (bold/italic/code/links).
+    /// `inlineOnlyPreservingWhitespace` keeps line breaks intact while still
+    /// honoring inline formatting — perfect for short chat replies.
+    private var rendered: AttributedString {
+        if let attr = try? AttributedString(
+            markdown: message.text,
+            options: AttributedString.MarkdownParsingOptions(
+                interpretedSyntax: .inlineOnlyPreservingWhitespace
+            )
+        ) {
+            return attr
+        }
+        return AttributedString(message.text)
     }
 }
 

@@ -1,62 +1,54 @@
-# macOS / Xcode
-.DS_Store
-*.xcuserstate
-xcuserdata/
-DerivedData/
-*.xcscmblueprint
-*.xccheckout
-build/
-*.ipa
-*.dSYM.zip
-*.dSYM
 
-# Swift Package Manager
-.swiftpm/
-.build/
-Package.resolved
-
-# Rust
-target/
-**/*.rs.bk
-Cargo.lock
-
-# Python
 __pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-.ipynb_checkpoints/
-
-# IDE
-.vscode/
+.build/
+.DS_Store
 .idea/
-
-# Local data
+.ipynb_checkpoints/
+.swiftpm/
+.venv-export/
+.venv/
+.vscode/
+*.db
+*.dSYM
+*.dSYM.zip
+*.egg-info/
+*.ipa
+*.mobileprovision
+*.p12
+*.pem
+*.py[cod]
 *.sqlite
 *.sqlite3
-*.db
+*.xccheckout
+*.xcframework/
+*.xcscmblueprint
+*.xcuserstate
+**/*.rs.bk
 /tmp/
-tmp/
-local_data/
-
+# Generated FFI
 # Generated Xcode project (XcodeGen is the source of truth)
+# IDE
+# Local data
+# macOS / Xcode
+# Per-developer signing / Bundle ID overrides
+# Python
+# Release B — model export
+# Rust
+# Secrets (defensive)
+# Swift Package Manager
+apple/Configs/Local.xcconfig
+apple/SleepKit/Sources/SleepKit/Generated/
 apple/SleepTracker.xcodeproj/
 apple/SleepTracker.xcworkspace/
-
-# Per-developer signing / Bundle ID overrides
-apple/Configs/Local.xcconfig
-
-# Generated FFI
-apple/SleepKit/Sources/SleepKit/Generated/
-rust/target-xcframework/
-*.xcframework/
-
-# Secrets (defensive)
-*.pem
-*.p12
-*.mobileprovision
-
-# Release B — model export
-.venv-export/
+build/
+Cargo.lock
+DerivedData/
+local_data/
+models/
+Package.resolved
 python/runs/
+rust/target-xcframework/
+target/
+tmp/
+venv/
+xcuserdata/
