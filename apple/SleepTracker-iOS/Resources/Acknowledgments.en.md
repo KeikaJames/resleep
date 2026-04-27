@@ -1,6 +1,6 @@
 # Acknowledgments
 
-Circadia is produced by Monle Capital (Monle (Beijing) Technology Co., Ltd.).
+Circadia is produced by Montlok Capital (Monle (Beijing) Technology Co., Ltd.).
 
 Some Circadia features reference, use or benefit from publicly released research, algorithms, model weights, developer tools and technical documentation from Apple, Google DeepMind, Alibaba Tongyi Lab and the open-source community.
 
