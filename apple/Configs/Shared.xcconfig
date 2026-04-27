@@ -27,7 +27,8 @@ DEVELOPMENT_TEAM =
 
 // Code signing.
 CODE_SIGN_STYLE = Automatic
-CODE_SIGN_IDENTITY =
+// Leave CODE_SIGN_IDENTITY unset so Xcode picks the default
+// "Apple Development" automatic profile based on DEVELOPMENT_TEAM.
 
 // Privacy / build hygiene.
 ENABLE_USER_SCRIPT_SANDBOXING = NO

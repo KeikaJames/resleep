@@ -38,7 +38,6 @@ settings:
     # MARKETING_VERSION / CURRENT_PROJECT_VERSION come from Shared.xcconfig
     # so a single source of truth survives regeneration.
     CODE_SIGN_STYLE: Automatic
-    CODE_SIGN_IDENTITY: ""
 
 packages:
   SleepKit:
