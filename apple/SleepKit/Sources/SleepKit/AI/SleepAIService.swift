@@ -166,6 +166,12 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
         if Self.matches(p, ["tip", "advice", "improve", "建议", "怎么改善"]) {
             return Self.local("ai.reply.advice")
         }
+        if Self.matches(p, ["how it works", "how does", "工作", "原理", "怎么工作"]) {
+            return Self.local("ai.reply.howItWorks")
+        }
+        if Self.matches(p, ["track", "tracked", "追踪", "都追踪", "what tracked"]) {
+            return Self.local("ai.reply.whatTracked")
+        }
         if Self.matches(p, ["hello", "hi", "你好", "嗨"]) {
             return Self.local("ai.reply.hello")
         }

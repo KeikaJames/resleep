@@ -71,37 +71,61 @@ extension View {
     func aiShimmer() -> some View { modifier(ShimmerText()) }
 }
 
-/// Full‑screen rotating rainbow border that lives at the device's edge.
-/// Quietly visible behind the navigation chrome — signals "Apple Intelligence
-/// is on" without taking focus.
-private struct RainbowEdgeOverlay: View {
-    @State private var rotation: Double = 0
+/// Soft, breathing color halo anchored to the bottom edge of the screen.
+/// Mirrors the iOS 18 Apple Intelligence Siri activation aesthetic — a
+/// gentle multi‑hue glow rather than a hard stroke that fights the device's
+/// real corner radius. Sits behind the composer; never blocks input.
+private struct IntelligenceGlow: View {
+    var active: Bool = true
 
     var body: some View {
-        GeometryReader { geo in
-            let r = max(min(geo.size.width, geo.size.height) * 0.18, 38)
-            RoundedRectangle(cornerRadius: r, style: .continuous)
-                .strokeBorder(
-                    AngularGradient(
-                        gradient: Gradient(colors: [
-                            .purple, .pink, .orange, .yellow,
-                            .mint, .cyan, .blue, .purple
-                        ]),
-                        center: .center,
-                        angle: .degrees(rotation)
-                    ),
-                    lineWidth: 2.5
-                )
-                .blur(radius: 0.4)
-                .opacity(0.85)
-        }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-        .onAppear {
-            withAnimation(.linear(duration: 7).repeatForever(autoreverses: false)) {
-                rotation = 360
+        TimelineView(.animation) { ctx in
+            let t = ctx.date.timeIntervalSinceReferenceDate
+            let breathe = (sin(t * 0.6) + 1) / 2  // 0…1
+            let amp = active ? (0.55 + 0.25 * breathe) : 0.25
+
+            GeometryReader { geo in
+                let h = geo.size.height
+                let w = geo.size.width
+                ZStack {
+                    Ellipse()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.purple.opacity(0.55 * amp),
+                                    Color.pink.opacity(0.30 * amp),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: w * 0.7
+                            )
+                        )
+                        .frame(width: w * 1.4, height: h * 0.55)
+                        .offset(x: -w * 0.2, y: h * 0.55)
+                        .blur(radius: 60)
+
+                    Ellipse()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.cyan.opacity(0.45 * amp),
+                                    Color.blue.opacity(0.25 * amp),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: w * 0.6
+                            )
+                        )
+                        .frame(width: w * 1.2, height: h * 0.5)
+                        .offset(x: w * 0.25, y: h * 0.6)
+                        .blur(radius: 60)
+                }
             }
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
         }
     }
 }
@@ -126,9 +150,10 @@ struct SleepAIView: View {
                     main
                 }
 
-                // Rainbow marquee — only when actually using the assistant.
+                // Apple Intelligence bottom glow — only when actually using
+                // the assistant (not on the EULA screen).
                 if model.phase != .needsEULA {
-                    RainbowEdgeOverlay()
+                    IntelligenceGlow(active: model.isReplying)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -515,7 +540,94 @@ private struct SuggestionCard: View {
     }
 }
 
-// MARK: - Chat bubble (markdown) + thinking
+// MARK: - Markdown rendering
+
+/// Tiny block‑level Markdown renderer for chat bubbles. SwiftUI's
+/// `Text(AttributedString)` only renders *inline* markdown — bold / italic
+/// / code / links — and silently strips bullet markers. We still want
+/// proper bullet lists in assistant replies, so this view splits on
+/// blank lines and renders each block as either a paragraph (inline‑parsed
+/// AttributedString) or a list (one row per `•` / `-` / `*` line).
+private struct MarkdownText: View {
+    let raw: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                switch block {
+                case .paragraph(let lines):
+                    Text(inline(lines.joined(separator: "\n")))
+                        .fixedSize(horizontal: false, vertical: true)
+                case .list(let items):
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text("•").foregroundStyle(.secondary)
+                                Text(inline(item))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private enum Block { case paragraph([String]); case list([String]) }
+
+    private var blocks: [Block] {
+        var out: [Block] = []
+        var paragraph: [String] = []
+        var list: [String] = []
+        func flush() {
+            if !list.isEmpty { out.append(.list(list)); list = [] }
+            if !paragraph.isEmpty { out.append(.paragraph(paragraph)); paragraph = [] }
+        }
+        for line in raw.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty {
+                flush()
+                continue
+            }
+            if let bullet = bulletContent(of: trimmed) {
+                if !paragraph.isEmpty {
+                    out.append(.paragraph(paragraph))
+                    paragraph = []
+                }
+                list.append(bullet)
+            } else {
+                if !list.isEmpty {
+                    out.append(.list(list))
+                    list = []
+                }
+                paragraph.append(line)
+            }
+        }
+        flush()
+        return out
+    }
+
+    /// Returns the content of a bullet line if `line` starts with one of
+    /// `•`, `-`, `*`, `+ ` (with required trailing space), else nil.
+    private func bulletContent(of line: String) -> String? {
+        for marker in ["• ", "- ", "* ", "+ "] {
+            if line.hasPrefix(marker) {
+                return String(line.dropFirst(marker.count))
+            }
+        }
+        return nil
+    }
+
+    private func inline(_ s: String) -> AttributedString {
+        if let attr = try? AttributedString(
+            markdown: s,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        ) {
+            return attr
+        }
+        return AttributedString(s)
+    }
+}
 
 private struct ChatBubble: View {
     let message: SleepAIMessage
@@ -547,16 +659,15 @@ private struct ChatBubble: View {
     }
 
     private var bubble: some View {
-        Text(rendered)
+        MarkdownText(raw: message.text)
             .font(.body)
             .textSelection(.enabled)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
     }
 
-    /// Render assistant text as Markdown (bold/italic/code/links).
-    /// `inlineOnlyPreservingWhitespace` keeps line breaks intact while still
-    /// honoring inline formatting — perfect for short chat replies.
+    /// Inline‑only markdown fallback (kept for callers that want a single
+    /// AttributedString, e.g. snapshot tests).
     private var rendered: AttributedString {
         if let attr = try? AttributedString(
             markdown: message.text,

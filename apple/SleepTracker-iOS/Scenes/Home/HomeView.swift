@@ -87,26 +87,22 @@ private struct TonightStatusCard: View {
     var body: some View {
         Card {
             VStack(alignment: .leading, spacing: 18) {
-                if let eyebrow = eyebrowLabel as LocalizedStringKey? {
-                    Text(eyebrow)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .tracking(0.5)
-                }
+                Text(eyebrowKey)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                    .tracking(0.5)
 
-                Text(stageLabel)
-                    .font(.system(size: 56, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.primary)
+                heroBlock
 
                 HStack(spacing: 6) {
                     StatusDot(color: statusColor)
                     Text(statusTitle)
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
-                    if let src = sourceLabel {
+                    if let detail = secondaryDetail {
                         Text("·").foregroundStyle(.tertiary)
-                        Text(src)
+                        Text(detail)
                             .font(.subheadline)
                             .foregroundStyle(.tertiary)
                     }
@@ -134,10 +130,38 @@ private struct TonightStatusCard: View {
         }
     }
 
+    /// The big focal element of the card. Three modes:
+    /// - tracking → current sleep stage label (e.g. "Light")
+    /// - ended    → numeric sleep score (e.g. "87")
+    /// - idle     → calm "Ready" greeting
+    @ViewBuilder
+    private var heroBlock: some View {
+        if appState.workout.isTracking {
+            Text(stageKey)
+                .font(.system(size: 48, weight: .semibold, design: .rounded))
+                .foregroundStyle(.primary)
+        } else if let s = appState.latestSummary {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text("\(s.sleepScore)")
+                    .font(.system(size: 64, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.primary)
+                    .monospacedDigit()
+                Text("card.lastSession.score")
+                    .font(.callout)
+                    .foregroundStyle(.tertiary)
+            }
+        } else {
+            Text("home.stage.ready")
+                .font(.system(size: 36, weight: .semibold, design: .rounded))
+                .foregroundStyle(.primary)
+        }
+    }
+
     private var statusColor: Color {
         if appState.runtimeMode == .simulated { return .orange }
         if appState.workout.isTracking { return .green }
         if model.isPreparingPermissions { return .yellow }
+        if appState.latestSummary != nil { return .blue }
         return .secondary
     }
 
@@ -145,36 +169,47 @@ private struct TonightStatusCard: View {
         if model.isPreparingPermissions { return "home.status.preparing" }
         if appState.runtimeMode == .simulated { return "home.status.simulated" }
         if appState.workout.isTracking { return "home.status.tracking" }
-        if appState.latestSummary != nil { return "home.status.ended" }
+        if appState.latestSummary != nil { return "home.status.recorded" }
         return "home.status.idle"
     }
 
-    private var sourceLabel: LocalizedStringKey? {
+    /// Replaces the previous `sourceLabel` — for ended state we show the
+    /// session duration instead of repeating the device source.
+    private var secondaryDetail: LocalizedStringKey? {
         if appState.runtimeMode == .simulated { return "home.source.simulation" }
-        switch appState.workout.source {
-        case .idle: return nil
-        case .localPhone: return "home.source.iphone"
-        case .remoteWatch: return "home.source.watch"
+        if appState.workout.isTracking {
+            switch appState.workout.source {
+            case .idle: return nil
+            case .localPhone: return "home.source.iphone"
+            case .remoteWatch: return "home.source.watch"
+            }
         }
+        if let s = appState.latestSummary {
+            return LocalizedStringKey(Self.formatDuration(s.durationSec))
+        }
+        return nil
     }
 
-    private var eyebrowLabel: LocalizedStringKey {
+    private var eyebrowKey: LocalizedStringKey {
         if appState.workout.isTracking { return "home.eyebrow.tracking" }
         if appState.latestSummary != nil { return "home.eyebrow.last" }
         return "home.eyebrow.tonight"
     }
 
-    private var stageLabel: LocalizedStringKey {
-        if appState.workout.isTracking {
-            switch appState.workout.currentStage {
-            case .wake:  return "stage.wake"
-            case .light: return "stage.light"
-            case .deep:  return "stage.deep"
-            case .rem:   return "stage.rem"
-            }
+    private var stageKey: LocalizedStringKey {
+        switch appState.workout.currentStage {
+        case .wake:  return "stage.wake"
+        case .light: return "stage.light"
+        case .deep:  return "stage.deep"
+        case .rem:   return "stage.rem"
         }
-        if appState.latestSummary != nil { return "home.stage.ended" }
-        return "home.stage.ready"
+    }
+
+    private static func formatDuration(_ sec: Int) -> String {
+        let h = sec / 3600
+        let m = (sec % 3600) / 60
+        if h > 0 { return "\(h)h \(m)m" }
+        return "\(m)m"
     }
 }
 

@@ -81,9 +81,7 @@ struct SettingsView: View {
 
                 Section {
                     LabeledContent("settings.ai.modelPath",
-                                   value: aiModelInstalled
-                                        ? "gemma‑3n‑E2B‑4bit"
-                                        : NSLocalizedString("settings.ai.modelMissing", comment: ""))
+                                   value: aiModelStatusValue)
                     NavigationLink {
                         LegalDocumentView(titleKey: "settings.ai.eula",
                                           text: aiEulaText())
@@ -249,17 +247,13 @@ struct SettingsView: View {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
     }
 
-    private var aiModelInstalled: Bool {
-        // The model lives in the dev workspace (gitignored, ~3 GB). We
-        // surface its presence to be honest with the user — the runtime
-        // wiring (MLX‑Swift inference) is a separate, future step.
-        guard let url = Bundle.main.url(forResource: "EULA.en", withExtension: "md") else {
-            return false
-        }
-        let candidate = url
-            .deletingLastPathComponent()
-            .appendingPathComponent("gemma-3n-E2B-it-4bit", isDirectory: true)
-        return FileManager.default.fileExists(atPath: candidate.path)
+    private var aiModelStatusValue: String {
+        // Honesty pass: the 4-bit weights live in the dev workspace at
+        // models/gemma-3n-E2B-it-4bit (see project README). They cannot
+        // ship inside the app bundle (~3 GB). Until the on-device MLX-Swift
+        // runtime is wired up, surface a clear "pending integration" label
+        // instead of pretending the model is loaded.
+        return NSLocalizedString("settings.ai.modelPending", comment: "")
     }
 
     private func aiEulaText() -> String {
