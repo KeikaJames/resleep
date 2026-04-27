@@ -101,7 +101,7 @@
 "home.status.tracking"  = "Tracking";
 "home.status.ended"     = "Ended";
 "home.status.recorded"  = "Recorded";
-"home.status.idle"      = "Idle";
+"home.status.idle"      = "Ready";
 "home.stage.ready"      = "Ready";
 "home.stage.ended"      = "Ended";
 "home.source.simulation" = "Simulation";
@@ -122,7 +122,7 @@
 "alarm.state.armed"      = "Armed";
 "alarm.state.triggered"  = "Triggered";
 "alarm.state.dismissed"  = "Dismissed";
-"alarm.state.unreachable" = "Watch unreachable";
+"alarm.state.unreachable" = "Apple Watch unavailable";
 
 "card.lastSession"        = "Last Session";
 "card.lastSession.total"  = "Total sleep";
@@ -146,7 +146,7 @@
 "settings.section.insights"  = "Insights";
 "settings.snoreDetection"    = "Snore detection";
 "settings.personalization"   = "On-device personalization";
-"settings.insights.footer"   = "Snore detection runs entirely on this device and audio stays in memory only. Personalization adapts the model to your wake-up surveys; updates stay on this device.";
+"settings.insights.footer"   = "All analysis stays on your iPhone. Nothing is stored or shared.";
 "settings.section.reminders" = "Reminders";
 "settings.bedtimeReminder"   = "Daily wind-down reminder";
 "settings.bedtimeTime"       = "Reminder time";
@@ -163,7 +163,7 @@
 "settings.diag.refresh"        = "Refresh Summary";
 "settings.diag.clear"          = "Clear Diagnostics";
 "settings.diag.empty"          = "No diagnostic events yet.";
-"settings.diag.footer"         = "Local diagnostic events. Used to inspect what happened during unattended overnight tests.";
+"settings.diag.footer"         = "A local log of activity from your last tracked night.";
 "settings.section.localData"   = "Local Data";
 "settings.localData.delete"    = "Delete Local Sleep Data";
 "settings.localData.footer"    = "Removes all sessions, summaries, and timeline entries stored on this device. This cannot be undone.";
@@ -193,7 +193,7 @@
 "history.empty.title" = "No sessions yet";
 "history.empty.subtitle" = "Sessions you record will appear here.";
 "history.summaryUnavailable.title" = "Summary unavailable";
-"history.summaryUnavailable.body"  = "This session has no stored summary yet.";
+"history.summaryUnavailable.body"  = "Sleep summary couldn't be loaded.";
 "history.inProgress" = "In progress";
 "history.score"      = "Score";
 
@@ -331,3 +331,5 @@ All on-device.";
 "ai.engine.badge.gemma" = "Gemma 3n · on-device";
 "ai.engine.badge.simulator" = "Rule-based · simulator (install on device for Gemma)";
 "ai.engine.badge.ruleBased" = "Rule-based · on-device";
+"ai.tab.title" = "Sleep";
+"settings.localData.deleteError" = "Couldn't delete local data. Try again.";

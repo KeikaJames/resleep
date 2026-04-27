@@ -170,19 +170,6 @@ struct SleepAIView: View {
         }
     }
 
-    /// Honest one-line label for the chat header.
-    /// • Real device with MLXLLM compiled in → "Gemma 3n · on-device"
-    /// • Simulator (or build without MLX) → "Rule-based · simulator"
-    private var engineBadge: LocalizedStringKey {
-        #if canImport(MLXLLM) && !targetEnvironment(simulator)
-        return "ai.engine.badge.gemma"
-        #elseif targetEnvironment(simulator)
-        return "ai.engine.badge.simulator"
-        #else
-        return "ai.engine.badge.ruleBased"
-        #endif
-    }
-
     // MARK: Toolbar
 
     @ToolbarContentBuilder
@@ -192,19 +179,15 @@ struct SleepAIView: View {
                 Button {
                     historyOpen = true
                 } label: {
-                    HamburgerIcon()
+                    Image(systemName: "line.3.horizontal")
+                        .font(.body.weight(.medium))
                 }
                 .accessibilityLabel(Text("ai.toolbar.history"))
             }
             ToolbarItem(placement: .principal) {
-                VStack(spacing: 1) {
-                    Text("Sleep AI")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
-                    Text(engineBadge)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
+                Text("ai.tab.title")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -407,25 +390,6 @@ struct SleepAIView: View {
             return attr
         }
         return AttributedString(raw)
-    }
-}
-
-// MARK: - Hamburger icon (varied bar lengths)
-
-private struct HamburgerIcon: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            bar(width: 18)
-            bar(width: 13)
-            bar(width: 16)
-        }
-        .frame(width: 22, height: 22, alignment: .leading)
-    }
-
-    private func bar(width: CGFloat) -> some View {
-        Capsule()
-            .frame(width: width, height: 2)
-            .foregroundStyle(.primary)
     }
 }
 

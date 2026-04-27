@@ -154,7 +154,6 @@ private struct PermissionsPage: View {
                     .controlSize(.large)
                     .frame(maxWidth: .infinity)
             }
-            Spacer()
         }
         .padding(.horizontal, 28)
         .padding(.bottom, 12)

@@ -55,7 +55,7 @@ struct HistoryView: View {
         } else {
             ContentUnavailableView(
                 "history.summaryUnavailable.title",
-                systemImage: "exclamationmark.triangle",
+                systemImage: "moon.zzz",
                 description: Text("history.summaryUnavailable.body")
             )
         }
@@ -98,11 +98,11 @@ private struct SessionRow: View {
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 18)
-        .padding(.vertical, 16)
+        .padding(.vertical, 18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             Color(.secondarySystemGroupedBackground),
-            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
         )
     }
 }

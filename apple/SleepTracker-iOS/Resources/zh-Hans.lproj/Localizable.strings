@@ -101,7 +101,7 @@
 "home.status.tracking"  = "追踪中";
 "home.status.ended"     = "已结束";
 "home.status.recorded"  = "已记录";
-"home.status.idle"      = "待机";
+"home.status.idle"      = "就绪";
 "home.stage.ready"      = "就绪";
 "home.stage.ended"      = "已结束";
 "home.source.simulation" = "模拟";
@@ -122,7 +122,7 @@
 "alarm.state.armed"      = "已布防";
 "alarm.state.triggered"  = "已触发";
 "alarm.state.dismissed"  = "已关闭";
-"alarm.state.unreachable" = "Watch 不可达";
+"alarm.state.unreachable" = "无法连接 Apple Watch";
 
 "card.lastSession"        = "上次睡眠";
 "card.lastSession.total"  = "总睡眠";
@@ -146,7 +146,7 @@
 "settings.section.insights"  = "洞察";
 "settings.snoreDetection"    = "鼾声检测";
 "settings.personalization"   = "本地个性化";
-"settings.insights.footer"   = "鼾声检测完全在本机运行,不录音。个性化会根据你的起床问卷调整模型,所有更新都留在本机。";
+"settings.insights.footer"   = "所有分析都在你的 iPhone 上完成，不存储、不共享。";
 "settings.section.reminders" = "提醒";
 "settings.bedtimeReminder"   = "每日就寝提醒";
 "settings.bedtimeTime"       = "提醒时间";
@@ -163,7 +163,7 @@
 "settings.diag.refresh"        = "刷新摘要";
 "settings.diag.clear"          = "清除诊断";
 "settings.diag.empty"          = "暂无诊断事件。";
-"settings.diag.footer"         = "本机诊断事件,用于查看夜间无人值守测试的过程。";
+"settings.diag.footer"         = "上次追踪夜晚的本地活动日志。";
 "settings.section.localData"   = "本地数据";
 "settings.localData.delete"    = "删除本地睡眠数据";
 "settings.localData.footer"    = "删除本机存储的全部会话、汇总与时间线,操作不可撤销。";
@@ -193,7 +193,7 @@
 "history.empty.title" = "还没有记录";
 "history.empty.subtitle" = "你完成的睡眠会出现在这里。";
 "history.summaryUnavailable.title" = "暂无摘要";
-"history.summaryUnavailable.body"  = "这次会话还没有存储摘要。";
+"history.summaryUnavailable.body"  = "无法载入本次睡眠摘要。";
 "history.inProgress" = "进行中";
 "history.score"      = "评分";
 
@@ -331,3 +331,5 @@
 "ai.engine.badge.gemma" = "Gemma 3n · 本机推理";
 "ai.engine.badge.simulator" = "规则模式 · 模拟器（真机才能跑 Gemma）";
 "ai.engine.badge.ruleBased" = "规则模式 · 本机";
+"ai.tab.title" = "睡眠助手";
+"settings.localData.deleteError" = "本地数据删除失败，请稍后再试。";

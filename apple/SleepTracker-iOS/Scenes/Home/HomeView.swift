@@ -40,13 +40,20 @@ struct HomeView: View {
                             LastSummaryCard()
                             InsightsCard()
                             DeviceSyncCard()
+                            #if DEBUG
                             DeveloperDebugCard()
+                            #endif
                             if let err = model.lastError {
-                                Text(err)
-                                    .font(.footnote)
-                                    .foregroundStyle(.red)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.horizontal, 4)
+                                Card {
+                                    Label {
+                                        Text(err)
+                                            .font(.footnote)
+                                            .foregroundStyle(.primary)
+                                    } icon: {
+                                        Image(systemName: "exclamationmark.circle.fill")
+                                            .foregroundStyle(.orange)
+                                    }
+                                }
                             }
                         }
                         .padding(.horizontal, 20)
@@ -349,6 +356,7 @@ private struct SmartAlarmCard: View {
                 if appState.alarm.state == .triggered
                     || appState.alarm.state == .failedWatchUnreachable {
                     Button(role: .destructive) {
+                        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
                         model.dismissAlarmFromPhone()
                     } label: {
                         Text("card.smartAlarm.dismiss")
@@ -531,7 +539,7 @@ private struct InsightRow: View {
         case "duration.short": return "moon.zzz"
         case "deep.low":       return "waveform.path.ecg"
         case "wake.high":      return "exclamationmark.triangle"
-        default:               return "lightbulb"
+        default:               return "sparkles"
         }
     }
 }
@@ -565,6 +573,7 @@ private struct DeviceSyncCard: View {
 
 // MARK: - Developer debug (collapsed)
 
+#if DEBUG
 private struct DeveloperDebugCard: View {
     @EnvironmentObject private var appState: AppState
     @State private var expanded: Bool = false
@@ -646,6 +655,7 @@ private struct DeveloperDebugCard: View {
         }
     }
 }
+#endif
 
 // MARK: - Generic UI atoms
 
@@ -737,9 +747,10 @@ private struct ScoreRing: View {
                     .monospacedDigit()
                     .foregroundStyle(.primary)
                 Text("card.lastSession.score")
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.tertiary)
                     .textCase(.uppercase)
+                    .tracking(0.4)
             }
         }
     }

@@ -7,7 +7,7 @@ struct SettingsView: View {
     @State private var showDeleteConfirm: Bool = false
     @State private var deleteError: String?
     @State private var deletedAt: Date?
-    @State private var diagSummary: String = "—"
+    @State private var diagSummary: String = "—"  // legacy; no longer rendered.
     @State private var clearedDiagAt: Date?
 
     var body: some View {
@@ -102,15 +102,6 @@ struct SettingsView: View {
                     } label: {
                         Label("settings.diag.view", systemImage: "doc.text.magnifyingglass")
                     }
-                    Button {
-                        Task { await refreshDiagSummary() }
-                    } label: {
-                        Label("settings.diag.refresh", systemImage: "arrow.clockwise")
-                    }
-                    Text(diagSummary)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                     Button(role: .destructive) {
                         Task { await clearDiagnostics() }
                     } label: {
@@ -163,7 +154,6 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("settings.title")
-            .task { await refreshDiagSummary() }
             .confirmationDialog(
                 "settings.localData.confirmTitle",
                 isPresented: $showDeleteConfirm,
@@ -192,20 +182,18 @@ struct SettingsView: View {
             appState.latestSummary = nil
             deletedAt = Date()
             deleteError = nil
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
         } catch {
-            deleteError = "Delete failed: \(error)"
+            deleteError = NSLocalizedString("settings.localData.deleteError", comment: "")
         }
     }
 
     private func refreshDiagSummary() async {
-        if let report = await appState.generateLatestUnattendedReport() {
-            diagSummary = "Latest: \(report.sessionId ?? "—") · "
-                + "HR \(report.hrSampleCount) · "
-                + "accel \(report.accelWindowCount) · "
-                + "alarm \(report.alarmFinalState ?? "—")"
-        } else {
-            diagSummary = "No diagnostic events yet."
-        }
+        // No-op kept for backwards compatibility with code that still calls
+        // it; the inline summary cell was removed from the production form
+        // because raw field names (sessionId, hrSampleCount, …) shouldn't
+        // surface to end users. The DiagnosticsView screen renders the
+        // full report on demand.
     }
 
     private func clearDiagnostics() async {
