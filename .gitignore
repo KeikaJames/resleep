@@ -52,3 +52,8 @@ target/
 tmp/
 venv/
 xcuserdata/
+
+# Sleep-AI LoRA fine-tune artifacts (regenerable, large)
+python/training/llm/dataset/
+python/training/llm/adapters/
+python/training/llm/fused-*/

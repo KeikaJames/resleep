@@ -131,6 +131,15 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
     }
 
     public func reply(to prompt: String, context ctx: SleepAIContext) async -> String {
+        // Pre-flight topic gate — same behavior as the LLM-backed service
+        // so simulator (rule-based fallback) and device behave identically.
+        switch SleepTopicGate.classify(prompt) {
+        case .refuse(let reason):
+            return SleepTopicGate.refusal(for: reason)
+        case .allow, .borderline:
+            break
+        }
+
         // Rule pattern — very small intent classifier. Localized output
         // strings live in the host bundle.
         let p = prompt.lowercased()

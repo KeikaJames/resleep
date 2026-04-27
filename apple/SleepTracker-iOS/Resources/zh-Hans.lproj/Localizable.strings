@@ -282,6 +282,9 @@
 挑一项坚持一周。";
 "ai.reply.hello" = "你好，今晚怎么样？";
 "ai.reply.fallback" = "我可以帮你 **总结昨晚**、看 **深睡 / REM** 比例，或给点 *改善建议*。";
+"ai.refuse.offTopic" = "我只负责睡眠和健康相关的话题，这个问题超出我的范围。要不要我帮你看看 **昨晚** 的数据，或者给个助眠的小建议？";
+"ai.refuse.unsafe"   = "这个我帮不了。如果情况紧急，请联系合格的医生或当地急救服务。";
+"ai.refuse.medical"  = "我无法做诊断，也不能推荐用药。临床问题请咨询合格的医务人员。我可以帮你解读自己的睡眠数据。";
 
 "home.tracking.duration"           = "追踪中 · {time}";
 "home.tracking.stop"               = "结束";

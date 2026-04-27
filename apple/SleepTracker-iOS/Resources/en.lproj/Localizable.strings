@@ -282,6 +282,9 @@
 Pick one and stick with it for a week.";
 "ai.reply.hello" = "Hi. How was the night?";
 "ai.reply.fallback" = "I can **summarize last night**, look at **deep / REM** balance, or share *tips* to sleep better.";
+"ai.refuse.offTopic" = "I'm built just for sleep and wellness — that one's outside my scope. Want a quick read on **last night** or a tip to wind down better?";
+"ai.refuse.unsafe"   = "I can't help with that. If this is urgent, please reach out to a qualified clinician or your local emergency services.";
+"ai.refuse.medical"  = "I'm not able to diagnose or recommend medication. For anything clinical, please talk to a qualified healthcare provider. I can still help you read your own sleep data.";
 
 "home.tracking.duration"           = "Tracking · {time}";
 "home.tracking.stop"               = "End night";
