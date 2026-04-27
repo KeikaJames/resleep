@@ -12,6 +12,12 @@ final class SleepAIViewModel: ObservableObject {
         case chatting
     }
 
+    struct SuggestionCard {
+        let text: String
+        let symbol: String
+        let tint: Color
+    }
+
     // MARK: Published
 
     @Published var phase: Phase = .needsConsent
@@ -25,6 +31,34 @@ final class SleepAIViewModel: ObservableObject {
         SleepAIModelManager.defaultDescriptor
 
     @Published var summaryText: String = ""
+
+    /// Suggestion cards rendered as a 2x2 grid on the idle screen.
+    var suggestionCards: [SuggestionCard] {
+        let glyphs: [String: (String, Color)] = [
+            local("ai.suggestion.summarize"):  ("moon.stars",                .purple),
+            local("ai.suggestion.deep"):       ("waveform.path",             .indigo),
+            local("ai.suggestion.rem"):        ("eye",                       .pink),
+            local("ai.suggestion.advice"):     ("lightbulb",                 .orange),
+            local("ai.suggestion.howItWorks"): ("sparkles",                  .blue),
+            local("ai.suggestion.whatTracked"):("heart.text.square",         .red)
+        ]
+        return suggestions.map { text in
+            let g = glyphs[text] ?? ("sparkles", .gray)
+            return SuggestionCard(text: text, symbol: g.0, tint: g.1)
+        }
+    }
+
+    /// Picks a greeting key based on current local time. Mirrors the
+    /// Apple Intelligence "Good morning / afternoon / evening" feel.
+    var timeBasedGreetingKey: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12:  return "ai.hero.greeting.morning"
+        case 12..<18: return "ai.hero.greeting.afternoon"
+        case 18..<23: return "ai.hero.greeting.evening"
+        default:      return "ai.hero.greeting.night"
+        }
+    }
 
     // MARK: Deps
 
@@ -86,6 +120,13 @@ final class SleepAIViewModel: ObservableObject {
         Task { await refreshContext() }
     }
 
+    func resetChat() {
+        messages = []
+        draft = ""
+        phase = computePhase()
+        Task { await refreshContext() }
+    }
+
     func startDownload() { modelManager.startDownload() }
     func cancelDownload() { modelManager.cancelDownload() }
 
@@ -111,16 +152,13 @@ final class SleepAIViewModel: ObservableObject {
     private func computePhase() -> Phase {
         let consented = UserDefaults.standard.bool(forKey: Self.consentKey)
         guard consented else { return .needsConsent }
-        switch modelStatus {
-        case .installed:
-            return messages.isEmpty ? .ready : .chatting
-        default:
-            // Even without the heavy model, the rule-based assistant is
-            // available — we still gate the UI behind the (cosmetic)
-            // download step so the product story matches the user's
-            // mental model. Skipping download is one step away.
-            return .needsModel
-        }
+        // Lightweight rule-based assistant is always available — model
+        // download is a separate, optional Settings concern.
+        return messages.isEmpty ? .ready : .chatting
+    }
+
+    private func local(_ key: String) -> String {
+        Bundle.main.localizedString(forKey: key, value: key, table: nil)
     }
 
     private func buildContext() async -> SleepAIContext {

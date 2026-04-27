@@ -13,32 +13,41 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 28) {
-                    if appState.interruptedSessionStart != nil {
-                        InterruptedSessionCard()
+            Group {
+                if appState.workout.isTracking {
+                    TrackingHeroView()
+                        .environmentObject(appState)
+                        .environmentObject(model)
+                        .toolbar(.hidden, for: .navigationBar)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 28) {
+                            if appState.interruptedSessionStart != nil {
+                                InterruptedSessionCard()
+                            }
+                            TonightStatusCard()
+                            SmartAlarmCard()
+                            LastSummaryCard()
+                            InsightsCard()
+                            DeviceSyncCard()
+                            DeveloperDebugCard()
+                            if let err = model.lastError {
+                                Text(err)
+                                    .font(.footnote)
+                                    .foregroundStyle(.red)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 4)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                        .padding(.bottom, 32)
                     }
-                    TonightStatusCard()
-                    SmartAlarmCard()
-                    LastSummaryCard()
-                    InsightsCard()
-                    DeviceSyncCard()
-                    DeveloperDebugCard()
-                    if let err = model.lastError {
-                        Text(err)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 4)
-                    }
+                    .background(Color(.systemGroupedBackground).ignoresSafeArea())
+                    .navigationTitle(Text("home.title"))
+                    .navigationBarTitleDisplayMode(.large)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 32)
             }
-            .background(Color(.systemGroupedBackground).ignoresSafeArea())
-            .navigationTitle(Text("home.title"))
-            .navigationBarTitleDisplayMode(.large)
             .onAppear { model.bind(appState: appState) }
             .sheet(item: Binding<IdentifiedString?>(
                 get: { model.pendingSurveySessionId.map(IdentifiedString.init) },

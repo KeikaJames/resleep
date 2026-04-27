@@ -134,7 +134,6 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
         // Rule pattern — very small intent classifier. Localized output
         // strings live in the host bundle.
         let p = prompt.lowercased()
-        let isCN = Locale.current.language.languageCode?.identifier == "zh"
 
         if Self.matches(p, ["summary", "summarize", "总结", "概括", "summary?"]) {
             return morningSummary(context: ctx)
@@ -168,7 +167,7 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
             return Self.local("ai.reply.advice")
         }
         if Self.matches(p, ["hello", "hi", "你好", "嗨"]) {
-            return Self.local(isCN ? "ai.reply.hello.cn" : "ai.reply.hello.en")
+            return Self.local("ai.reply.hello")
         }
         // Fallback
         return Self.local("ai.reply.fallback")
@@ -177,15 +176,16 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
     public func suggestedFollowUps(context ctx: SleepAIContext) -> [String] {
         if !ctx.hasNight {
             return [
-                Self.local("ai.followup.howItWorks"),
-                Self.local("ai.followup.whatTracked")
+                Self.local("ai.suggestion.howItWorks"),
+                Self.local("ai.suggestion.whatTracked"),
+                Self.local("ai.suggestion.advice")
             ]
         }
         return [
-            Self.local("ai.followup.summarize"),
-            Self.local("ai.followup.deep"),
-            Self.local("ai.followup.rem"),
-            Self.local("ai.followup.advice")
+            Self.local("ai.suggestion.summarize"),
+            Self.local("ai.suggestion.deep"),
+            Self.local("ai.suggestion.rem"),
+            Self.local("ai.suggestion.advice")
         ]
     }
 

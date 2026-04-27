@@ -19,6 +19,7 @@ struct SleepTrackerApp: App {
                 }
             }
             .environmentObject(appState)
+            .preferredColorScheme(appState.workout.isTracking ? .dark : nil)
             .task {
                 await appState.appLaunch()
                 await appState.restoreLatestSession()

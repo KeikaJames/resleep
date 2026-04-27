@@ -39,7 +39,7 @@ final class SleepAIServiceTests: XCTestCase {
 
     func testFollowUps_emptyContext_returnsOnboardingChoices() {
         let s = svc.suggestedFollowUps(context: .empty)
-        XCTAssertEqual(s.count, 2)
+        XCTAssertEqual(s.count, 3)
     }
 
     func testFollowUps_withNight_returnsFour() {

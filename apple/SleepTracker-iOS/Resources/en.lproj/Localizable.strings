@@ -104,7 +104,7 @@
 "home.stage.ready"      = "Ready";
 "home.stage.ended"      = "Ended";
 "home.source.simulation" = "Simulation";
-"home.source.iphone"     = "iPhone fallback";
+"home.source.iphone"     = "iPhone";
 "home.source.watch"      = "Apple Watch";
 "home.action.start"      = "Start Tracking";
 "home.action.stop"       = "Stop Tracking";
@@ -154,7 +154,7 @@
 "settings.section.model"     = "Model";
 "settings.model.backend"     = "Backend";
 "settings.model.coreml"      = "Core ML";
-"settings.model.heuristic"   = "Heuristic fallback";
+"settings.model.heuristic"   = "Heuristic";
 "settings.model.name"        = "Name";
 "settings.model.version"     = "Version";
 "settings.section.diagnostics" = "Diagnostics";
@@ -234,46 +234,47 @@
 
 "tab.ai"                           = "AI";
 
-"ai.hero.title"                    = "Sleep AI, on your iPhone";
-"ai.hero.subtitle"                 = "Personal sleep insights and chat — runs entirely on-device.";
+"ai.hero.greeting.morning"         = "Good morning.";
+"ai.hero.greeting.afternoon"       = "Good afternoon.";
+"ai.hero.greeting.evening"         = "Good evening.";
+"ai.hero.greeting.night"           = "Sweet dreams.";
+"ai.hero.prompt"                   = "How can I help?";
 
-"ai.consent.title"                 = "Privacy first";
-"ai.consent.body"                  = "Sleep AI uses your sessions, sleep score, and stages to answer questions about your sleep. Nothing is uploaded.";
-"ai.consent.bullet.onDevice"       = "All processing happens on this iPhone.";
-"ai.consent.bullet.noUpload"       = "Your raw audio and biometrics never leave the device.";
-"ai.consent.bullet.optional"       = "You can disable Sleep AI anytime in Settings.";
-"ai.consent.cta"                   = "Enable Sleep AI";
+"ai.consent.title"                 = "Sleep AI";
+"ai.consent.body"                  = "Runs on this iPhone. Your sleep data never leaves the device.";
+"ai.consent.cta"                   = "Continue";
 
-"ai.download.title"                = "Download on-device model";
-"ai.download.body"                 = "An optional Gemma-class language model lets Sleep AI write richer summaries on-device. The lightweight assistant works without it.";
-"ai.download.cta"                  = "Download model";
+"ai.download.title"                = "Larger model";
+"ai.download.body"                 = "Optional. For richer, more natural replies.";
+"ai.download.cta"                  = "Download";
 "ai.download.cancel"               = "Cancel";
-"ai.download.skip"                 = "You can skip this — the lightweight assistant is already enabled.";
+"ai.download.skip"                 = "Skip";
 
 "ai.summary.title"                 = "Last night";
-"ai.summary.empty"                 = "No tracked night yet. Run a session and check back in the morning.";
-"ai.summary.template"              = "You slept {duration} and your score was {score}.\nDeep sleep: {deep}.  REM: {rem}.\nAwake time: {wake}.";
-"ai.summary.tail.better"           = "That's about your weekly average ({avg}) — and a touch better.";
-"ai.summary.tail.same"             = "That's right around your weekly average of {avg}.";
-"ai.summary.tail.worse"            = "That's a little below your weekly average of {avg}. One short night is normal.";
+"ai.summary.empty"                 = "Track a night and check back in the morning.";
+"ai.summary.template"              = "{duration} of sleep. Score {score}.\nDeep {deep} · REM {rem} · Awake {wake}.";
+"ai.summary.tail.better"           = "A little above your weekly average of {avg}.";
+"ai.summary.tail.same"             = "Right around your weekly average of {avg}.";
+"ai.summary.tail.worse"            = "A little below your weekly average of {avg}.";
 
-"ai.chat.title"                    = "Ask Sleep AI";
-"ai.chat.placeholder"              = "Ask anything about your sleep…";
-"ai.chat.thinking"                 = "Thinking…";
+"ai.chat.placeholder"              = "Message";
+"ai.chat.thinking"                 = "Thinking";
 
-"ai.followup.summarize"            = "Summarize last night";
-"ai.followup.deep"                 = "How was my deep sleep?";
-"ai.followup.rem"                  = "What about REM?";
-"ai.followup.advice"               = "Tips to sleep better";
-"ai.followup.howItWorks"           = "How does Sleep AI work?";
-"ai.followup.whatTracked"          = "What do you track?";
+"ai.suggestion.summarize"          = "Summarize last night";
+"ai.suggestion.deep"               = "How was my deep sleep?";
+"ai.suggestion.rem"                = "What about REM?";
+"ai.suggestion.advice"             = "Tips to sleep better";
+"ai.suggestion.howItWorks"         = "How does this work?";
+"ai.suggestion.whatTracked"        = "What do you track?";
 
-"ai.reply.noNight"                 = "I haven't seen a tracked night yet. Run a session tonight and I'll have something to say in the morning.";
-"ai.reply.deep"                    = "Deep sleep was about {pct}% of your night ({dur}). Anywhere from 13% to 23% is typical for adults.";
-"ai.reply.rem"                     = "REM was about {pct}% of your night ({dur}). REM tends to grow toward morning, so a longer night usually means more of it.";
-"ai.reply.wake"                    = "You were awake about {dur} during the night. Brief micro-wakes are normal — only longer stretches really hurt your score.";
-"ai.reply.score"                   = "Your score last night was {score}. Your weekly average is around {avg}.";
-"ai.reply.advice"                  = "Three things that help most people: a consistent bedtime, no caffeine after 2pm, and keeping the bedroom cool and dark. Try one for a week and watch the score.";
-"ai.reply.hello.en"                = "Hi! I'm your on-device Sleep AI. Ask about last night, deep sleep, REM, or your trend.";
-"ai.reply.hello.cn"                = "你好！我是你的设备端睡眠 AI。可以问昨晚情况、深睡、REM 或趋势。";
-"ai.reply.fallback"                = "I'm a small on-device assistant — I'm best at questions about your last night, deep sleep, REM, awake time, or how to sleep better. Try one of the suggestions below.";
+"ai.reply.noNight"                 = "No tracked night yet. Run a session and I'll have something to say in the morning.";
+"ai.reply.deep"                    = "About {pct}% of your night was deep sleep ({dur}). 13–23% is typical.";
+"ai.reply.rem"                     = "About {pct}% of your night was REM ({dur}). REM grows toward morning.";
+"ai.reply.wake"                    = "You were awake about {dur}. Brief micro-wakes are normal.";
+"ai.reply.score"                   = "Last night: {score}. Weekly average: {avg}.";
+"ai.reply.advice"                  = "A consistent bedtime, no caffeine after 2pm, and a cool, dark room. Try one for a week.";
+"ai.reply.hello"                   = "Hello.";
+"ai.reply.fallback"                = "Try one of the suggestions below.";
+
+"home.tracking.duration"           = "Tracking · {time}";
+"home.tracking.stop"               = "End night";
