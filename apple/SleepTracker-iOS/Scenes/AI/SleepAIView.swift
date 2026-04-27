@@ -153,6 +153,7 @@ struct SleepAIView: View {
                     }
                     .padding(.bottom, 16)
                 }
+                .scrollDismissesKeyboard(.interactively)
                 .onChange(of: model.messages.count) { _, _ in
                     if let last = model.messages.last {
                         withAnimation(.easeOut(duration: 0.25)) {
@@ -343,6 +344,7 @@ private struct ChatBubble: View {
 
 private struct ThinkingDots: View {
     @State private var phase: Int = 0
+    @State private var timer: Timer?
 
     var body: some View {
         HStack(spacing: 6) {
@@ -351,6 +353,7 @@ private struct ThinkingDots: View {
                     .fill(Color.secondary)
                     .frame(width: 6, height: 6)
                     .opacity(phase == i ? 1.0 : 0.35)
+                    .animation(.easeInOut(duration: 0.25), value: phase)
             }
         }
         .padding(.horizontal, 14)
@@ -361,10 +364,13 @@ private struct ThinkingDots: View {
         )
         .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear {
-            Timer.scheduledTimer(withTimeInterval: 0.35, repeats: true) { t in
+            timer = Timer.scheduledTimer(withTimeInterval: 0.35, repeats: true) { _ in
                 phase = (phase + 1) % 3
-                if Task.isCancelled { t.invalidate() }
             }
+        }
+        .onDisappear {
+            timer?.invalidate()
+            timer = nil
         }
         .accessibilityLabel(Text("ai.chat.thinking"))
     }
