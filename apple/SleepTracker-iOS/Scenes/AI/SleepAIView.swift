@@ -229,8 +229,8 @@ struct SleepAIView: View {
     // MARK: Main scene
 
     private var main: some View {
-        VStack(spacing: 0) {
-            ScrollViewReader { proxy in
+        ScrollViewReader { proxy in
+            VStack(spacing: 0) {
                 GeometryReader { outer in
                     ScrollView {
                         VStack(spacing: 28) {
@@ -284,21 +284,17 @@ struct SleepAIView: View {
                         .padding(.bottom, 16)
                     }
                     .coordinateSpace(name: "ai.scroll")
-                    .scrollDismissesKeyboard(.immediately)
+                    .scrollDismissesKeyboard(.interactively)
                     .onPreferenceChange(BottomVisibilityKey.self) { sentinelY in
                         // sentinelY is the bottom-edge Y of the 1pt sentinel
                         // expressed in the ScrollView's coord space; the
                         // viewport extends from 0 to `outer.size.height`.
-                        // Add a small slop (40pt) so the FAB doesn't flicker
-                        // on a half-pixel bounce.
                         let nearBottom = sentinelY <= outer.size.height + 4
                         if scrolledAtBottom != nearBottom {
                             // Drop focus the moment the user scrolls up so the
-                            // keyboard tucks away cleanly with the composer
-                            // (scrollDismissesKeyboard alone only acts on a
-                            // direct interactive drag of the keyboard region).
+                            // keyboard tucks away with the composer.
                             if !nearBottom { composerFocused = false }
-                            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                            withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
                                 scrolledAtBottom = nearBottom
                             }
                         }
@@ -310,54 +306,72 @@ struct SleepAIView: View {
                             }
                         }
                     }
-                    .overlay(alignment: .bottomTrailing) {
-                        // Floating "jump to latest" affordance — iMessage /
-                        // Telegram pattern. Composer stays pinned; this
-                        // just floats above-right when the user scrolls up.
-                        if !scrolledAtBottom && !model.messages.isEmpty {
-                            Button {
-                                Haptics.selection()
-                                withAnimation(.easeOut(duration: 0.28)) {
-                                    if let last = model.messages.last {
-                                        proxy.scrollTo(last.id, anchor: .bottom)
-                                    } else {
-                                        proxy.scrollTo("__bottom_sentinel__", anchor: .bottom)
-                                    }
-                                }
-                            } label: {
-                                Image(systemName: "chevron.down")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(Color.primary.opacity(0.85))
-                                    .frame(width: 36, height: 36)
-                                    .background(
-                                        Circle()
-                                            .fill(.ultraThinMaterial)
-                                            .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
-                                    )
-                                    .overlay(
-                                        Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-                                    )
+                }
+                bottomBar(proxy: proxy)
+            }
+        }
+    }
+
+    /// The morphing bottom area. When the user is at the latest message we
+    /// show the full composer + disclaimer. The moment they scroll up we
+    /// swap in a single chevron pill, anchored bottom-trailing — same
+    /// position the send button occupies in the composer, so it reads as
+    /// the input "collapsing into" a small floating control. Tapping the
+    /// pill scrolls back to the latest message and re-focuses the input,
+    /// which is what users describe as "the icon becoming the input box".
+    @ViewBuilder
+    private func bottomBar(proxy: ScrollViewProxy) -> some View {
+        ZStack(alignment: .bottomTrailing) {
+            if scrolledAtBottom {
+                VStack(spacing: 0) {
+                    disclaimer
+                    composer
+                }
+                .transition(.asymmetric(
+                    insertion: .opacity.animation(.easeOut(duration: 0.22).delay(0.04)),
+                    removal: .opacity.animation(.easeIn(duration: 0.14))
+                ))
+            } else if !model.messages.isEmpty {
+                Button {
+                    Haptics.selection()
+                    withAnimation(.spring(response: 0.36, dampingFraction: 0.84)) {
+                        scrolledAtBottom = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) {
+                        if let last = model.messages.last {
+                            withAnimation(.easeOut(duration: 0.28)) {
+                                proxy.scrollTo(last.id, anchor: .bottom)
                             }
-                            .padding(.trailing, 14)
-                            .padding(.bottom, 10)
-                            .transition(.scale(scale: 0.7).combined(with: .opacity))
-                            .accessibilityLabel(Text("ai.scrollToBottom"))
                         }
                     }
+                } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.primary.opacity(0.85))
+                        .frame(width: 40, height: 40)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+                        )
+                        .overlay(
+                            Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                        )
                 }
+                .padding(.trailing, 16)
+                .padding(.bottom, 12)
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.6).combined(with: .opacity).animation(.spring(response: 0.34, dampingFraction: 0.78).delay(0.06)),
+                    removal: .scale(scale: 0.7).combined(with: .opacity).animation(.easeIn(duration: 0.14))
+                ))
+                .accessibilityLabel(Text("ai.scrollToBottom"))
             }
-            disclaimer
-                .opacity(scrolledAtBottom ? 1 : 0)
-                .frame(maxHeight: scrolledAtBottom ? nil : 0, alignment: .top)
-                .clipped()
-                .allowsHitTesting(scrolledAtBottom)
-            composer
-                .opacity(scrolledAtBottom ? 1 : 0)
-                .frame(maxHeight: scrolledAtBottom ? nil : 0, alignment: .top)
-                .clipped()
-                .allowsHitTesting(scrolledAtBottom)
-                .animation(.spring(response: 0.32, dampingFraction: 0.86), value: scrolledAtBottom)
         }
+        // Stable container height: equals the composer's natural height
+        // so the swap doesn't change layout (which is what was causing
+        // the "twitching" — the height collapse animated every focus
+        // change). 70pt = 12 disclaimer + ~52 composer + ~6 padding.
+        .frame(maxWidth: .infinity, minHeight: 76, alignment: .bottomTrailing)
     }
 
     private var heroHeader: some View {
