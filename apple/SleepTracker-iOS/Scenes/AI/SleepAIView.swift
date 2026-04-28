@@ -191,6 +191,7 @@ struct SleepAIView: View {
             .task {
                 model.attach(appState: appState)
                 await model.refreshContext()
+                model.prewarmEngine()
             }
             .sheet(isPresented: $historyOpen) {
                 HistorySheet(model: model, isPresented: $historyOpen)

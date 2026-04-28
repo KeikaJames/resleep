@@ -9,7 +9,7 @@ public struct SleepAIMessage: Identifiable, Codable, Equatable, Sendable {
 
     public let id: String
     public let role: Role
-    public let text: String
+    public var text: String
     public let createdAt: Date
 
     public init(id: String = UUID().uuidString,
@@ -296,6 +296,44 @@ public protocol SleepAIServiceProtocol: AnyObject, Sendable {
 
     /// Suggestions for canned follow-up taps the UI can offer the user.
     func suggestedFollowUps(context: SleepAIContext) -> [String]
+
+    /// Optional streaming variant. The default returns the whole reply as
+    /// a single chunk via the non-streaming `reply` so existing rule-based
+    /// services keep working. Conforming LLM-backed services should
+    /// override to yield tokens as they're generated, which dramatically
+    /// reduces apparent latency.
+    func streamReply(to prompt: String,
+                     context: SleepAIContext) -> AsyncStream<SleepAIStreamEvent>
+
+    /// Optional warm-up: load weights, build the chat session, and prime
+    /// any KV cache off the user's hot path. Idempotent. The default is a
+    /// no-op so rule-based services can ignore it.
+    func prewarm() async
+}
+
+/// Streaming events emitted by `SleepAIServiceProtocol.streamReply`. The
+/// UI appends `.delta` text to the live assistant bubble and replaces it
+/// wholesale on `.final` (which carries the post-processed, sanitized
+/// answer — what the model actually produced may have included thinking
+/// tokens or translation artefacts that we want to swallow).
+public enum SleepAIStreamEvent: Sendable {
+    case delta(String)
+    case final(String)
+}
+
+public extension SleepAIServiceProtocol {
+    func streamReply(to prompt: String,
+                     context: SleepAIContext) -> AsyncStream<SleepAIStreamEvent> {
+        AsyncStream { continuation in
+            Task {
+                let answer = await self.reply(to: prompt, context: context)
+                continuation.yield(.final(answer))
+                continuation.finish()
+            }
+        }
+    }
+
+    func prewarm() async { /* no-op default */ }
 }
 
 public enum SleepAIEngineKind: String, Sendable, Codable, Equatable {

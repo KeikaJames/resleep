@@ -98,6 +98,76 @@ public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendabl
         #endif
     }
 
+    /// Streams tokens back as the model generates them so the UI can paint
+    /// progress instead of staring at a spinner. Topic gate, skill router,
+    /// and final sanitization still run — early-exits emit a single
+    /// `.final` event; the LLM path emits a sequence of `.delta`s outside
+    /// any `<think>...</think>` block followed by a `.final` carrying the
+    /// sanitized answer (which may differ from the streamed concatenation
+    /// when sanitize rewrites it to a fallback).
+    public func streamReply(to prompt: String,
+                            context ctx: SleepAIContext) -> AsyncStream<SleepAIStreamEvent> {
+        AsyncStream { continuation in
+            Task { [weak self] in
+                guard let self else { continuation.finish(); return }
+
+                switch SleepTopicGate.classify(prompt) {
+                case .refuse(let reason):
+                    continuation.yield(.final(SleepTopicGate.refusal(for: reason)))
+                    continuation.finish(); return
+                case .allow, .borderline:
+                    break
+                }
+
+                if let skill = self.ruleBased.skillReply(to: prompt, context: ctx) {
+                    continuation.yield(.final(skill))
+                    continuation.finish(); return
+                }
+
+                #if canImport(MLXLLM) && !targetEnvironment(simulator)
+                do {
+                    let session = try await self.ensureSession()
+                    let user = self.composeUserMessage(prompt: prompt, ctx: ctx)
+                    var thinkFilter = ThinkBlockFilter()
+                    var collected = ""
+                    for try await chunk in session.streamResponse(to: user) {
+                        collected += chunk
+                        let visible = thinkFilter.feed(chunk)
+                        if !visible.isEmpty {
+                            continuation.yield(.delta(visible))
+                        }
+                    }
+                    let finalText = Self.sanitize(collected,
+                                                  originalPrompt: prompt,
+                                                  ctx: ctx,
+                                                  ruleBased: self.ruleBased)
+                    continuation.yield(.final(finalText))
+                    continuation.finish()
+                } catch {
+                    let fallback = await self.ruleBased.reply(to: prompt, context: ctx)
+                    continuation.yield(.final(fallback +
+                        "\n\n*— rule-based fallback (\(Self.shortDescription(of: error)))*"))
+                    continuation.finish()
+                }
+                #else
+                let fallback = await self.ruleBased.reply(to: prompt, context: ctx)
+                continuation.yield(.final(fallback))
+                continuation.finish()
+                #endif
+            }
+        }
+    }
+
+    /// Loads weights and primes the chat session off the user's hot path.
+    /// Safe to call from `onAppear` of the AI tab — first message latency
+    /// drops from "load weights + tokenize + decode + generate" to just
+    /// "generate".
+    public func prewarm() async {
+        #if canImport(MLXLLM) && !targetEnvironment(simulator)
+        _ = try? await ensureSession()
+        #endif
+    }
+
     /// Last-line defense: if the model's answer is empty, too short,
     /// translates the user, or just echoes the prompt back as a question,
     /// fall back to the rule-based fallback string instead of shipping a
@@ -196,9 +266,13 @@ public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendabl
             let dir = try weightsLocator.locate()
 
             // Cap GPU/Metal cache on iOS to keep us within the app's memory
-            // budget. The formal model is large enough that an unlimited
-            // cache can OOM on constrained devices.
-            MLX.GPU.set(cacheLimit: 64 * 1024 * 1024)
+            // budget while still letting MLX hold the active KV cache and
+            // the most-touched weight tiles in fast memory. 64 MB was
+            // far too aggressive for a multi-hundred-megabyte model and
+            // caused repeated re-tile latency on every token. 256 MB lets
+            // the cache stay warm across a multi-turn conversation
+            // without OOM-ing on a 6 GB iPhone.
+            MLX.GPU.set(cacheLimit: 256 * 1024 * 1024)
 
             let configuration = ModelConfiguration(directory: dir)
             let container = try await LLMModelFactory.shared.loadContainer(
@@ -209,7 +283,7 @@ public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendabl
                 container,
                 instructions: Self.systemPrompt,
                 generateParameters: GenerateParameters(
-                    maxTokens: 320,
+                    maxTokens: 220,
                     temperature: 0.25,
                     topP: 0.85
                 )
@@ -477,4 +551,57 @@ public enum GemmaWeightsError: LocalizedError {
 
 private extension String {
     func appending(_ tail: String) -> String { self + tail }
+}
+
+// MARK: - <think> block streaming filter
+
+/// Streams text through unchanged unless it falls inside a `<think>...</think>`
+/// span, which Gemma-style instruction-tuned models occasionally emit when
+/// they slip into a chain-of-thought register despite the system prompt
+/// asking them not to. The filter is stateful across `feed` calls because a
+/// tag boundary may straddle two chunks (`"<thi"` then `"nk>"`). It buffers a
+/// short tail so a partially-typed open tag is never emitted as visible text.
+struct ThinkBlockFilter {
+    private var inThink = false
+    private var pending = ""
+
+    private static let openTag = "<think>"
+    private static let closeTag = "</think>"
+
+    /// Append `chunk` and return the substring safe to show to the user.
+    mutating func feed(_ chunk: String) -> String {
+        pending += chunk
+        var out = ""
+        while !pending.isEmpty {
+            if inThink {
+                if let r = pending.range(of: Self.closeTag) {
+                    pending.removeSubrange(pending.startIndex..<r.upperBound)
+                    inThink = false
+                } else {
+                    // Could be a partial close tag at the tail — keep enough
+                    // bytes around to recognize it on the next feed.
+                    let keep = min(pending.count, Self.closeTag.count - 1)
+                    pending = String(pending.suffix(keep))
+                    return out
+                }
+            } else {
+                if let r = pending.range(of: Self.openTag) {
+                    out += pending[pending.startIndex..<r.lowerBound]
+                    pending.removeSubrange(pending.startIndex..<r.upperBound)
+                    inThink = true
+                } else if pending.count >= Self.openTag.count {
+                    // Emit everything except a possible partial open at tail.
+                    let safeEnd = pending.index(pending.endIndex,
+                                                offsetBy: -(Self.openTag.count - 1))
+                    out += pending[pending.startIndex..<safeEnd]
+                    pending = String(pending[safeEnd..<pending.endIndex])
+                    return out
+                } else {
+                    // Buffer is shorter than the open tag, hold it.
+                    return out
+                }
+            }
+        }
+        return out
+    }
 }

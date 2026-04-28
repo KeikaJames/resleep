@@ -220,13 +220,42 @@ final class SleepAIViewModel: ObservableObject {
         messages.append(SleepAIMessage(role: .user, text: prompt))
         isReplying = true
         let ctx = await buildContext()
-        let reply = await service.reply(to: prompt, context: ctx)
-        try? await Task.sleep(nanoseconds: 250_000_000)
-        messages.append(SleepAIMessage(role: .assistant, text: reply))
+
+        // Streaming path: append an empty assistant bubble up front, then
+        // mutate its `text` as deltas arrive. The bubble's identity stays
+        // stable so SwiftUI animates only the text change. On `.final` we
+        // overwrite with the sanitized answer (which may differ from the
+        // streamed concatenation if sanitize swapped to a fallback).
+        let assistantId = UUID().uuidString
+        messages.append(SleepAIMessage(id: assistantId, role: .assistant, text: ""))
+
+        for await event in service.streamReply(to: prompt, context: ctx) {
+            switch event {
+            case .delta(let chunk):
+                if let i = messages.firstIndex(where: { $0.id == assistantId }) {
+                    messages[i].text += chunk
+                }
+            case .final(let full):
+                if let i = messages.firstIndex(where: { $0.id == assistantId }) {
+                    messages[i].text = full
+                }
+            }
+        }
+
         isReplying = false
         if phase == .ready { phase = .chatting }
         suggestions = service.suggestedFollowUps(context: ctx)
         persistActiveChat()
+    }
+
+    /// Off-hot-path warm-up. Idempotent. Called when the AI tab actually
+    /// appears so cold-start latency happens in the background instead of
+    /// after the user hits Send. Rule-based service has a no-op default,
+    /// so this is safe to call regardless of the active tier.
+    func prewarmEngine() {
+        Task.detached(priority: .utility) { [service] in
+            await service.prewarm()
+        }
     }
 
     // MARK: History
