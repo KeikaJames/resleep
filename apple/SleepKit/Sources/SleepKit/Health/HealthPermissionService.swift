@@ -145,6 +145,17 @@ public final class HealthPermissionService: @preconcurrency HealthPermissionServ
         if let hr  = HKObjectType.quantityType(forIdentifier: .heartRate) { readTypes.insert(hr) }
         if let hrv = HKObjectType.quantityType(forIdentifier: .heartRateVariabilitySDNN) { readTypes.insert(hrv) }
         if let sa  = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) { readTypes.insert(sa) }
+        // Passive-night fallback signals: when Circadia did not actively run
+        // overnight, we still want to surface a sleep summary to the user
+        // by reading what Apple Watch already wrote to Health on its own.
+        if let rhr  = HKObjectType.quantityType(forIdentifier: .restingHeartRate) { readTypes.insert(rhr) }
+        if let resp = HKObjectType.quantityType(forIdentifier: .respiratoryRate) { readTypes.insert(resp) }
+        if let spo2 = HKObjectType.quantityType(forIdentifier: .oxygenSaturation) { readTypes.insert(spo2) }
+        if #available(iOS 17.0, watchOS 10.0, *) {
+            if let wt = HKObjectType.quantityType(forIdentifier: .appleSleepingWristTemperature) {
+                readTypes.insert(wt)
+            }
+        }
 
         var writeTypes: Set<HKSampleType> = []
         if let sa  = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) { writeTypes.insert(sa) }

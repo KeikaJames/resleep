@@ -18,6 +18,9 @@ public final class AppState: ObservableObject {
     public let connectivity: ConnectivityManagerProtocol
     public let health: HealthPermissionServiceProtocol
     public let healthWriter: HealthKitSleepWriting
+    /// Backfills sleep nights from HealthKit when Circadia did not actively
+    /// track. Read-only fallback path; never writes back to HealthKit.
+    public let passiveImporter: PassiveSleepImporterProtocol
     public let snoreDetector: SnoreDetectorProtocol
     public let personalization: PersonalizationService
     public let heartRateStream: HeartRateStreaming
@@ -48,6 +51,18 @@ public final class AppState: ObservableObject {
     /// app launch, foreground (so granting in iOS Settings.app and returning
     /// reflects immediately), and after every explicit `requestAuthorization`.
     @Published public private(set) var healthAuthorization: HealthAuthorizationStatus = .unknown
+
+    /// Sleep nights backfilled from HealthKit's first-party sleep analysis
+    /// (Apple Watch's own classifier, since watchOS 9). These are the
+    /// "user forgot to start Circadia, but the Watch still recorded the
+    /// night" fallback. Always presented as read-only and clearly badged
+    /// as passive in History so the user knows the score did not come
+    /// from Circadia's engine.
+    @Published public private(set) var passiveNights: [PassiveSleepNight] = []
+    /// `nil` until first import attempt completes — lets History tell the
+    /// difference between "no Apple Watch nights yet" and "we haven't
+    /// asked HealthKit yet" so the empty state copy is honest.
+    @Published public private(set) var passiveImportLastRunAt: Date?
 
     // MARK: Simulation
     /// Replay harness. Always instantiated so its `@Published` state is
@@ -88,7 +103,8 @@ public final class AppState: ObservableObject {
         inferenceModel: StageInferenceModel? = nil,
         inferenceFallbackReason: String? = nil,
         diagnostics: DiagnosticsStoreProtocol = InMemoryDiagnosticsStore(),
-        markerStore: ActiveSessionMarkerStoreProtocol = InMemoryActiveSessionMarkerStore()
+        markerStore: ActiveSessionMarkerStoreProtocol = InMemoryActiveSessionMarkerStore(),
+        passiveImporter: PassiveSleepImporterProtocol = PassiveSleepImporter()
     ) {
         self.engine = engine
         self.engineFallbackReason = engineFallbackReason
@@ -98,6 +114,7 @@ public final class AppState: ObservableObject {
         self.health = health
         self.heartRateStream = heartRateStream
         self.healthWriter = healthWriter ?? EngineHost.makeHealthKitSleepWriter()
+        self.passiveImporter = passiveImporter
         self.snoreDetector = snoreDetector ?? EngineHost.makeSnoreDetector()
         self.personalization = personalization ?? EngineHost.makePersonalizationService()
         self.diagnostics = diagnostics
@@ -764,6 +781,31 @@ public final class AppState: ObservableObject {
     /// it. Cheap; callers may invoke freely.
     public func refreshHealthAuthorization() {
         healthAuthorization = health.heartRateAuthorization()
+        // Once we believe the user has granted Health read access, kick off
+        // a passive-night backfill. The importer is a no-op when access
+        // isn't actually granted, so being optimistic here is safe.
+        if healthAuthorization == .sharingAuthorized {
+            Task { [weak self] in await self?.refreshPassiveNights() }
+        }
+    }
+
+    /// Pulls Apple Watch's first-party sleep analysis from HealthKit for
+    /// roughly the last 30 nights and republishes them as `passiveNights`.
+    /// Idempotent and cheap: HealthKit caches its own queries and we
+    /// over-write the published array atomically. Throws nothing — errors
+    /// degrade silently to "leave passiveNights as-is".
+    public func refreshPassiveNights() async {
+        let end = Date()
+        let start = end.addingTimeInterval(-30 * 86_400)
+        do {
+            let nights = try await passiveImporter.importNights(start: start, end: end)
+            await MainActor.run {
+                self.passiveNights = nights.sorted { $0.startedAt > $1.startedAt }
+                self.passiveImportLastRunAt = Date()
+            }
+        } catch {
+            await MainActor.run { self.passiveImportLastRunAt = Date() }
+        }
     }
 
     public func appBackground() {

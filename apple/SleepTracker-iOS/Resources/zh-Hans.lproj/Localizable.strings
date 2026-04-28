@@ -283,6 +283,10 @@
 "history.summaryUnavailable.body"  = "无法载入本次睡眠摘要。";
 "history.inProgress" = "进行中";
 "history.score"      = "评分";
+"history.passive.title" = "来自 Apple Watch";
+"history.passive.source.appleWatch" = "Apple Watch";
+"history.passive.source.health" = "Apple 健康";
+"history.passive.asleep" = "睡眠";
 
 // Session Detail
 "detail.title"           = "会话";

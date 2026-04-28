@@ -283,6 +283,10 @@
 "history.summaryUnavailable.body"  = "Sleep summary couldn’t be loaded.";
 "history.inProgress" = "In progress";
 "history.score"      = "Score";
+"history.passive.title" = "From Apple Watch";
+"history.passive.source.appleWatch" = "Apple Watch";
+"history.passive.source.health" = "Apple Health";
+"history.passive.asleep" = "Asleep";
 
 // Session Detail
 "detail.title"           = "Session";
