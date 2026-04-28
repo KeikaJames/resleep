@@ -125,6 +125,13 @@
 "home.action.start"      = "开始追踪";
 "home.action.stop"       = "停止追踪";
 "home.error.watchStartQueued" = "Apple Watch 暂时不可达。请打开手表上的 Circadia；连接恢复后，本次睡眠会从手表开始。";
+"home.hero.readyTitle" = "今晚准备好了";
+"home.hero.readySubtitle" = "睡眠计划、智能唤醒和设备连接会在这里汇总。";
+"home.hero.trackingSubtitle" = "正在记录睡眠阶段、心率和动作。";
+"home.hero.lastSubtitle" = "昨晚的睡眠摘要已准备好。";
+"home.hero.scoreFormat" = "%d 分";
+"home.hero.watch" = "手表";
+"home.hero.plan" = "计划";
 
 // Home cards
 "card.smartAlarm"     = "智能闹钟";
@@ -166,6 +173,13 @@
 "card.deviceSync.region"    = "地区";
 "card.deviceSync.region.cn" = "中国大陆";
 "card.deviceSync.region.global" = "海外";
+"cycle.card.title" = "周期与睡眠";
+"cycle.card.badge" = "女士";
+"cycle.card.subtitle" = "未来将结合睡眠节律、心率趋势和体温等生命体征，帮助你观察周期相关变化。";
+"cycle.signal.sleep" = "睡眠";
+"cycle.signal.vitals" = "心率";
+"cycle.signal.temperature" = "体温";
+"cycle.card.disclaimer" = "仅用于健康趋势观察，不用于诊断、避孕或预测医疗风险。";
 
 // Settings
 "settings.title"          = "设置";
@@ -383,6 +397,8 @@
 "ai.eula.accept"                   = "同意并继续";
 "ai.eula.decline"                  = "暂不使用";
 "ai.eula.short"                    = "继续使用即表示你已阅读并同意 Sleep AI 使用协议。";
+"ai.eula.readToEnd"                = "请先阅读到协议底部。";
+"ai.eula.readButton"               = "阅读到底部";
 "settings.section.aiAssistant"     = "AI 助手";
 "settings.ai.eula"                 = "AI 助手协议";
 "settings.ai.disclaimer"           = "AI 助手生成的内容仅供参考，不构成医疗建议。";

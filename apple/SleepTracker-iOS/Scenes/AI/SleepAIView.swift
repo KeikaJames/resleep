@@ -142,6 +142,13 @@ private struct BottomVisibilityKey: PreferenceKey {
     }
 }
 
+private struct EULABottomVisibilityKey: PreferenceKey {
+    static var defaultValue: CGFloat = .greatestFiniteMagnitude
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 struct SleepAIView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var model = SleepAIViewModel(
@@ -156,6 +163,7 @@ struct SleepAIView: View {
     /// the local assistant appends the user bubble and final response.
     @State private var pinToLatestDuringReply: Bool = false
     @State private var suppressComposerCollapseUntil: Date = .distantPast
+    @State private var eulaScrolledToBottom: Bool = false
     @Namespace private var composerMorph
 
     var body: some View {
@@ -538,47 +546,130 @@ struct SleepAIView: View {
     // MARK: EULA gate
 
     private var eulaScreen: some View {
-        VStack(spacing: 0) {
-            VStack(spacing: 10) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 40, weight: .semibold))
-                    .aiShimmer()
-                Text("ai.eula.title")
-                    .font(.title2.weight(.semibold))
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.top, 28)
-            .padding(.bottom, 18)
+        ScrollViewReader { proxy in
+            GeometryReader { viewport in
+                ZStack(alignment: .bottom) {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            VStack(spacing: 10) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 40, weight: .semibold))
+                                    .aiShimmer()
+                                Text("ai.eula.title")
+                                    .font(.title2.weight(.semibold))
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(.top, 28)
+                            .padding(.bottom, 18)
 
-            ScrollView {
-                MarkdownBody(text: model.eulaMarkdown())
-                    .padding(.horizontal, 22)
-                    .padding(.bottom, 24)
-                    .textSelection(.enabled)
-            }
+                            MarkdownBody(text: model.eulaMarkdown())
+                                .padding(.horizontal, 22)
+                                .textSelection(.enabled)
 
-            VStack(spacing: 10) {
-                Text("ai.eula.short")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+                            Color.clear
+                                .frame(height: 1)
+                                .id("__eula_bottom__")
+                                .background(
+                                    GeometryReader { marker in
+                                        Color.clear.preference(
+                                            key: EULABottomVisibilityKey.self,
+                                            value: marker.frame(in: .named("ai.eula.scroll")).maxY
+                                        )
+                                    }
+                                )
 
-                Button {
-                    Haptics.tapHeavy()
-                    withAnimation(.easeInOut) { model.acceptEULA() }
-                } label: {
-                    Text("ai.eula.accept")
-                        .font(.body.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
+                            Color.clear
+                                .frame(height: 148)
+                                .id("__eula_scroll_end__")
+                        }
+                    }
+                    .coordinateSpace(name: "ai.eula.scroll")
+                    .scrollIndicators(.visible)
+                    .onPreferenceChange(EULABottomVisibilityKey.self) { bottomY in
+                        let isReadableEndVisible = bottomY <= viewport.size.height - 118
+                        if eulaScrolledToBottom != isReadableEndVisible {
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                                eulaScrolledToBottom = isReadableEndVisible
+                            }
+                        }
+                    }
+
+                    EULAAcceptDock(isReady: eulaScrolledToBottom) {
+                        if eulaScrolledToBottom {
+                            Haptics.tapHeavy()
+                            withAnimation(.easeInOut) { model.acceptEULA() }
+                        } else {
+                            Haptics.selection()
+                            withAnimation(.smooth(duration: 0.32)) {
+                                proxy.scrollTo("__eula_scroll_end__", anchor: .bottom)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 18)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.primary)
-                .foregroundStyle(Color(.systemBackground))
-                .padding(.horizontal, 24)
             }
-            .padding(.bottom, 24)
+            .onAppear {
+                eulaScrolledToBottom = false
+            }
+        }
+    }
+}
+
+private struct EULAAcceptDock: View {
+    let isReady: Bool
+    let action: () -> Void
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Text(isReady ? "ai.eula.short" : "ai.eula.readToEnd")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 18)
+                .contentTransition(.opacity)
+
+            Button(action: action) {
+                HStack(spacing: 8) {
+                    Text(isReady ? "ai.eula.accept" : "ai.eula.readButton")
+                        .font(.body.weight(.semibold))
+                    Image(systemName: isReady ? "checkmark" : "arrow.down")
+                        .font(.subheadline.weight(.bold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .foregroundStyle(isReady ? Color(.systemBackground) : Color.primary)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(isReady ? Color.primary : Color(.secondarySystemGroupedBackground))
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(isReady ? 0.08 : 0.10), lineWidth: 0.8)
+            }
+            .appleIntelligenceStroke(cornerRadius: 22, lineWidth: isReady ? 1.2 : 0.75)
+            .scaleEffect(isReady ? 1.01 : 1)
+            .animation(.spring(response: 0.34, dampingFraction: 0.82), value: isReady)
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 12)
+        .padding(.bottom, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.14), radius: 24, y: 10)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .stroke(
+                    LinearGradient(colors: [
+                        .white.opacity(0.62),
+                        Color(.separator).opacity(0.14),
+                        .white.opacity(0.08)
+                    ], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1
+                )
         }
     }
 }

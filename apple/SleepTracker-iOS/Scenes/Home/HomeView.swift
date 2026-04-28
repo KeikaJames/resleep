@@ -38,6 +38,7 @@ struct HomeView: View {
                             TonightStatusCard()
                             SleepPlanCard()
                             SmartAlarmCard()
+                            CycleRhythmCard()
                             LastSummaryCard()
                             InsightsCard()
                             DeviceSyncCard()
@@ -285,15 +286,51 @@ private struct TonightStatusCard: View {
     @EnvironmentObject private var model: HomeViewModel
 
     var body: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 18) {
-                Text(eyebrowKey)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                    .tracking(0.5)
+        ZStack(alignment: .topTrailing) {
+            RoundedRectangle(cornerRadius: 34, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+            RoundedRectangle(cornerRadius: 34, style: .continuous)
+                .fill(
+                    LinearGradient(colors: [
+                        Color.accentColor.opacity(appState.latestSummary == nil ? 0.18 : 0.10),
+                        Color.blue.opacity(0.08),
+                        Color.clear
+                    ], startPoint: .topLeading, endPoint: .bottomTrailing)
+                )
+            Circle()
+                .fill(Color.accentColor.opacity(0.16))
+                .frame(width: 180, height: 180)
+                .blur(radius: 34)
+                .offset(x: 76, y: -70)
+                .accessibilityHidden(true)
 
-                heroBlock
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(eyebrowKey)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+                            .tracking(0.6)
+                        Text(heroTitle)
+                            .font(.system(size: 40, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.primary)
+                            .minimumScaleFactor(0.76)
+                            .lineLimit(2)
+                    }
+                    Spacer(minLength: 12)
+                    Image(systemName: appState.latestSummary == nil ? "moon.stars.fill" : "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 32, weight: .semibold))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: 54, height: 54)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+
+                Text(heroSubtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 HStack(spacing: 6) {
                     StatusDot(color: statusColor)
@@ -315,6 +352,24 @@ private struct TonightStatusCard: View {
                             .monospacedDigit()
                     }
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(.thinMaterial, in: Capsule())
+
+                HStack(spacing: 10) {
+                    HeroInfoPill(symbol: "applewatch",
+                                 title: "home.hero.watch",
+                                 value: appState.router.watchReachable
+                                 ? "card.deviceSync.live"
+                                 : "card.deviceSync.offline",
+                                 tint: appState.router.watchReachable ? .green : .secondary)
+                    HeroInfoPill(symbol: "calendar.badge.clock",
+                                 title: "home.hero.plan",
+                                 value: appState.currentSleepPlan().autoTrackingEnabled
+                                 ? "card.sleepPlan.autoOn"
+                                 : "card.sleepPlan.autoOff",
+                                 tint: appState.currentSleepPlan().autoTrackingEnabled ? .blue : .secondary)
+                }
 
                 if needsHealthPermission {
                     HealthPermissionBanner()
@@ -325,48 +380,58 @@ private struct TonightStatusCard: View {
                     Haptics.tapRigid()
                     Task { await model.toggleSession() }
                 }) {
-                    Text(appState.workout.isTracking ? LocalizedStringKey("home.action.stop") : LocalizedStringKey("home.action.start"))
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                    HStack(spacing: 10) {
+                        Image(systemName: appState.workout.isTracking ? "stop.fill" : "bed.double.fill")
+                            .font(.subheadline.weight(.semibold))
+                        Text(appState.workout.isTracking
+                             ? LocalizedStringKey("home.action.stop")
+                             : LocalizedStringKey("home.action.start"))
+                            .font(.headline)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
                 }
-                .buttonStyle(PressableProminentButtonStyle(tint: appState.workout.isTracking ? .red : .accentColor))
+                .buttonStyle(PressableProminentButtonStyle(tint: appState.workout.isTracking ? .red : .primary))
                 .disabled(model.isPreparingPermissions)
             }
+            .padding(.horizontal, 22)
+            .padding(.vertical, 22)
             .animation(.easeInOut(duration: 0.35), value: appState.workout.isTracking)
             .animation(.easeInOut(duration: 0.35), value: needsHealthPermission)
         }
+        .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 34, style: .continuous)
+                .stroke(
+                    LinearGradient(colors: [
+                        .white.opacity(0.58),
+                        Color(.separator).opacity(0.12),
+                        .white.opacity(0.05)
+                    ], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1
+                )
+        }
+        .shadow(color: .black.opacity(0.06), radius: 18, y: 8)
     }
 
     private var needsHealthPermission: Bool {
         appState.healthAuthorization == .sharingDenied && !appState.workout.isTracking
     }
 
-    /// The big focal element of the card. Three modes:
-    /// - tracking → current sleep stage label (e.g. "Light")
-    /// - ended    → numeric sleep score (e.g. "87")
-    /// - idle     → calm "Ready" greeting
-    @ViewBuilder
-    private var heroBlock: some View {
+    private var heroTitle: LocalizedStringKey {
         if appState.workout.isTracking {
-            Text(stageKey)
-                .font(.system(size: 48, weight: .semibold, design: .rounded))
-                .foregroundStyle(.primary)
+            return stageKey
         } else if let s = appState.latestSummary {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text("\(s.sleepScore)")
-                    .font(.system(size: 64, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.primary)
-                    .monospacedDigit()
-                Text("card.lastSession.score")
-                    .font(.callout)
-                    .foregroundStyle(.tertiary)
-            }
+            return LocalizedStringKey(String(format: NSLocalizedString("home.hero.scoreFormat", comment: ""), s.sleepScore))
         } else {
-            Text("home.stage.ready")
-                .font(.system(size: 36, weight: .semibold, design: .rounded))
-                .foregroundStyle(.primary)
+            return "home.hero.readyTitle"
         }
+    }
+
+    private var heroSubtitle: LocalizedStringKey {
+        if appState.workout.isTracking { return "home.hero.trackingSubtitle" }
+        if appState.latestSummary != nil { return "home.hero.lastSubtitle" }
+        return "home.hero.readySubtitle"
     }
 
     private var statusColor: Color {
@@ -425,6 +490,107 @@ private struct TonightStatusCard: View {
         let m = (sec % 3600) / 60
         if h > 0 { return "\(h)h \(m)m" }
         return "\(m)m"
+    }
+}
+
+private struct HeroInfoPill: View {
+    let symbol: String
+    let title: LocalizedStringKey
+    let value: LocalizedStringKey
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.tertiary)
+                Text(value)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+// MARK: - Cycle & vitals
+
+private struct CycleRhythmCard: View {
+    @AppStorage(UserProfileGender.storageKey) private var profileGenderRaw = UserProfileGender.notDisclosed.rawValue
+
+    var body: some View {
+        if profileGenderRaw == UserProfileGender.female.rawValue {
+            Card {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: "waveform.path.ecg.rectangle")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.pink)
+                            .frame(width: 42, height: 42)
+                            .background(Color.pink.opacity(0.12), in: Circle())
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 8) {
+                                Text("cycle.card.title")
+                                    .font(.headline)
+                                Text("cycle.card.badge")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(.pink)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.pink.opacity(0.10), in: Capsule())
+                            }
+                            Text("cycle.card.subtitle")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+
+                    HStack(spacing: 8) {
+                        CycleSignalPill(symbol: "moon.zzz", text: "cycle.signal.sleep")
+                        CycleSignalPill(symbol: "heart.fill", text: "cycle.signal.vitals")
+                        CycleSignalPill(symbol: "thermometer.medium", text: "cycle.signal.temperature")
+                    }
+
+                    Text("cycle.card.disclaimer")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+}
+
+private struct CycleSignalPill: View {
+    let symbol: String
+    let text: LocalizedStringKey
+
+    var body: some View {
+        VStack(spacing: 5) {
+            Image(systemName: symbol)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.pink)
+            Text(text)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 9)
+        .background(Color(.tertiarySystemGroupedBackground),
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 

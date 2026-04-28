@@ -223,13 +223,14 @@ private struct WelcomePage: View {
 
 private struct GenderSelectionPage: View {
     @Binding var selection: UserProfileGender
+    @Namespace private var liquidNamespace
 
     var body: some View {
         GeometryReader { proxy in
-            let portraitSide = min(max(proxy.size.height * 0.34, 220), 300)
+            let portraitSide = min(max(proxy.size.height * 0.30, 200), 280)
 
             VStack(spacing: 0) {
-                Spacer(minLength: 22)
+                Spacer(minLength: 20)
 
                 VStack(spacing: 10) {
                     Text("onboarding.gender.title")
@@ -243,37 +244,21 @@ private struct GenderSelectionPage: View {
                 }
                 .padding(.horizontal, 30)
 
+                Spacer(minLength: 16)
+
+                GenderPortraitStage(selection: selection, side: portraitSide)
+
                 Spacer(minLength: 18)
 
-                Image(selection.onboardingAssetName)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: portraitSide, height: portraitSide)
-                    .id(selection)
-                    .transition(.opacity.combined(with: .scale(scale: 0.985)))
-                    .animation(.smooth(duration: 0.22), value: selection)
-                    .accessibilityHidden(true)
-
-                Spacer(minLength: 22)
-
-                VStack(spacing: 0) {
+                VStack(spacing: 10) {
                     ForEach(UserProfileGender.allCases, id: \.self) { gender in
-                        GenderOptionRow(kind: gender, selection: $selection)
-                        if gender != .notDisclosed {
-                            Divider()
-                                .padding(.leading, 70)
-                        }
+                        LiquidGenderOptionCard(kind: gender,
+                                               selection: $selection,
+                                               namespace: liquidNamespace)
                     }
                 }
-                .background(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .fill(Color(.secondarySystemBackground))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .stroke(Color(.separator).opacity(0.12), lineWidth: 1)
-                )
-                .padding(.horizontal, 26)
+                .padding(.horizontal, 24)
+                .frame(maxWidth: 450)
 
                 Text("onboarding.gender.footer")
                     .font(.footnote)
@@ -285,43 +270,148 @@ private struct GenderSelectionPage: View {
                 Spacer(minLength: 18)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(.smooth(duration: 0.26), value: selection)
         }
     }
 }
 
-private struct GenderOptionRow: View {
+private struct GenderPortraitStage: View {
+    let selection: UserProfileGender
+    let side: CGFloat
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    Circle()
+                        .stroke(
+                            LinearGradient(colors: [
+                                .white.opacity(0.72),
+                                .white.opacity(0.16),
+                                Color(.separator).opacity(0.12)
+                            ], startPoint: .topLeading, endPoint: .bottomTrailing),
+                            lineWidth: 1
+                        )
+                }
+                .shadow(color: .black.opacity(0.07), radius: 28, y: 14)
+
+            Circle()
+                .fill(
+                    RadialGradient(colors: [
+                        Color.accentColor.opacity(0.14),
+                        Color.accentColor.opacity(0.03),
+                        .clear
+                    ], center: .topLeading, startRadius: 8, endRadius: side * 0.74)
+                )
+                .blur(radius: 10)
+                .padding(8)
+
+            ZStack {
+                ForEach(UserProfileGender.allCases, id: \.self) { gender in
+                    if gender == selection {
+                        Image(gender.onboardingAssetName)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: side * 0.88, height: side * 0.88)
+                            .transition(
+                                .asymmetric(
+                                    insertion: .opacity.combined(with: .scale(scale: 1.035)),
+                                    removal: .opacity.combined(with: .scale(scale: 0.965))
+                                )
+                            )
+                    }
+                }
+            }
+            .animation(.smooth(duration: 0.28), value: selection)
+            .shadow(color: .black.opacity(0.10), radius: 14, y: 8)
+        }
+        .frame(width: side, height: side)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct LiquidGenderOptionCard: View {
     let kind: UserProfileGender
     @Binding var selection: UserProfileGender
+    let namespace: Namespace.ID
 
     private var isSelected: Bool { selection == kind }
 
     var body: some View {
         Button {
-            withAnimation(.smooth(duration: 0.2)) { selection = kind }
-        } label: {
-            HStack(spacing: 14) {
-                Image(kind.onboardingAssetName)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 36, height: 36)
-                    .padding(6)
-                    .background(
-                        Circle()
-                            .fill(Color(.tertiarySystemBackground))
-                    )
-
-                Text(LocalizedStringKey(kind.titleKey))
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(.primary)
-
-                Spacer()
-
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary.opacity(0.34))
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                selection = kind
             }
-            .frame(height: 64)
-            .padding(.horizontal, 14)
+        } label: {
+            ZStack {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(Color.accentColor.opacity(0.12))
+                        .matchedGeometryEffect(id: "genderLiquidSelection", in: namespace)
+                }
+
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .fill(.thinMaterial)
+                        Image(kind.onboardingAssetName)
+                            .resizable()
+                            .scaledToFit()
+                            .padding(8)
+                    }
+                    .frame(width: 48, height: 48)
+                    .overlay {
+                        Circle()
+                            .stroke(.white.opacity(isSelected ? 0.60 : 0.34), lineWidth: 1)
+                    }
+
+                    Text(LocalizedStringKey(kind.titleKey))
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.primary)
+
+                    Spacer()
+
+                    ZStack {
+                        Circle()
+                            .fill(isSelected ? Color.accentColor : Color.primary.opacity(0.06))
+                            .frame(width: 26, height: 26)
+                        Image(systemName: isSelected ? "checkmark" : "circle")
+                            .font(isSelected ? .footnote.weight(.bold) : .caption2.weight(.semibold))
+                            .foregroundStyle(isSelected ? .white : Color.secondary.opacity(0.42))
+                    }
+                }
+                .padding(.horizontal, 14)
+            }
+            .frame(height: 70)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(alignment: .topLeading) {
+                Capsule()
+                    .fill(
+                        LinearGradient(colors: [
+                            .white.opacity(isSelected ? 0.58 : 0.34),
+                            .white.opacity(0.02)
+                        ], startPoint: .leading, endPoint: .trailing)
+                    )
+                    .frame(width: 122, height: 22)
+                    .blur(radius: 12)
+                    .offset(x: 16, y: 4)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(
+                        LinearGradient(colors: [
+                            .white.opacity(isSelected ? 0.78 : 0.44),
+                            Color(.separator).opacity(isSelected ? 0.22 : 0.12),
+                            .white.opacity(0.08)
+                        ], startPoint: .topLeading, endPoint: .bottomTrailing),
+                        lineWidth: 1
+                    )
+            }
+            .shadow(color: .black.opacity(isSelected ? 0.12 : 0.06),
+                    radius: isSelected ? 20 : 10,
+                    y: isSelected ? 10 : 5)
+            .scaleEffect(isSelected ? 1.018 : 1)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
