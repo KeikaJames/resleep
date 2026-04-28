@@ -16,7 +16,8 @@ struct SettingsView: View {
                         ProfileSummaryRow(
                             avatarData: vm.profileAvatarData,
                             nickname: vm.profileNickname,
-                            birthday: vm.profileBirthday
+                            birthday: vm.profileBirthday,
+                            gender: vm.profileGender
                         )
                     }
                 }
@@ -194,6 +195,7 @@ private struct ProfileSummaryRow: View {
     let avatarData: Data?
     let nickname: String
     let birthday: Date?
+    let gender: UserProfileGender
 
     var body: some View {
         HStack(spacing: 12) {
@@ -213,16 +215,12 @@ private struct ProfileSummaryRow: View {
     private var summary: String {
         let trimmed = nickname.trimmingCharacters(in: .whitespacesAndNewlines)
         let birthdayText = birthday?.formatted(date: .abbreviated, time: .omitted)
-        switch (trimmed.isEmpty, birthdayText) {
-        case (false, let birthdayText?):
-            return "\(trimmed) · \(birthdayText)"
-        case (false, nil):
-            return trimmed
-        case (true, let birthdayText?):
-            return birthdayText
-        case (true, nil):
+        let genderText = gender == .notDisclosed ? nil : gender.localizedTitle
+        let parts = [trimmed.isEmpty ? nil : trimmed, birthdayText, genderText].compactMap { $0 }
+        if parts.isEmpty {
             return NSLocalizedString("settings.profile.summary.empty", comment: "")
         }
+        return parts.joined(separator: " · ")
     }
 }
 
@@ -281,6 +279,12 @@ private struct ProfileDetailsView: View {
                         .multilineTextAlignment(.trailing)
                         .textInputAutocapitalization(.words)
                         .disableAutocorrection(true)
+                }
+
+                Picker("settings.profile.gender", selection: $vm.profileGender) {
+                    ForEach(UserProfileGender.allCases, id: \.self) { gender in
+                        Text(LocalizedStringKey(gender.titleKey)).tag(gender)
+                    }
                 }
 
                 if vm.profileBirthday == nil {

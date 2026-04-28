@@ -33,6 +33,12 @@
 "onboarding.back" = "返回";
 "onboarding.welcome.title" = "在你的设备上,看见你的睡眠。";
 "onboarding.welcome.body"  = "一种安静的方式去了解你的夜晚。心率、动作与呼吸,全部在你的 iPhone 上分析。";
+"onboarding.gender.title" = "让睡眠基线更贴近你。";
+"onboarding.gender.body" = "选择最符合你的选项。此项非必填，只会保存在本机。";
+"onboarding.gender.footer" = "之后可在“设置 → 个人信息”中更改。";
+"profile.gender.male" = "男性";
+"profile.gender.female" = "女性";
+"profile.gender.notDisclosed" = "不方便透露";
 "onboarding.privacy.title" = "数据留在你这里。";
 "onboarding.privacy.b1" = "所有处理都在这台 iPhone 与 Apple Watch 上完成。";
 "onboarding.privacy.b2" = "音频只在本机处理，不上传。";
@@ -171,6 +177,7 @@
 "settings.profile.avatar.remove" = "移除头像";
 "settings.profile.nickname" = "昵称";
 "settings.profile.nickname.placeholder" = "可选";
+"settings.profile.gender" = "性别";
 "settings.profile.birthday" = "生日";
 "settings.profile.birthday.add" = "添加生日";
 "settings.profile.birthday.clear" = "清除生日";

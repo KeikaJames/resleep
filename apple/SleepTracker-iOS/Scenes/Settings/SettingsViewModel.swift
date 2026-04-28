@@ -3,6 +3,26 @@ import Combine
 import UIKit
 import SleepKit
 
+enum UserProfileGender: String, CaseIterable, Equatable {
+    case male
+    case female
+    case notDisclosed
+
+    static let storageKey = "settings.profile.gender"
+
+    var titleKey: String {
+        switch self {
+        case .male: return "profile.gender.male"
+        case .female: return "profile.gender.female"
+        case .notDisclosed: return "profile.gender.notDisclosed"
+        }
+    }
+
+    var localizedTitle: String {
+        NSLocalizedString(titleKey, comment: "")
+    }
+}
+
 /// Privacy defaults are explicitly conservative to match product principles:
 /// - audio is never recorded, saved or uploaded (no toggles exposed)
 /// - cloudSyncEnabled = false
@@ -25,6 +45,7 @@ final class SettingsViewModel: ObservableObject {
         static let profileAvatarData  = "settings.profile.avatarData"
         static let profileNickname    = "settings.profile.nickname"
         static let profileBirthday    = "settings.profile.birthday"
+        static let profileGender      = UserProfileGender.storageKey
         // Legacy keys retained only so we can wipe stale `true` values.
         static let legacySaveRawAudio       = "settings.saveRawAudio"
         static let legacyAudioUploadEnabled = "settings.audioUploadEnabled"
@@ -49,6 +70,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var profileAvatarData: Data?
     @Published var profileNickname: String
     @Published var profileBirthday: Date?
+    @Published var profileGender: UserProfileGender
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -83,6 +105,8 @@ final class SettingsViewModel: ObservableObject {
         self.sleepPlanNightmareWakeEnabled = plan.nightmareWakeEnabled
         self.profileAvatarData = defaults.data(forKey: Key.profileAvatarData)
         self.profileNickname = defaults.string(forKey: Key.profileNickname) ?? ""
+        self.profileGender = defaults.string(forKey: Key.profileGender)
+            .flatMap(UserProfileGender.init(rawValue:)) ?? .notDisclosed
         if let storedBirthday = defaults.object(forKey: Key.profileBirthday) as? TimeInterval {
             self.profileBirthday = Date(timeIntervalSince1970: storedBirthday)
         } else {
@@ -149,6 +173,11 @@ final class SettingsViewModel: ObservableObject {
                 } else {
                     defaults.removeObject(forKey: Key.profileBirthday)
                 }
+            }
+            .store(in: &bag)
+        $profileGender.dropFirst()
+            .sink { [defaults] gender in
+                defaults.set(gender.rawValue, forKey: Key.profileGender)
             }
             .store(in: &bag)
     }
