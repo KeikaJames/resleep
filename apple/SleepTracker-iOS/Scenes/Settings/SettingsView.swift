@@ -541,7 +541,7 @@ private struct AIAssistantSettingsView: View {
         #if targetEnvironment(simulator)
         return NSLocalizedString("settings.ai.engineRuleBased", comment: "")
         #else
-        return NSLocalizedString("settings.ai.engineGemma", comment: "")
+        return NSLocalizedString("settings.ai.engineProductionModel", comment: "")
         #endif
     }
 
@@ -886,7 +886,7 @@ private enum LegalCopy {
 
     static func acknowledgments() -> String {
         loadLocalised(base: "Acknowledgments",
-                      fallback: "Circadia thanks Apple, Google DeepMind and the open-source community.")
+                      fallback: "Circadia thanks Apple, Alibaba Tongyi Lab, Hugging Face and the open-source community.")
     }
 
     static func thirdParty() -> String {

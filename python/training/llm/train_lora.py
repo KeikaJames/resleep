@@ -24,7 +24,7 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
-from .configs import LoRAConfig
+from .configs import PRODUCTION_TIER, LoRAConfig
 
 
 def _write_yaml_config(cfg: LoRAConfig, dest: Path) -> Path:
@@ -40,21 +40,28 @@ def _write_yaml_config(cfg: LoRAConfig, dest: Path) -> Path:
         "seed": cfg.seed,
         "iters": cfg.iters,
         "batch_size": cfg.batch_size,
+        "fine_tune_type": cfg.fine_tune_type,
+        "optimizer": cfg.optimizer,
         "learning_rate": cfg.learning_rate,
         "grad_checkpoint": cfg.grad_checkpoint,
+        "grad_accumulation_steps": cfg.grad_accumulation_steps,
+        "mask_prompt": cfg.mask_prompt,
+        "max_seq_length": cfg.max_seq_length,
         "adapter_path": str(cfg.adapter_dir),
-        "fine_tune_type": "lora",
         "num_layers": cfg.lora_layers,
-        "lora_parameters": {
+        "save_every": cfg.save_every,
+        "steps_per_eval": cfg.steps_per_eval,
+        "steps_per_report": cfg.steps_per_report,
+        "val_batches": -1,
+        "test_batches": -1,
+    }
+    if cfg.fine_tune_type != "full":
+        payload["lora_parameters"] = {
             "rank": cfg.lora_rank,
             "scale": float(cfg.lora_alpha) / cfg.lora_rank,
             "dropout": cfg.lora_dropout,
-        },
-        "save_every": 200,
-        "steps_per_eval": 200,
-        "steps_per_report": 25,
-    }
-    if cfg.target_modules:
+        }
+    if cfg.target_modules and cfg.fine_tune_type != "full":
         payload["lora_parameters"]["keys"] = list(cfg.target_modules)
 
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -71,8 +78,8 @@ def main() -> None:
     parser.add_argument(
         "--tier",
         choices=sorted(TIERS.keys()),
-        default="gemma",
-        help="Which model tier to fine-tune (default: gemma).",
+        default=PRODUCTION_TIER,
+        help=f"Which model tier to fine-tune (default: {PRODUCTION_TIER}).",
     )
     args = parser.parse_args()
     cfg = config_for(args.tier)

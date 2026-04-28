@@ -1,17 +1,15 @@
 import Foundation
 
-/// Coarse geographic policy used to decide which on-device LLM is allowed
-/// to run. We rely only on `Locale` signals — never a network probe — so
-/// the result is stable, offline, and respects iOS region settings.
+/// Coarse geographic policy retained for old preference migration. The
+/// current release exposes one formal model in every region.
 ///
 /// The classification is deliberately conservative: anything that *could*
 /// be Mainland China (region "CN") is treated as such.  Hong Kong, Macao
 /// and Taiwan are NOT mainland and remain in `.global`.
 public enum SleepAIRegion: String, Sendable, Equatable {
-    /// Mainland China. Gemma weights are not authorised in this region;
-    /// only Qwen-based models are offered.
+    /// Mainland China.
     case mainlandChina
-    /// Everywhere else — full model catalogue (Gemma + Qwen) is offered.
+    /// Everywhere else.
     case global
 
     /// Resolves the current region from `Locale.current`. The result is
@@ -29,14 +27,9 @@ public enum SleepAIRegion: String, Sendable, Equatable {
     }
 
     /// True when the model `kind` is allowed to be loaded in this region.
-    /// Use this both to filter the picker and to refuse silently-jailbroken
-    /// states (e.g. a UserDefaults value persisted in another region).
+    /// The formal model policy allows all legacy identifiers to migrate.
     public func allows(_ kind: SleepAIModelKind) -> Bool {
-        switch self {
-        case .global:
-            return true
-        case .mainlandChina:
-            return kind != .gemma
-        }
+        _ = kind
+        return true
     }
 }

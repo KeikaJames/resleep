@@ -1,8 +1,8 @@
-"""Sleep-AI LoRA fine-tuning pipeline.
+"""Sleep-AI fine-tuning pipeline.
 
-This package fine-tunes a small Gemma model with LoRA so the resulting
-weights stay strictly on-topic (sleep, sleep stages, wellness habits)
-and politely refuse anything else.
+This package builds the formal-model LoRA and keeps smaller-model
+experiments reproducible. The app ships only the formal checkpoint because
+the smaller presets did not pass the offline behavior gate.
 
 Why LoRA + system prompt + topic gate?
 * The Swift `SleepTopicGate` and the `systemPrompt` already block ~95%

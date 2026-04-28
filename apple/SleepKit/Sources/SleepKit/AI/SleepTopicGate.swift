@@ -108,9 +108,10 @@ public enum SleepTopicGate {
         "trump", "communism", "capitalism",
         "选举", "政治", "总统", "战争",
         // Code / programming / math homework
-        "write code", "python code", "javascript", "swift code",
+        "write code", "python code", "python function", "python", "javascript",
+        "swift code", "swiftui", "healthkit code", "sql", "function",
         "algorithm", "leetcode", "homework",
-        "写代码", "代码", "算法题", "作业",
+        "写代码", "代码", "算法题", "作业", "编程", "程序", "函数", "伪代码",
         // Finance / gambling / crypto
         "stock", "bitcoin", "crypto", "invest", "gamble", "lottery",
         "股票", "加密货币", "投资", "赌博", "彩票",

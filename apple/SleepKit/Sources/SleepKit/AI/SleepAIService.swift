@@ -277,8 +277,8 @@ public struct SleepAIContext: Sendable, Equatable {
 
 /// Local Sleep AI assistant. Today's default implementation is a
 /// **rule-based, on-device template responder** — it's honest about that
-/// in `engineKind`. When the real Gemma weights land, a second
-/// implementation can replace the template path without touching UI.
+/// in `engineKind`. The MLX-backed formal model can replace the template
+/// path without touching UI.
 ///
 /// Everything runs on-device; no network calls beyond model download.
 public protocol SleepAIServiceProtocol: AnyObject, Sendable {
@@ -301,7 +301,7 @@ public protocol SleepAIServiceProtocol: AnyObject, Sendable {
 public enum SleepAIEngineKind: String, Sendable, Codable, Equatable {
     /// On-device rule-based assistant. Always available, ships zero weights.
     case ruleBased
-    /// On-device Gemma weights (downloaded). Not yet wired — placeholder.
+    /// On-device formal model weights.
     case gemmaLocal
 }
 
@@ -419,6 +419,12 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
                 .replacingOccurrences(of: "{score}", with: "\(ctx.sleepScore)")
                 .replacingOccurrences(of: "{avg}", with: String(format: "%.0f", ctx.weeklyAverageScore))
         }
+        if Self.matches(p, [
+            "tired", "fatigue", "exhausted", "drowsy", "sleepy",
+            "困", "困倦", "累", "疲劳", "疲惫", "没精神"
+        ]) {
+            return Self.tiredReply(context: ctx, chinese: Self.isChinese(p))
+        }
         if Self.matches(p, ["trend", "change", "changed", "better", "worse", "趋势", "变化", "变好", "变差"]) {
             return Self.trendReply(context: ctx, chinese: Self.isChinese(p))
         }
@@ -447,6 +453,15 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
             "数据", "缺失", "准确", "准吗", "健康", "手表", "传感器"
         ]) {
             return Self.dataStatusReply(context: ctx, chinese: Self.isChinese(p))
+        }
+        if Self.matches(p, [
+            "sleep plan", "schedule", "automatic", "auto track", "smart alarm",
+            "cycle wake", "nightmare wake", "press start", "bedtime",
+            "睡眠计划", "自动", "计划", "不用点", "不想点", "开始睡眠",
+            "点开始", "睡前还点", "智能闹钟", "周期唤醒", "噩梦叫醒",
+            "入睡时间", "起床时间"
+        ]) {
+            return Self.sleepPlanReply(prompt: p, chinese: Self.isChinese(p))
         }
         if Self.matches(p, ["tip", "advice", "improve", "建议", "怎么改善", "怎么睡得", "睡得更好"]) {
             return Self.local("ai.reply.advice")
@@ -531,7 +546,7 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
     }
 
     /// One- or two-character affirmations / fillers that have no semantic
-    /// content for a sleep coach to act on. Without this guard a Gemma-class
+    /// content for a sleep coach to act on. Without this guard an open-weights
     /// model latches onto them as translation requests ("可以" → "I can
     /// translate that to English…") or generic chitchat. We answer with a
     /// short conversational filler reply instead.
@@ -651,6 +666,35 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
         )
     }
 
+    private static func tiredReply(context ctx: SleepAIContext, chinese: Bool) -> String {
+        guard ctx.hasUsableNight else {
+            return chinese
+                ? "我还没有昨晚的完整记录，所以不能判断你今天困是不是和睡眠有关。今晚记录一整晚，明早我会看时长、清醒时间和分期。"
+                : "I do not have a complete tracked night yet, so I cannot tell whether today's tiredness is sleep-related. Track tonight and I will check duration, wake time, and stages."
+        }
+
+        let duration = Self.formatHours(ctx.durationSec)
+        let wake = Self.formatMinutes(ctx.timeInWakeSec)
+        let shortNight = ctx.durationSec < 6 * 3600
+        let fragmented = ctx.timeInWakeSec >= 30 * 60
+        let weakScore = ctx.sleepScore < 70
+        let headline: String
+        if shortNight {
+            headline = chinese ? "总时长偏短" : "short duration"
+        } else if fragmented {
+            headline = chinese ? "夜间清醒偏多" : "more awake time"
+        } else if weakScore {
+            headline = chinese ? "整体分数偏低" : "lower overall score"
+        } else {
+            headline = chinese ? "昨晚数据没有明显短板" : "no obvious weak spot in last night's data"
+        }
+
+        if chinese {
+            return "你今天困，最可能先看 **\(headline)**：昨晚得分 **\(ctx.sleepScore)**，睡了 \(duration)，清醒 \(wake)。单晚不能下结论，连续几晚再看会更准。"
+        }
+        return "For tiredness today, first check **\(headline)**: last night scored **\(ctx.sleepScore)**, with \(duration) asleep and \(wake) awake. One night is not a conclusion; a few nights are more reliable."
+    }
+
     private static func tagInsightReply(context ctx: SleepAIContext, chinese: Bool) -> String {
         guard ctx.hasNight else {
             return chinese
@@ -724,6 +768,22 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
         return chinese
             ? "我能看到这些数据状态：\n\(joined)\n\n如果结果不准，优先检查 HealthKit 心率权限、手表佩戴和整晚记录时长。"
             : "Here is the current data status:\n\(joined)\n\nIf results look off, first check HealthKit heart-rate permission, Watch wear/connection, and whether the session covered the full night."
+    }
+
+    private static func sleepPlanReply(prompt p: String, chinese: Bool) -> String {
+        if Self.matches(p, ["smart alarm", "cycle wake", "智能闹钟", "周期唤醒"]) {
+            return chinese
+                ? "智能闹钟会在你设置的唤醒窗口里观察动作和心率，尽量在较浅、较稳定的时刻叫醒；如果没有合适时机，就按目标时间响。"
+                : "Smart Alarm watches motion and heart-rate patterns inside your wake window and tries to wake you at a lighter, steadier moment; otherwise it rings at the target time."
+        }
+        if Self.matches(p, ["nightmare", "噩梦"]) {
+            return chinese
+                ? "噩梦叫醒是保守实验功能：结合心率突增和动作变化触发手表触感提醒。它不是医学判断，默认应谨慎开启。"
+                : "Nightmare wake is a conservative experimental feature: it combines heart-rate spikes and motion changes to trigger Watch haptics. It is not a medical judgment."
+        }
+        return chinese
+            ? "可以用睡眠计划。设置入睡时间、起床时间、睡眠目标和智能唤醒窗口后，手表会在计划窗口内自动追踪；手动开始只作为临时兜底。"
+            : "Use Sleep Plan. Set bedtime, wake time, sleep goal, and a smart wake window; the Watch can track automatically in that planned window. Manual Start is only a fallback."
     }
 
     private static func displayTag(_ raw: String, chinese: Bool) -> String {

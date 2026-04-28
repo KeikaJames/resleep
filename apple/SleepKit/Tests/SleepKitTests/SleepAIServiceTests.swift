@@ -203,6 +203,40 @@ final class SleepAIServiceTests: XCTestCase {
         XCTAssertTrue(pack.contains("NO_NIGHT_RECORDED"))
         XCTAssertTrue(pack.localizedCaseInsensitiveContains("never invent"))
     }
+
+    func testTopicGate_refusesEnglishPythonFunction() {
+        let decision = SleepTopicGate.classify("Write a Python function.")
+        if case .refuse(let reason) = decision {
+            XCTAssertEqual(reason, .offTopic)
+        } else {
+            XCTFail("Expected Python function prompt to be refused, got \(decision)")
+        }
+    }
+
+    func testSkillReply_sleepPlanAutoTracking_isDeterministic() {
+        let r = svc.skillReply(to: "我不想睡前还点开始，有没有自动的？", context: .empty)
+        XCTAssertNotNil(r)
+        XCTAssertTrue(r!.contains("睡眠计划"))
+        XCTAssertTrue(r!.contains("自动"))
+    }
+
+    func testSkillReply_tiredUsesLocalNumbers() {
+        let ctx = SleepAIContext(
+            hasNight: true,
+            durationSec: 5 * 3600 + 44 * 60,
+            sleepScore: 61,
+            timeInDeepSec: 38 * 60,
+            timeInRemSec: 52 * 60,
+            timeInLightSec: 3 * 3600 + 54 * 60,
+            timeInWakeSec: 42 * 60,
+            weeklyAverageScore: 73
+        )
+        let r = svc.skillReply(to: "为什么我今天这么困？", context: ctx)
+        XCTAssertNotNil(r)
+        XCTAssertTrue(r!.contains("61"))
+        XCTAssertTrue(r!.contains("5h 44m"))
+        XCTAssertTrue(r!.contains("42m"))
+    }
 }
 
 final class SleepAIModelManagerTests: XCTestCase {

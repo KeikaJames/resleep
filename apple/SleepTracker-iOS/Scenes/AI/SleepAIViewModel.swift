@@ -65,8 +65,8 @@ final class SleepAIViewModel: ObservableObject {
         case needsEULA
         case ready
         case chatting
-        /// Region forbids the currently selected model (e.g. Gemma in
-        /// Mainland China). Composer is hidden and a banner explains it.
+        /// Legacy state retained for migration. The current release does
+        /// not region-block the formal model.
         case regionBlocked
     }
 
@@ -91,8 +91,7 @@ final class SleepAIViewModel: ObservableObject {
     /// Currently selected model tier. Drives the picker badge and the
     /// underlying MLX service. Persisted across launches.
     @Published private(set) var selectedTier: SleepAIModelTier
-    /// All tiers offered to the user *in this region*. Hides Gemma in
-    /// Mainland China.
+    /// Formal model descriptor offered to the user.
     @Published private(set) var availableTiers: [SleepAIModelTier] = []
     /// True when the persisted selection is not authorised in the current
     /// region — used to drive the `.regionBlocked` phase + banner copy.
@@ -150,37 +149,17 @@ final class SleepAIViewModel: ObservableObject {
     init(serviceFactory: @escaping (SleepAIModelTier) -> SleepAIServiceProtocol = { _ in SleepAIService() }) {
         self.serviceFactory = serviceFactory
 
-        // Resolve the user's preferred brand tier. Persistence migrated:
-        // first prefer a stored brand tier, then fall back to a stored raw
-        // model kind (legacy, pre-brand-tier installs), then default.
+        // Resolve the single formal model. Legacy tier prefs are ignored
+        // and rewritten to the formal-model identifier because the app no
+        // longer exposes multiple model choices.
         let region = SleepAIRegion.current
-        let storedBrand = UserDefaults.standard.string(forKey: Self.brandKey)
-            .flatMap(SleepAIBrandTier.init(rawValue:))
-        let legacyKind = UserDefaults.standard.string(forKey: Self.modelKey)
-            .flatMap(SleepAIModelKind.init(rawValue:))
-        let resolvedBrand: SleepAIBrandTier = {
-            if let b = storedBrand { return b }
-            if let k = legacyKind {
-                return k == .qwenPro ? .pro : .instant
-            }
-            return SleepAIModelCatalog.defaultBrand(for: region)
-        }()
-        let tier = SleepAIModelCatalog.descriptor(for: resolvedBrand, in: region)
+        UserDefaults.standard.set(SleepAIBrandTier.pro.rawValue, forKey: Self.brandKey)
+        UserDefaults.standard.set(SleepAIModelKind.qwenPro.rawValue, forKey: Self.modelKey)
+        let tier = SleepAIModelCatalog.descriptor(for: .qwenPro, in: region)
         let bundled = SleepAIModelCatalog.available(in: region)
-        // If the persisted brand's weights are no longer in the bundle
-        // (e.g. user picked Pro on a build that didn't ship Pro weights,
-        // or the App Store build dropped a tier to stay under 4 GB), fall
-        // back to the first available tier instead of erroring on first
-        // message with `notFound(...)`.
-        let safeTier: SleepAIModelTier = {
-            if bundled.contains(where: { $0.brand == tier.brand }) { return tier }
-            return bundled.first ?? tier
-        }()
+        let safeTier = bundled.first ?? tier
         self.selectedTier = safeTier
         self.availableTiers = bundled
-        // With the brand-tier model the picker is region-stable: Instant /
-        // Pro both exist everywhere, so a persisted selection can never be
-        // out of region.
         self.regionBlocksSelection = false
         self.service = serviceFactory(safeTier)
         // Initial phase honours the persisted EULA acceptance: without this
@@ -301,17 +280,14 @@ final class SleepAIViewModel: ObservableObject {
 
     // MARK: Model switching
 
-    /// User-driven model swap from the picker. Persists the choice, drops
-    /// any cached LLM state. The brand tier is region-stable, so no region
-    /// guard is required.
+    /// Legacy API retained for old call sites. The product now has one AI
+    /// model, so any selection request resolves to the formal model.
     func selectBrand(_ brand: SleepAIBrandTier) {
+        _ = brand
         let region = SleepAIRegion.current
-        UserDefaults.standard.set(brand.rawValue, forKey: Self.brandKey)
-        // Keep the legacy kind key in sync so older code paths that still
-        // read `modelKey` see a consistent value.
-        let kind = SleepAIModelCatalog.kind(for: brand, in: region)
-        UserDefaults.standard.set(kind.rawValue, forKey: Self.modelKey)
-        let tier = SleepAIModelCatalog.descriptor(for: brand, in: region)
+        UserDefaults.standard.set(SleepAIBrandTier.pro.rawValue, forKey: Self.brandKey)
+        UserDefaults.standard.set(SleepAIModelKind.qwenPro.rawValue, forKey: Self.modelKey)
+        let tier = SleepAIModelCatalog.descriptor(for: .qwenPro, in: region)
         selectedTier = tier
         regionBlocksSelection = false
         service = serviceFactory(tier)
@@ -322,18 +298,18 @@ final class SleepAIViewModel: ObservableObject {
     /// Backwards-compatible shim. Maps a raw kind to the corresponding
     /// brand and forwards. Kept only for legacy call sites.
     func selectTier(_ kind: SleepAIModelKind) {
-        selectBrand(kind == .qwenPro ? .pro : .instant)
+        _ = kind
+        selectBrand(.pro)
     }
 
     /// Localized banner copy shown when the user's selection (or persisted
     /// state) is not authorised in the current region. Today this is the
-    /// Gemma-in-Mainland-China case.
+    /// Legacy banner path; normally unused with the formal model.
     var regionBlockTitle: String { local("ai.region.blocked.title") }
     var regionBlockBody: String  { local("ai.region.blocked.body") }
     var regionBlockSwitchCTA: String { local("ai.region.blocked.switch") }
 
-    /// Suggested fallback tier the user can tap from the banner. With the
-    /// brand-tier model this is always Instant in the current region.
+    /// Suggested fallback tier the user can tap from the banner.
     var regionFallbackTier: SleepAIModelTier {
         let region = SleepAIRegion.current
         return SleepAIModelCatalog.descriptor(

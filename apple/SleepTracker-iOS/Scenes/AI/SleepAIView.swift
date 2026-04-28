@@ -687,59 +687,27 @@ private struct HistorySheet: View {
     }
 }
 
-// MARK: - Model picker
+// MARK: - Model label
 
-/// Toolbar label that doubles as a Menu of available model tiers. Mirrors
-/// the ChatGPT/Claude pattern: name + caret in the principal slot, tap to
-/// reveal a list with subtitles + checkmark on the active row.
+/// Toolbar label for the single production Sleep AI model.
 private struct ModelPickerLabel: View {
     @ObservedObject var model: SleepAIViewModel
-    @Environment(\.locale) private var locale
-
-    private var isChinese: Bool {
-        locale.language.languageCode?.identifier == "zh"
-            || (Locale.preferredLanguages.first ?? "").hasPrefix("zh")
-    }
 
     var body: some View {
-        Menu {
-            ForEach(model.availableTiers) { tier in
-                Button {
-                    if tier.brand != model.selectedTier.brand {
-                        Haptics.selection()
-                        model.selectBrand(tier.brand)
-                    }
-                } label: {
-                    Label {
-                        VStack(alignment: .leading) {
-                            Text(tier.displayName)
-                            Text(tier.subtitle(chinese: isChinese))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    } icon: {
-                        if tier.brand == model.selectedTier.brand {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-            }
-        } label: {
-            HStack(spacing: 4) {
-                Text(model.selectedTier.displayName)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                Image(systemName: "chevron.down")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(
-                Capsule().fill(Color(.secondarySystemBackground))
-            )
-            .accessibilityLabel(Text("ai.toolbar.modelPicker"))
+        HStack(spacing: 6) {
+            Image(systemName: model.selectedTier.symbol)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tint)
+            Text(model.selectedTier.displayName)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(
+            Capsule().fill(Color(.secondarySystemBackground))
+        )
+        .accessibilityLabel(Text(model.selectedTier.displayName))
     }
 }
 

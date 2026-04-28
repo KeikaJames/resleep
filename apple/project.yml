@@ -86,18 +86,9 @@ targets:
         # Embeds fused LoRA-tuned weights into the .app bundle so Sleep AI runs
         # fully offline. Apple's hard limit on uncompressed app size is 4 GB
         # (https://developer.apple.com/help/app-store-connect/reference/maximum-build-file-sizes),
-        # and shipping every tier (Gemma 2B + Qwen 1.7B + Qwen 4B) blows that
-        # cap, so the default ships only the two Instant tiers (~2.3 GB
-        # combined) and treats the Pro (Qwen-4B) tier as opt-in for the App
-        # Store build.
-        #
-        # Build flags:
-        #   CIRCADIA_BUNDLE_GEMMA       — set to 0 to skip Gemma Instant.
-        #   CIRCADIA_BUNDLE_QWEN_INSTANT — set to 0 to skip Qwen Instant.
-        #   CIRCADIA_BUNDLE_QWEN_PRO    — set to 1 to embed the Pro tier
-        #                                  (only safe if you also drop one
-        #                                   of the Instants — total must
-        #                                   stay under 4 GB).
+        # and shipping every historical candidate together blows that cap.
+        # The app ships only the formal model because it is the only one that
+        # passes the offline Sleep-AI behavioral gate.
         # Source dirs are produced by:
         #     PYTHONPATH=python python3 -m training.llm.fuse --tier <kind>
         # Missing tiers are skipped with a warning so a fresh clone still
@@ -116,24 +107,7 @@ targets:
             rsync -a --delete "${SRC}/" "${DST}/"
             echo "Embedded ${DST_NAME} (size: $(du -sh "${DST}" | cut -f1))"
           }
-          BUNDLE_GEMMA="${CIRCADIA_BUNDLE_GEMMA:-1}"
-          BUNDLE_QWEN_INSTANT="${CIRCADIA_BUNDLE_QWEN_INSTANT:-1}"
-          BUNDLE_QWEN_PRO="${CIRCADIA_BUNDLE_QWEN_PRO:-0}"
-          if [ "${BUNDLE_GEMMA}" = "1" ]; then
-            embed "fused-circadia-sleep"          "circadia-sleep-2b-4bit"
-          else
-            echo "note: Gemma Instant skipped (CIRCADIA_BUNDLE_GEMMA=0)."
-          fi
-          if [ "${BUNDLE_QWEN_INSTANT}" = "1" ]; then
-            embed "fused-circadia-sleep-qwen-1_7b" "circadia-sleep-qwen-1_7b-4bit"
-          else
-            echo "note: Qwen Instant skipped (CIRCADIA_BUNDLE_QWEN_INSTANT=0)."
-          fi
-          if [ "${BUNDLE_QWEN_PRO}" = "1" ]; then
-            embed "fused-circadia-sleep-qwen-4b"   "circadia-sleep-qwen-4b-4bit"
-          else
-            echo "note: Qwen Pro skipped (default; set CIRCADIA_BUNDLE_QWEN_PRO=1 only if total bundle stays <4 GB)."
-          fi
+          embed "fused-circadia-sleep-qwen-4b" "circadia-sleep-qwen-4b-4bit"
         basedOnDependencyAnalysis: false
         showEnvVars: false
     scheme:

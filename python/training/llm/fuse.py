@@ -3,7 +3,7 @@
 After `train_lora.py` produces an `adapters/` directory, this script
 calls `mlx_lm.fuse` to merge those LoRA matrices back into the base
 weights. The result is a self-contained MLX checkpoint that the iOS
-app can load through `GemmaWeightsLocator` exactly like the original.
+app can load through the MLX weights locator.
 
 Run:
 
@@ -15,6 +15,8 @@ from __future__ import annotations
 import subprocess
 import sys
 
+from .configs import PRODUCTION_TIER
+
 
 
 def main() -> None:
@@ -25,8 +27,8 @@ def main() -> None:
     parser.add_argument(
         "--tier",
         choices=sorted(TIERS.keys()),
-        default="gemma",
-        help="Which model tier to fuse (default: gemma).",
+        default=PRODUCTION_TIER,
+        help=f"Which model tier to fuse (default: {PRODUCTION_TIER}).",
     )
     args = parser.parse_args()
     cfg = config_for(args.tier)

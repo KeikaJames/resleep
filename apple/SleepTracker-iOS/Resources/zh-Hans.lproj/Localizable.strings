@@ -193,7 +193,7 @@
 "settings.category.reminders.subtitle" = "就寝提醒时间";
 "settings.category.deviceModel" = "设备与模型";
 "settings.category.deviceModel.subtitle" = "手表同步与睡眠阶段引擎";
-"settings.category.aiAssistant.subtitle" = "AI 模型状态与协议";
+"settings.category.aiAssistant.subtitle" = "正式版模型状态与协议";
 "settings.category.data" = "诊断与数据";
 "settings.category.data.subtitle" = "日志与本地数据控制";
 "settings.category.developer.subtitle" = "运行模式与审核说明";
@@ -310,8 +310,8 @@
 "ai.consent.body"                  = "在这台 iPhone 上运行，数据不会离开设备。";
 "ai.consent.cta"                   = "继续";
 
-"ai.download.title"                = "增强模型";
-"ai.download.body"                 = "可选下载，获得更自然的回应。";
+"ai.download.title"                = "正式版模型";
+"ai.download.body"                 = "本机运行的睡眠助手，回应更自然。";
 "ai.download.cta"                  = "下载";
 "ai.download.cancel"               = "取消";
 "ai.download.skip"                 = "跳过";
@@ -361,10 +361,10 @@
 "ai.toolbar.history"               = "聊天记录";
 "ai.toolbar.newChat"               = "新对话";
 "ai.scrollToBottom"                = "回到最新";
-"ai.toolbar.modelPicker"           = "选择模型";
+"ai.toolbar.modelPicker"           = "正式版模型";
 "ai.region.blocked.title"          = "Sleep AI 暂未在该地区提供。";
-"ai.region.blocked.body"           = "当前所选模型在你所在地区暂未提供。请切换为本地区可用的模型继续对话。";
-"ai.region.blocked.switch"         = "切换到推荐模型";
+"ai.region.blocked.body"           = "当前构建无法使用正式版模型，将继续使用本机规则兜底。";
+"ai.region.blocked.switch"         = "使用本机兜底";
 "ai.history.empty"                 = "还没有聊天记录。";
 "ai.history.title"                 = "记录";
 "ai.history.today"                 = "今天";
@@ -379,12 +379,12 @@
 "settings.section.aiAssistant"     = "AI 助手";
 "settings.ai.eula"                 = "AI 助手协议";
 "settings.ai.disclaimer"           = "AI 助手生成的内容仅供参考，不构成医疗建议。";
-"settings.ai.modelPath"            = "本地模型";
+"settings.ai.modelPath"            = "正式版模型";
 "settings.ai.modelMissing"         = "未安装";
 "ai.reply.howItWorks" = "在你的设备上：
 
 • 心率与运动 → **本地特征引擎**
-• 规则与（即将到来的）小型模型 → 推断阶段
+• 正式版模型与本地规则 → 推断阶段
 • 数据 *不离开设备*。";
 "ai.reply.whatTracked" = "目前会用到：
 
@@ -397,7 +397,8 @@
 "settings.about.license" = "开源许可（MIT）";
 "settings.about.copyright" = "版权所有";
 "home.start.greeting" = "晚安";
-"settings.ai.engineGemma" = "Gemma 3n · 4‑bit · 本地（MLX）";
+"settings.ai.engineProductionModel" = "正式版模型 · 本机（MLX）";
+"settings.ai.engineGemma" = "正式版模型 · 本机（MLX）";
 "settings.ai.engineRuleBased" = "规则模板 · 本地";
 "settings.about.legalHeader" = "法律条款";
 "settings.about.legalFooter" = "以上文档随应用一同发布，也可在开源仓库中查阅。";
@@ -407,8 +408,8 @@
 "home.permission.title" = "未开启心率读取权限";
 "home.permission.body" = "Circadia 用心率样本来判断睡眠阶段。请在「设置 → 健康 → 数据访问」中开启心率。";
 "home.permission.open" = "前往设置";
-"ai.engine.badge.gemma" = "Gemma 3n · 本机推理";
-"ai.engine.badge.simulator" = "规则模式 · 模拟器（真机才能跑 Gemma）";
+"ai.engine.badge.gemma" = "正式版模型 · 本机推理";
+"ai.engine.badge.simulator" = "规则模式 · 模拟器（真机才能跑正式版模型）";
 "ai.engine.badge.ruleBased" = "规则模式 · 本机";
 "ai.tab.title" = "睡眠助手";
 "settings.localData.deleteError" = "本地数据删除失败，请稍后再试。";
