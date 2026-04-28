@@ -1,188 +1,538 @@
 import SwiftUI
 import UIKit
+import PhotosUI
 import SleepKit
 
 struct SettingsView: View {
-    @EnvironmentObject private var appState: AppState
     @StateObject private var vm = SettingsViewModel()
-    @State private var showDeleteConfirm: Bool = false
-    @State private var deleteError: String?
-    @State private var deletedAt: Date?
-    @State private var diagSummary: String = "—"  // legacy; no longer rendered.
-    @State private var clearedDiagAt: Date?
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("settings.section.permissions") {
-                    HealthAuthorizationRow()
-                    Toggle("settings.shareWithHealth", isOn: $vm.shareWithHealthKit)
-                }
-
                 Section {
-                    HStack(spacing: 10) {
-                        Image(systemName: "mic.slash.fill")
-                            .foregroundStyle(.secondary)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("settings.privacy.audio.title")
-                                .font(.subheadline.weight(.medium))
-                            Text("settings.privacy.audio.body")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Toggle("settings.cloudSync", isOn: $vm.cloudSyncEnabled).disabled(true)
-                } header: {
-                    Text("settings.section.privacy")
-                }
-
-                Section {
-                    Toggle("settings.snoreDetection", isOn: $vm.snoreDetectionEnabled)
-                    Toggle("settings.personalization", isOn: $vm.personalizationEnabled)
-                } header: {
-                    Text("settings.section.insights")
-                } footer: {
-                    Text("settings.insights.footer")
-                }
-
-                Section {
-                    Toggle("settings.bedtimeReminder", isOn: $vm.bedtimeReminderEnabled)
-                    if vm.bedtimeReminderEnabled {
-                        DatePicker("settings.bedtimeTime",
-                                   selection: $vm.bedtimeReminderTime,
-                                   displayedComponents: [.hourAndMinute])
-                    }
-                } header: {
-                    Text("settings.section.reminders")
-                }
-                .onChange(of: vm.bedtimeReminderEnabled) { _, on in
-                    Task { await applyBedtime(on: on, at: vm.bedtimeReminderTime) }
-                }
-                .onChange(of: vm.bedtimeReminderTime) { _, t in
-                    if vm.bedtimeReminderEnabled {
-                        Task { await applyBedtime(on: true, at: t) }
-                    }
-                }
-                .onChange(of: vm.personalizationEnabled) { _, on in
-                    appState.inferencePipeline.personalizationEnabled = on
-                }
-
-                Section("settings.section.watch") {
-                    LabeledContent("card.deviceSync.reachable",
-                                   value: appState.router.watchReachable
-                                        ? NSLocalizedString("card.deviceSync.yes", comment: "")
-                                        : NSLocalizedString("card.deviceSync.no", comment: ""))
-                    LabeledContent("card.deviceSync.lastSync",
-                                   value: relativeDate(appState.router.lastBatchAt))
-                }
-
-                Section("settings.section.model") {
-                    LabeledContent("settings.model.backend",
-                                   value: appState.inferencePipeline.descriptor.isRealModel
-                                            ? NSLocalizedString("settings.model.coreml", comment: "")
-                                            : NSLocalizedString("settings.model.heuristic", comment: ""))
-                    LabeledContent("settings.model.name", value: appState.inferencePipeline.descriptor.name)
-                    if let v = appState.inferencePipeline.descriptor.version {
-                        LabeledContent("settings.model.version", value: v)
-                    }
-                    if let reason = appState.inferenceFallbackReason {
-                        Text(reason).font(.footnote).foregroundStyle(.orange)
-                    }
-                }
-
-                Section {
-                    LabeledContent("settings.ai.modelPath",
-                                   value: aiModelStatusValue)
                     NavigationLink {
-                        LegalDocumentView(titleKey: "settings.ai.eula",
-                                          text: aiEulaText())
+                        ProfileDetailsView(vm: vm)
                     } label: {
-                        Label("settings.ai.eula", systemImage: "doc.text")
+                        ProfileSummaryRow(
+                            avatarData: vm.profileAvatarData,
+                            nickname: vm.profileNickname,
+                            birthday: vm.profileBirthday
+                        )
                     }
-                    Text("settings.ai.disclaimer")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                } header: {
-                    Text("settings.section.aiAssistant")
                 }
 
                 Section {
                     NavigationLink {
-                        DiagnosticsView()
+                        PermissionsSettingsView(vm: vm)
                     } label: {
-                        Label("settings.diag.view", systemImage: "doc.text.magnifyingglass")
+                        SettingsCategoryRow(icon: "heart.text.square.fill",
+                                            tint: .red,
+                                            title: "settings.section.permissions",
+                                            subtitle: "settings.category.permissions.subtitle")
                     }
-                    Button(role: .destructive) {
-                        Task { await clearDiagnostics() }
+                    NavigationLink {
+                        PrivacyInsightsSettingsView(vm: vm)
                     } label: {
-                        Label("settings.diag.clear", systemImage: "trash")
+                        SettingsCategoryRow(icon: "lock.shield.fill",
+                                            tint: .blue,
+                                            title: "settings.category.privacyInsights",
+                                            subtitle: "settings.category.privacyInsights.subtitle")
                     }
-                    if let clearedDiagAt {
-                        Text("\(NSLocalizedString("settings.cleared", comment: "")) \(relativeDate(clearedDiagAt))")
-                            .font(.footnote).foregroundStyle(.tertiary)
+                    NavigationLink {
+                        ReminderSettingsView(vm: vm)
+                    } label: {
+                        SettingsCategoryRow(icon: "bell.badge.fill",
+                                            tint: .orange,
+                                            title: "settings.section.reminders",
+                                            subtitle: "settings.category.reminders.subtitle")
                     }
-                } header: {
-                    Text("settings.section.diagnostics")
                 }
 
                 Section {
-                    Button(role: .destructive) {
-                        showDeleteConfirm = true
+                    NavigationLink {
+                        DeviceModelSettingsView()
                     } label: {
-                        Label("settings.localData.delete", systemImage: "trash")
+                        SettingsCategoryRow(icon: "applewatch",
+                                            tint: .green,
+                                            title: "settings.category.deviceModel",
+                                            subtitle: "settings.category.deviceModel.subtitle")
                     }
-                    if let deletedAt {
-                        Text("\(NSLocalizedString("settings.cleared", comment: "")) \(relativeDate(deletedAt))")
-                            .font(.footnote).foregroundStyle(.tertiary)
+                    NavigationLink {
+                        AIAssistantSettingsView()
+                    } label: {
+                        SettingsCategoryRow(icon: "sparkles",
+                                            tint: .indigo,
+                                            title: "settings.section.aiAssistant",
+                                            subtitle: "settings.category.aiAssistant.subtitle")
                     }
-                    if let err = deleteError {
-                        Text(err).font(.footnote).foregroundStyle(.red)
+                    NavigationLink {
+                        DataSettingsView()
+                    } label: {
+                        SettingsCategoryRow(icon: "externaldrive.fill",
+                                            tint: .gray,
+                                            title: "settings.category.data",
+                                            subtitle: "settings.category.data.subtitle")
                     }
-                } header: {
-                    Text("settings.section.localData")
-                } footer: {
-                    Text("settings.localData.footer")
-                }
-
-                Section("settings.section.developer") {
-                    LabeledContent("settings.dev.runtime",
-                                   value: appState.runtimeMode == .simulated
-                                        ? NSLocalizedString("settings.dev.simulated", comment: "")
-                                        : NSLocalizedString("settings.dev.live", comment: ""))
-                    Text("settings.dev.note")
-                        .font(.footnote).foregroundStyle(.tertiary)
                 }
 
                 Section {
+                    NavigationLink {
+                        DeveloperSettingsView()
+                    } label: {
+                        SettingsCategoryRow(icon: "hammer.fill",
+                                            tint: .secondary,
+                                            title: "settings.section.developer",
+                                            subtitle: "settings.category.developer.subtitle")
+                    }
                     NavigationLink {
                         AboutView()
                     } label: {
-                        Label("settings.section.about", systemImage: "info.circle")
+                        SettingsCategoryRow(icon: "info.circle.fill",
+                                            tint: .cyan,
+                                            title: "settings.section.about",
+                                            subtitle: "settings.category.about.subtitle")
                     }
                 }
             }
             .navigationTitle("settings.title")
-            .confirmationDialog(
-                "settings.localData.confirmTitle",
-                isPresented: $showDeleteConfirm,
-                titleVisibility: .visible
-            ) {
-                Button("settings.localData.confirmDelete", role: .destructive) {
-                    Task { await deleteAllLocalData() }
+        }
+    }
+}
+
+// MARK: - Profile
+
+private struct ProfileSummaryRow: View {
+    let avatarData: Data?
+    let nickname: String
+    let birthday: Date?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ProfileAvatarImage(avatarData: avatarData, size: 52)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("settings.section.profile")
+                    .foregroundStyle(.primary)
+                Text(summary)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var summary: String {
+        let trimmed = nickname.trimmingCharacters(in: .whitespacesAndNewlines)
+        let birthdayText = birthday?.formatted(date: .abbreviated, time: .omitted)
+        switch (trimmed.isEmpty, birthdayText) {
+        case (false, let birthdayText?):
+            return "\(trimmed) · \(birthdayText)"
+        case (false, nil):
+            return trimmed
+        case (true, let birthdayText?):
+            return birthdayText
+        case (true, nil):
+            return NSLocalizedString("settings.profile.summary.empty", comment: "")
+        }
+    }
+}
+
+private struct ProfileDetailsView: View {
+    @ObservedObject var vm: SettingsViewModel
+    @State private var selectedAvatarItem: PhotosPickerItem?
+
+    var body: some View {
+        let avatarData = vm.profileAvatarData
+        let hasAvatar = avatarData != nil
+
+        Form {
+            Section {
+                VStack(spacing: 10) {
+                    PhotosPicker(selection: $selectedAvatarItem, matching: .images) {
+                        ProfileAvatarImage(avatarData: avatarData, size: 96)
+                            .overlay(alignment: .bottomTrailing) {
+                                Image(systemName: "camera.circle.fill")
+                                    .font(.system(size: 28))
+                                    .symbolRenderingMode(.palette)
+                                    .foregroundStyle(.white, Color.accentColor)
+                                    .background(Circle().fill(Color(.systemBackground)))
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text("settings.profile.avatar"))
+                    .accessibilityHint(Text(LocalizedStringKey(!hasAvatar
+                                                               ? "settings.profile.avatar.choose"
+                                                               : "settings.profile.avatar.change")))
+
+                    Text(LocalizedStringKey(!hasAvatar
+                                            ? "settings.profile.avatar.choose"
+                                            : "settings.profile.avatar.change"))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.tint)
+
+                    if hasAvatar {
+                        Button(role: .destructive) {
+                            vm.clearProfileAvatar()
+                        } label: {
+                            Text("settings.profile.avatar.remove")
+                                .font(.subheadline)
+                        }
+                    }
                 }
-                Button("settings.localData.confirmCancel", role: .cancel) {}
-            } message: {
-                Text("settings.localData.confirmMessage")
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            } footer: {
+                Text("settings.profile.avatar.subtitle")
+            }
+
+            Section {
+                HStack {
+                    Text("settings.profile.nickname")
+                    TextField("settings.profile.nickname.placeholder", text: $vm.profileNickname)
+                        .multilineTextAlignment(.trailing)
+                        .textInputAutocapitalization(.words)
+                        .disableAutocorrection(true)
+                }
+
+                if vm.profileBirthday == nil {
+                    Button {
+                        vm.profileBirthday = Date()
+                    } label: {
+                        HStack {
+                            Text("settings.profile.birthday")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Text("settings.profile.birthday.add")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    DatePicker("settings.profile.birthday",
+                               selection: birthdayBinding,
+                               in: ...Date(),
+                               displayedComponents: [.date])
+                    Button(role: .destructive) {
+                        vm.profileBirthday = nil
+                    } label: {
+                        Text("settings.profile.birthday.clear")
+                    }
+                }
+            }
+        }
+        .navigationTitle("settings.section.profile")
+        .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: selectedAvatarItem) { _, item in
+            Task { await loadAvatar(from: item) }
+        }
+    }
+
+    private var birthdayBinding: Binding<Date> {
+        Binding {
+            vm.profileBirthday ?? Date()
+        } set: { newValue in
+            vm.profileBirthday = min(newValue, Date())
+        }
+    }
+
+    private func loadAvatar(from item: PhotosPickerItem?) async {
+        guard let item else { return }
+        if let data = try? await item.loadTransferable(type: Data.self) {
+            await MainActor.run {
+                vm.updateProfileAvatar(with: data)
+                selectedAvatarItem = nil
+            }
+        }
+    }
+}
+
+private struct ProfileAvatarImage: View {
+    let avatarData: Data?
+    let size: CGFloat
+
+    var body: some View {
+        if let avatarData, let image = UIImage(data: avatarData) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: size, height: size)
+                .clipShape(Circle())
+        } else {
+            Image(systemName: "person.crop.circle.fill")
+                .font(.system(size: size))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+// MARK: - Settings categories
+
+private struct SettingsCategoryRow: View {
+    let icon: String
+    let tint: Color
+    let title: LocalizedStringKey
+    let subtitle: LocalizedStringKey
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 30, height: 30)
+                .background(RoundedRectangle(cornerRadius: 7).fill(tint))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .foregroundStyle(.primary)
+                Text(subtitle)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+private struct PermissionsSettingsView: View {
+    @ObservedObject var vm: SettingsViewModel
+
+    var body: some View {
+        Form {
+            Section("settings.section.permissions") {
+                HealthAuthorizationRow()
+                Toggle("settings.shareWithHealth", isOn: $vm.shareWithHealthKit)
+            }
+        }
+        .navigationTitle("settings.section.permissions")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct PrivacyInsightsSettingsView: View {
+    @EnvironmentObject private var appState: AppState
+    @ObservedObject var vm: SettingsViewModel
+
+    var body: some View {
+        Form {
+            Section {
+                HStack(spacing: 10) {
+                    Image(systemName: "mic.slash.fill")
+                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("settings.privacy.audio.title")
+                            .font(.subheadline.weight(.medium))
+                        Text("settings.privacy.audio.body")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Toggle("settings.cloudSync", isOn: $vm.cloudSyncEnabled).disabled(true)
+            } header: {
+                Text("settings.section.privacy")
+            }
+
+            Section {
+                Toggle("settings.snoreDetection", isOn: $vm.snoreDetectionEnabled)
+                Toggle("settings.personalization", isOn: $vm.personalizationEnabled)
+            } header: {
+                Text("settings.section.insights")
+            } footer: {
+                Text("settings.insights.footer")
+            }
+        }
+        .navigationTitle("settings.category.privacyInsights")
+        .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: vm.personalizationEnabled) { _, on in
+            appState.inferencePipeline.personalizationEnabled = on
+        }
+    }
+}
+
+private struct ReminderSettingsView: View {
+    @ObservedObject var vm: SettingsViewModel
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("settings.bedtimeReminder", isOn: $vm.bedtimeReminderEnabled)
+                if vm.bedtimeReminderEnabled {
+                    DatePicker("settings.bedtimeTime",
+                               selection: $vm.bedtimeReminderTime,
+                               displayedComponents: [.hourAndMinute])
+                }
+            } header: {
+                Text("settings.section.reminders")
+            }
+        }
+        .navigationTitle("settings.section.reminders")
+        .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: vm.bedtimeReminderEnabled) { _, on in
+            Task { await applyBedtime(on: on, at: vm.bedtimeReminderTime) }
+        }
+        .onChange(of: vm.bedtimeReminderTime) { _, time in
+            if vm.bedtimeReminderEnabled {
+                Task { await applyBedtime(on: true, at: time) }
             }
         }
     }
 
-    private func relativeDate(_ d: Date?) -> String {
-        guard let d else { return "—" }
-        let fmt = RelativeDateTimeFormatter()
-        fmt.unitsStyle = .abbreviated
-        return fmt.localizedString(for: d, relativeTo: Date())
+    private func applyBedtime(on: Bool, at time: Date) async {
+        let service = BedtimeReminderService()
+        if on {
+            _ = await service.requestAuthorization()
+            let comps = Calendar.current.dateComponents([.hour, .minute], from: time)
+            await service.schedule(at: comps.hour ?? 22, minute: comps.minute ?? 30)
+        } else {
+            await service.cancel()
+        }
+    }
+}
+
+private struct DeviceModelSettingsView: View {
+    @EnvironmentObject private var appState: AppState
+
+    var body: some View {
+        Form {
+            Section("settings.section.watch") {
+                LabeledContent("card.deviceSync.reachable",
+                               value: appState.router.watchReachable
+                                    ? NSLocalizedString("card.deviceSync.yes", comment: "")
+                                    : NSLocalizedString("card.deviceSync.no", comment: ""))
+                LabeledContent("card.deviceSync.lastSync",
+                               value: settingsRelativeDate(appState.router.lastBatchAt))
+            }
+
+            Section("settings.section.model") {
+                LabeledContent("settings.model.backend",
+                               value: appState.inferencePipeline.descriptor.isRealModel
+                                        ? NSLocalizedString("settings.model.coreml", comment: "")
+                                        : NSLocalizedString("settings.model.heuristic", comment: ""))
+                LabeledContent("settings.model.name", value: appState.inferencePipeline.descriptor.name)
+                if let version = appState.inferencePipeline.descriptor.version {
+                    LabeledContent("settings.model.version", value: version)
+                }
+                if let reason = appState.inferenceFallbackReason {
+                    Text(reason).font(.footnote).foregroundStyle(.orange)
+                }
+            }
+        }
+        .navigationTitle("settings.category.deviceModel")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct AIAssistantSettingsView: View {
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent("settings.ai.modelPath",
+                               value: aiModelStatusValue)
+                NavigationLink {
+                    LegalDocumentView(titleKey: "settings.ai.eula",
+                                      text: aiEulaText())
+                } label: {
+                    Label("settings.ai.eula", systemImage: "doc.text")
+                }
+                Text("settings.ai.disclaimer")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } header: {
+                Text("settings.section.aiAssistant")
+            }
+        }
+        .navigationTitle("settings.section.aiAssistant")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var aiModelStatusValue: String {
+        // MLX cannot run on the iOS Simulator, so simulator builds honestly
+        // report the rule-based engine instead of implying the LLM is active.
+        #if targetEnvironment(simulator)
+        return NSLocalizedString("settings.ai.engineRuleBased", comment: "")
+        #else
+        return NSLocalizedString("settings.ai.engineGemma", comment: "")
+        #endif
+    }
+
+    private func aiEulaText() -> String {
+        let preferred = Bundle.main.preferredLocalizations.first ?? "en"
+        let candidate = preferred.hasPrefix("zh") ? "EULA.zh-Hans" : "EULA.en"
+        if let url = Bundle.main.url(forResource: candidate, withExtension: "md"),
+           let text = try? String(contentsOf: url, encoding: .utf8) {
+            return text
+        }
+        return NSLocalizedString("ai.eula.short", comment: "")
+    }
+}
+
+private struct DataSettingsView: View {
+    @EnvironmentObject private var appState: AppState
+    @State private var showDeleteConfirm: Bool = false
+    @State private var deleteError: String?
+    @State private var deletedAt: Date?
+    @State private var clearedDiagAt: Date?
+
+    var body: some View {
+        Form {
+            Section {
+                NavigationLink {
+                    DiagnosticsView()
+                } label: {
+                    Label("settings.diag.view", systemImage: "doc.text.magnifyingglass")
+                }
+                Button(role: .destructive) {
+                    Task { await clearDiagnostics() }
+                } label: {
+                    Label("settings.diag.clear", systemImage: "trash")
+                }
+                if let clearedDiagAt {
+                    Text("\(NSLocalizedString("settings.cleared", comment: "")) \(settingsRelativeDate(clearedDiagAt))")
+                        .font(.footnote).foregroundStyle(.tertiary)
+                }
+            } header: {
+                Text("settings.section.diagnostics")
+            }
+
+            Section {
+                Button(role: .destructive) {
+                    showDeleteConfirm = true
+                } label: {
+                    Label("settings.localData.delete", systemImage: "trash")
+                }
+                if let deletedAt {
+                    Text("\(NSLocalizedString("settings.cleared", comment: "")) \(settingsRelativeDate(deletedAt))")
+                        .font(.footnote).foregroundStyle(.tertiary)
+                }
+                if let deleteError {
+                    Text(deleteError).font(.footnote).foregroundStyle(.red)
+                }
+            } header: {
+                Text("settings.section.localData")
+            } footer: {
+                Text("settings.localData.footer")
+            }
+        }
+        .navigationTitle("settings.category.data")
+        .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog(
+            "settings.localData.confirmTitle",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("settings.localData.confirmDelete", role: .destructive) {
+                Task { await deleteAllLocalData() }
+            }
+            Button("settings.localData.confirmCancel", role: .cancel) {}
+        } message: {
+            Text("settings.localData.confirmMessage")
+        }
+    }
+
+    private func clearDiagnostics() async {
+        await appState.diagnostics.clear()
+        clearedDiagAt = Date()
     }
 
     private func deleteAllLocalData() async {
@@ -196,60 +546,32 @@ struct SettingsView: View {
             deleteError = NSLocalizedString("settings.localData.deleteError", comment: "")
         }
     }
+}
 
-    private func refreshDiagSummary() async {
-        // No-op kept for backwards compatibility with code that still calls
-        // it; the inline summary cell was removed from the production form
-        // because raw field names (sessionId, hrSampleCount, …) shouldn't
-        // surface to end users. The DiagnosticsView screen renders the
-        // full report on demand.
-    }
+private struct DeveloperSettingsView: View {
+    @EnvironmentObject private var appState: AppState
 
-    private func clearDiagnostics() async {
-        await appState.diagnostics.clear()
-        clearedDiagAt = Date()
-        await refreshDiagSummary()
-    }
-
-    private func applyBedtime(on: Bool, at time: Date) async {
-        let svc = BedtimeReminderService()
-        if on {
-            _ = await svc.requestAuthorization()
-            let comps = Calendar.current.dateComponents([.hour, .minute], from: time)
-            await svc.schedule(at: comps.hour ?? 22, minute: comps.minute ?? 30)
-        } else {
-            await svc.cancel()
+    var body: some View {
+        Form {
+            Section("settings.section.developer") {
+                LabeledContent("settings.dev.runtime",
+                               value: appState.runtimeMode == .simulated
+                                    ? NSLocalizedString("settings.dev.simulated", comment: "")
+                                    : NSLocalizedString("settings.dev.live", comment: ""))
+                Text("settings.dev.note")
+                    .font(.footnote).foregroundStyle(.tertiary)
+            }
         }
+        .navigationTitle("settings.section.developer")
+        .navigationBarTitleDisplayMode(.inline)
     }
+}
 
-    private static var versionString: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
-    }
-
-    private static var buildString: String {
-        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
-    }
-
-    private var aiModelStatusValue: String {
-        // Honest one-liner about which engine the AI tab is currently using.
-        // MLX cannot run on the iOS Simulator (Metal driver gap), so on the
-        // simulator we transparently fall back to the rule-based engine.
-        #if targetEnvironment(simulator)
-        return NSLocalizedString("settings.ai.engineRuleBased", comment: "")
-        #else
-        return NSLocalizedString("settings.ai.engineGemma", comment: "")
-        #endif
-    }
-
-    private func aiEulaText() -> String {
-        let preferred = Bundle.main.preferredLocalizations.first ?? "en"
-        let candidate = preferred.hasPrefix("zh") ? "EULA.zh-Hans" : "EULA.en"
-        if let url = Bundle.main.url(forResource: candidate, withExtension: "md"),
-           let s = try? String(contentsOf: url, encoding: .utf8) {
-            return s
-        }
-        return NSLocalizedString("ai.eula.short", comment: "")
-    }
+private func settingsRelativeDate(_ date: Date?) -> String {
+    guard let date else { return "—" }
+    let formatter = RelativeDateTimeFormatter()
+    formatter.unitsStyle = .abbreviated
+    return formatter.localizedString(for: date, relativeTo: Date())
 }
 
 // MARK: - Legal document viewer

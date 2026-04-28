@@ -311,7 +311,10 @@ private struct TonightStatusCard: View {
             switch appState.workout.source {
             case .idle: return nil
             case .localPhone: return "home.source.iphone"
-            case .remoteWatch: return "home.source.watch"
+            case .remoteWatch:
+                return appState.router.lastBatchAt == nil
+                    ? "home.source.watchWaiting"
+                    : "home.source.watch"
             }
         }
         if let s = appState.latestSummary {

@@ -1,5 +1,6 @@
 import SwiftUI
 import SleepKit
+import UIKit
 
 @main
 struct SleepTrackerApp: App {
@@ -37,6 +38,17 @@ struct SleepTrackerApp: App {
 
 struct RootTabView: View {
     @State private var selectedTab: Int = 0
+
+    init() {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.backgroundEffect = nil
+        appearance.backgroundColor = .clear
+        appearance.shadowColor = .clear
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+    }
+
     var body: some View {
         TabView(selection: $selectedTab) {
             HomeView()
@@ -55,6 +67,7 @@ struct RootTabView: View {
                 .tabItem { Label("tab.settings", systemImage: "gear") }
                 .tag(4)
         }
+        .toolbarBackground(.hidden, for: .tabBar)
         .sensoryFeedback(.selection, trigger: selectedTab)
     }
 }

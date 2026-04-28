@@ -66,6 +66,7 @@
 "survey.alarm.unset" = "—";
 "survey.alarm.good"  = "舒服";
 "survey.alarm.bad"   = "不舒服";
+"survey.alarm.footer" = "用于优化智能闹钟唤醒窗口。";
 "survey.times.header" = "真实时间(可选)";
 "survey.fellasleep.title" = "实际入睡";
 "survey.wokeup.title"     = "实际醒来";
@@ -114,8 +115,10 @@
 "home.source.simulation" = "模拟";
 "home.source.iphone"     = "iPhone";
 "home.source.watch"      = "Apple Watch";
+"home.source.watchWaiting" = "等待手表数据";
 "home.action.start"      = "开始追踪";
 "home.action.stop"       = "停止追踪";
+"home.error.watchStartQueued" = "Apple Watch 暂时不可达。请打开手表上的 Circadia；连接恢复后，本次睡眠会从手表开始。";
 
 // Home cards
 "card.smartAlarm"     = "智能闹钟";
@@ -149,6 +152,29 @@
 
 // Settings
 "settings.title"          = "设置";
+"settings.section.profile" = "个人信息";
+"settings.profile.avatar" = "头像";
+"settings.profile.avatar.subtitle" = "可选，仅保存在本机。";
+"settings.profile.avatar.choose" = "选择";
+"settings.profile.avatar.change" = "更换";
+"settings.profile.avatar.remove" = "移除头像";
+"settings.profile.nickname" = "昵称";
+"settings.profile.nickname.placeholder" = "可选";
+"settings.profile.birthday" = "生日";
+"settings.profile.birthday.add" = "添加生日";
+"settings.profile.birthday.clear" = "清除生日";
+"settings.profile.summary.empty" = "添加个人信息";
+"settings.category.permissions.subtitle" = "健康权限与共享";
+"settings.category.privacyInsights" = "隐私与洞察";
+"settings.category.privacyInsights.subtitle" = "音频、云同步与本地个性化";
+"settings.category.reminders.subtitle" = "就寝提醒时间";
+"settings.category.deviceModel" = "设备与模型";
+"settings.category.deviceModel.subtitle" = "手表同步与睡眠阶段引擎";
+"settings.category.aiAssistant.subtitle" = "AI 模型状态与协议";
+"settings.category.data" = "诊断与数据";
+"settings.category.data.subtitle" = "日志与本地数据控制";
+"settings.category.developer.subtitle" = "运行模式与审核说明";
+"settings.category.about.subtitle" = "版本、法律与致谢";
 "settings.section.permissions" = "权限";
 "settings.shareWithHealth"   = "与“健康”共享";
 "settings.health.title"                = "“健康”访问权限";

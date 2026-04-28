@@ -152,10 +152,10 @@ struct SleepAIView: View {
     /// Drives the dynamic composer collapse + the "scroll to latest" FAB.
     /// Updated by the visibility of an invisible 1pt bottom sentinel.
     @State private var scrolledAtBottom: Bool = true
-    /// Namespace shared between the expanded composer's background pill
-    /// and the collapsed chevron disc, so `matchedGeometryEffect` actually
-    /// morphs the same shape between the two states (instead of two
-    /// independent views fading in/out).
+    /// User-submitted turns should stay pinned to the latest message while
+    /// the local assistant appends the user bubble and final response.
+    @State private var pinToLatestDuringReply: Bool = false
+    @State private var suppressComposerCollapseUntil: Date = .distantPast
     @Namespace private var composerMorph
 
     var body: some View {
@@ -187,6 +187,7 @@ struct SleepAIView: View {
             .sheet(isPresented: $historyOpen) {
                 HistorySheet(model: model, isPresented: $historyOpen)
             }
+            .toolbarBackground(.hidden, for: .tabBar)
             .sensoryFeedback(.success, trigger: model.isReplying) { old, new in
                 old == true && new == false
             }
@@ -235,8 +236,8 @@ struct SleepAIView: View {
 
     private var main: some View {
         ScrollViewReader { proxy in
-            VStack(spacing: 0) {
-                GeometryReader { outer in
+            GeometryReader { outer in
+                ZStack(alignment: .bottomTrailing) {
                     ScrollView {
                         VStack(spacing: 28) {
                             if model.messages.isEmpty {
@@ -268,25 +269,8 @@ struct SleepAIView: View {
                                 .padding(.top, 16)
                             }
 
-                            // Bottom sentinel — read its frame in the
-                            // ScrollView's coordinate space and compare to
-                            // the viewport height. This is more reliable
-                            // than LazyVStack's onAppear/onDisappear, which
-                            // fires inconsistently for sub-pixel-sized
-                            // markers right at the edge.
-                            Color.clear
-                                .frame(height: 1)
-                                .id("__bottom_sentinel__")
-                                .background(
-                                    GeometryReader { inner in
-                                        Color.clear.preference(
-                                            key: BottomVisibilityKey.self,
-                                            value: inner.frame(in: .named("ai.scroll")).maxY
-                                        )
-                                    }
-                                )
+                            bottomAnchor
                         }
-                        .padding(.bottom, 16)
                     }
                     .coordinateSpace(name: "ai.scroll")
                     .scrollDismissesKeyboard(.interactively)
@@ -294,7 +278,12 @@ struct SleepAIView: View {
                         // sentinelY is the bottom-edge Y of the 1pt sentinel
                         // expressed in the ScrollView's coord space; the
                         // viewport extends from 0 to `outer.size.height`.
-                        let nearBottom = sentinelY <= outer.size.height + 4
+                        let nearBottom = model.messages.isEmpty || sentinelY <= outer.size.height + 12
+                        let suppressCollapse = Date() < suppressComposerCollapseUntil
+                            || pinToLatestDuringReply
+                        if !nearBottom && suppressCollapse {
+                            return
+                        }
                         if scrolledAtBottom != nearBottom {
                             // Drop focus the moment the user scrolls up so the
                             // keyboard tucks away with the composer.
@@ -305,98 +294,156 @@ struct SleepAIView: View {
                         }
                     }
                     .onChange(of: model.messages.count) { _, _ in
-                        if let last = model.messages.last {
-                            withAnimation(.easeOut(duration: 0.25)) {
-                                proxy.scrollTo(last.id, anchor: .bottom)
+                        guard !model.messages.isEmpty else { return }
+                        if scrolledAtBottom || composerFocused || pinToLatestDuringReply {
+                            pinComposerToLatest(proxy: proxy)
+                        }
+                    }
+                    .onChange(of: model.isReplying) { oldValue, newValue in
+                        if oldValue == true && newValue == false {
+                            pinComposerToLatest(proxy: proxy)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                                pinToLatestDuringReply = false
                             }
                         }
                     }
+                    floatingComposerDock(proxy: proxy)
                 }
-                bottomBar(proxy: proxy)
             }
         }
     }
 
-    /// The morphing bottom area. We render a single `Capsule` background
-    /// that is tagged with `matchedGeometryEffect(id:in:)`. When
-    /// `scrolledAtBottom` flips, SwiftUI animates that one shape between
-    /// (a) full-width composer pill at the bottom and (b) a 44pt circle
-    /// in the trailing corner. The text-field / chevron content is just
-    /// an overlay on top of the morphing shape, with a quick cross-fade.
-    /// The result is the input box visibly *becoming* the chevron icon
-    /// (and vice-versa on tap) — what the user kept asking for.
-    @ViewBuilder
-    private func bottomBar(proxy: ScrollViewProxy) -> some View {
-        ZStack(alignment: .bottomTrailing) {
-            if scrolledAtBottom {
-                expandedComposer
-            } else if !model.messages.isEmpty {
-                collapsedFAB(proxy: proxy)
+    private var chatBottomContentPadding: CGFloat {
+        168
+    }
+
+    private var showsExpandedComposer: Bool {
+        model.messages.isEmpty || scrolledAtBottom || composerFocused || pinToLatestDuringReply
+    }
+
+    private var bottomAnchor: some View {
+        VStack(spacing: 0) {
+            Color.clear
+                .frame(height: chatBottomContentPadding)
+
+            // Bottom sentinel — it intentionally sits *after* the composer
+            // spacer. Scrolling to this id keeps the latest message above the
+            // overlay instead of hiding it underneath the input bar.
+            Color.clear
+                .frame(height: 1)
+                .id("__bottom_sentinel__")
+                .background(
+                    GeometryReader { inner in
+                        Color.clear.preference(
+                            key: BottomVisibilityKey.self,
+                            value: inner.frame(in: .named("ai.scroll")).maxY
+                        )
+                    }
+                )
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func pinComposerToLatest(proxy: ScrollViewProxy) {
+        suppressComposerCollapseUntil = Date().addingTimeInterval(1.2)
+        if !scrolledAtBottom {
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                scrolledAtBottom = true
             }
         }
-        // Reserve a constant amount of space so layout doesn't pump up
-        // and down as the morph runs. 76pt ≈ disclaimer + composer.
-        .frame(maxWidth: .infinity, minHeight: 76, alignment: .bottomTrailing)
+        scrollToBottom(proxy: proxy, delay: 0)
+        scrollToBottom(proxy: proxy, delay: 0.08)
+        scrollToBottom(proxy: proxy, delay: 0.22)
+        scrollToBottom(proxy: proxy, delay: 0.45)
+    }
+
+    private func scrollToBottom(proxy: ScrollViewProxy, delay: TimeInterval) {
+        let work = {
+            withAnimation(.easeOut(duration: 0.25)) {
+                proxy.scrollTo("__bottom_sentinel__", anchor: .bottom)
+            }
+        }
+        if delay == 0 {
+            work()
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+        }
+    }
+
+    /// Floating bottom controls. This is an overlay, not a safe-area inset:
+    /// nothing here paints a full-width bottom bar.
+    @ViewBuilder
+    private func floatingComposerDock(proxy: ScrollViewProxy) -> some View {
+        ZStack(alignment: .bottomTrailing) {
+            if showsExpandedComposer {
+                expandedComposer
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.92, anchor: .bottomTrailing).combined(with: .opacity),
+                        removal: .scale(scale: 0.82, anchor: .bottomTrailing).combined(with: .opacity)
+                    ))
+            } else if !model.messages.isEmpty {
+                scrollToLatestButton(proxy: proxy)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.82, anchor: .bottomTrailing).combined(with: .opacity),
+                        removal: .scale(scale: 0.92, anchor: .bottomTrailing).combined(with: .opacity)
+                    ))
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.bottom, 10)
+        .frame(maxWidth: 640)
+        .frame(maxWidth: .infinity, alignment: .bottom)
         .animation(.spring(response: 0.42, dampingFraction: 0.84), value: scrolledAtBottom)
     }
 
     private var expandedComposer: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 8) {
             disclaimer
             HStack(spacing: 10) {
-                HStack(spacing: 8) {
-                    TextField(text: $model.draft, axis: .vertical) {
-                        Text("ai.chat.placeholder")
-                    }
-                    .focused($composerFocused)
-                    .lineLimit(1...5)
-                    .submitLabel(.send)
-                    .onSubmit { submit() }
-                    .transition(.opacity)
-
-                    if !model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Button { submit() } label: {
-                            Image(systemName: "arrow.up")
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(Color(.systemBackground))
-                                .padding(7)
-                                .background(Circle().fill(Color.primary))
-                        }
-                        .disabled(model.isReplying)
-                    }
+                TextField(text: $model.draft, axis: .vertical) {
+                    Text("ai.chat.placeholder")
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(
-                    // The shape that morphs. Full-width here, becomes a
-                    // circle in `collapsedFAB` via the same matched ID.
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(Color(.secondarySystemGroupedBackground))
-                        .matchedGeometryEffect(id: "ai.composer.shell", in: composerMorph)
-                )
-                .appleIntelligenceStroke(cornerRadius: 22, lineWidth: 1.2)
+                .focused($composerFocused)
+                .lineLimit(1...5)
+                .submitLabel(.send)
+                .onSubmit { submit() }
+                .transition(.opacity)
+
+                if !model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Button { submit() } label: {
+                        Image(systemName: "arrow.up")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(Color(.systemBackground))
+                            .padding(7)
+                            .background(Circle().fill(Color.primary))
+                    }
+                    .disabled(model.isReplying)
+                }
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 10)
-            .background(
-                Color(.systemGroupedBackground)
-                    .overlay(Divider(), alignment: .top)
-            )
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
         }
+        .padding(.horizontal, 10)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.18), radius: 22, y: 10)
+                .matchedGeometryEffect(id: "ai.composer.shell", in: composerMorph)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.7)
+        )
+        .appleIntelligenceStroke(cornerRadius: 30, lineWidth: 1.1)
     }
 
-    private func collapsedFAB(proxy: ScrollViewProxy) -> some View {
+    private func scrollToLatestButton(proxy: ScrollViewProxy) -> some View {
         Button {
             Haptics.selection()
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.84)) {
-                scrolledAtBottom = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                if let last = model.messages.last {
-                    withAnimation(.easeOut(duration: 0.28)) {
-                        proxy.scrollTo(last.id, anchor: .bottom)
-                    }
-                }
+            if !model.messages.isEmpty {
+                pinComposerToLatest(proxy: proxy)
             }
         } label: {
             Image(systemName: "chevron.down")
@@ -404,18 +451,16 @@ struct SleepAIView: View {
                 .foregroundStyle(Color.primary.opacity(0.85))
                 .frame(width: 44, height: 44)
                 .background(
-                    // SAME id as expandedComposer's pill — SwiftUI
-                    // interpolates corner radius + size + position so
-                    // the rounded rectangle visibly shrinks into a
-                    // circle in the bottom-trailing corner.
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(Color(.secondarySystemGroupedBackground))
-                        .matchedGeometryEffect(id: "ai.composer.shell", in: composerMorph)
+                    Circle()
+                        .fill(.ultraThinMaterial)
                         .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+                        .matchedGeometryEffect(id: "ai.composer.shell", in: composerMorph)
+                )
+                .overlay(
+                    Circle()
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.7)
                 )
         }
-        .padding(.trailing, 16)
-        .padding(.bottom, 12)
         .accessibilityLabel(Text("ai.scrollToBottom"))
     }
 
@@ -459,6 +504,7 @@ struct SleepAIView: View {
         return LazyVGrid(columns: cols, spacing: 10) {
             ForEach(Array(model.suggestionCards.enumerated()), id: \.offset) { _, card in
                 Button {
+                    pinToLatestDuringReply = true
                     composerFocused = false
                     Haptics.tapSoft()
                     Task { await model.send(prompt: card.text) }
@@ -477,14 +523,14 @@ struct SleepAIView: View {
             .font(.caption2)
             .foregroundStyle(.tertiary)
             .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.horizontal, 16)
-            .padding(.top, 6)
-            .padding(.bottom, 4)
+            .padding(.horizontal, 10)
     }
 
     private func submit() {
-        let text = model.draft
+        let text = model.draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
         model.draft = ""
+        pinToLatestDuringReply = true
         Haptics.tapRigid()
         Task { await model.send(prompt: text) }
     }

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Maps raw sensor units (bpm, m/s²) to the [0, 1]-ish scale that the
+/// Maps raw sensor units (bpm, g) to the [0, 1]-ish scale that the
 /// training synthetic dataset (`python/training/data/dataset.py`) emits.
 ///
 /// Training-time per-stage means are documented inline in the dataset,
@@ -87,9 +87,11 @@ public struct FeatureWindowBuilder {
 
     public mutating func addAccelWindow(meanX: Float, meanY: Float, meanZ: Float,
                                         energy: Float, variance: Float,
+                                        magnitudeMean: Float? = nil,
                                         at date: Date) {
-        let mag = (meanX * meanX + meanY * meanY + meanZ * meanZ).squareRoot()
-        accelWindows.append((date, mag, energy, variance))
+        let meanVectorMag = (meanX * meanX + meanY * meanY + meanZ * meanZ).squareRoot()
+        let mag = magnitudeMean ?? meanVectorMag
+        accelWindows.append((date, max(0, mag), max(0, energy), max(0, variance)))
         trim(now: date)
     }
 

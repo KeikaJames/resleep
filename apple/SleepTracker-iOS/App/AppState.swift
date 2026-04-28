@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import SleepKit
 
 /// Runtime mode: live data vs scripted scenario replay.
@@ -59,7 +60,10 @@ public final class AppState: ObservableObject {
 
     /// 1 Hz status snapshot cadence — matches the watch-facing spec.
     private let statusTickSec: Double = 1.0
+    /// Gives the Watch a chance to flush tail telemetry before the phone closes the engine session.
+    private let remoteStopFlushGraceSec: Double = 2.5
     private var statusTickTask: Task<Void, Never>?
+    private var objectChangeBag: Set<AnyCancellable> = []
 
     /// Timeline sampling. Every `timelineTickSec` we record the current
     /// (stage, time) into a flat buffer; at session-stop we collapse
@@ -121,8 +125,12 @@ public final class AppState: ObservableObject {
             inferencePipeline: pipeline
         )
         self.workout = workout
-        self.router = TelemetryRouter(connectivity: connectivity, workout: workout)
+        self.router = TelemetryRouter(connectivity: connectivity,
+                                      workout: workout,
+                                      diagnostics: diagnostics)
         self.alarm = SmartAlarmController()
+        wireNestedObjectChanges()
+        wireWatchLifecycleRequests()
         wireScenarioRunner()
     }
 
@@ -180,6 +188,200 @@ public final class AppState: ObservableObject {
         timelineTickTask?.cancel()
         timelineTickTask = nil
         snoreDetector.stop()
+    }
+
+    private func wireWatchLifecycleRequests() {
+        router.onWatchStartRequested = { [weak self] requestedSessionId in
+            Task { @MainActor [weak self] in
+                await self?.startSessionFromWatch(requestedSessionId: requestedSessionId)
+            }
+        }
+        router.onWatchStopRequested = { [weak self] requestedSessionId in
+            Task { @MainActor [weak self] in
+                await self?.stopSessionFromWatch(requestedSessionId: requestedSessionId)
+            }
+        }
+    }
+
+    private func wireNestedObjectChanges() {
+        workout.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &objectChangeBag)
+
+        router.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &objectChangeBag)
+
+        alarm.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &objectChangeBag)
+    }
+
+    private func startSessionFromWatch(requestedSessionId: String?) async {
+        guard OnboardingGate.hasCompleted else {
+            _ = router.sendStop(sessionId: requestedSessionId)
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStart,
+                                sessionId: requestedSessionId,
+                                message: "watch-origin start rejected: onboarding incomplete")
+            )
+            publishSnapshot()
+            return
+        }
+
+        if interruptedSessionStart != nil {
+            await finishInterruptedAndSave()
+        }
+
+        guard runtimeMode == .live else {
+            publishSnapshot()
+            return
+        }
+
+        if workout.isTracking {
+            if workout.source == .remoteWatch, let sid = workout.currentSessionID {
+                _ = router.sendStart(sessionId: sid)
+            }
+            publishSnapshot()
+            return
+        }
+
+        do {
+            try await workout.startTracking(source: .remoteWatch)
+        } catch {
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStart,
+                                sessionId: requestedSessionId,
+                                message: "watch-origin start failed",
+                                error: "\(error)")
+            )
+            publishSnapshot()
+            return
+        }
+
+        router.resetSessionTelemetry()
+        installRunningSessionHooks()
+
+        let startedAt = workout.sessionStartedAt ?? Date()
+        if let sid = workout.currentSessionID {
+            await writeActiveMarker(sessionId: sid,
+                                    startedAt: startedAt,
+                                    source: .remoteWatch,
+                                    mode: runtimeMode)
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStart,
+                                sessionId: sid,
+                                message: "source=\(TrackingSource.remoteWatch.rawValue) origin=watch")
+            )
+            _ = router.sendStart(sessionId: sid)
+        }
+
+        if alarm.isEnabled {
+            _ = alarm.armIfEnabled(engine: engine)
+            _ = router.sendArmAlarm(
+                sessionId: workout.currentSessionID,
+                target: alarm.target,
+                windowMinutes: alarm.windowMinutes
+            )
+        }
+
+        publishSnapshot()
+    }
+
+    private func stopSessionFromWatch(requestedSessionId: String?) async {
+        if runtimeMode == .simulated {
+            await stopSimulation()
+            return
+        }
+        guard workout.isTracking else {
+            publishSnapshot()
+            return
+        }
+
+        if let requestedSessionId,
+           let activeSessionId = workout.currentSessionID,
+           requestedSessionId != activeSessionId {
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStop,
+                                sessionId: requestedSessionId,
+                                message: "watch-origin stop ignored: stale session active=\(activeSessionId)")
+            )
+            publishSnapshot()
+            return
+        }
+
+        let sessionId = workout.currentSessionID ?? requestedSessionId
+
+        if alarm.state == .triggered || alarm.state == .failedWatchUnreachable {
+            _ = router.sendStopAlarm(sessionId: sessionId)
+        }
+
+        let alarmMeta = StoredAlarmMeta(
+            enabled: alarm.isEnabled,
+            finalStateRaw: alarm.state.rawValue,
+            targetTsMs: alarm.isEnabled
+                ? Int64(alarm.target.timeIntervalSince1970 * 1000)
+                : nil,
+            windowMinutes: alarm.windowMinutes,
+            triggeredAtTsMs: alarm.triggeredAt.map { Int64($0.timeIntervalSince1970 * 1000) },
+            dismissedAtTsMs: alarm.watchAckedAt.map { Int64($0.timeIntervalSince1970 * 1000) }
+        )
+        alarm.clear()
+
+        if workout.source == .remoteWatch {
+            try? await Task.sleep(nanoseconds: UInt64(remoteStopFlushGraceSec * 1_000_000_000))
+        }
+
+        let endedAt = Date()
+        let timeline = drainTimelineEntries(endedAt: endedAt)
+        let source = workout.source
+        let mode = runtimeMode
+        let startedAt = workout.sessionStartedAt
+
+        teardownRunningSessionHooks()
+
+        do {
+            let summary = try await workout.stopTracking()
+            if let summary {
+                await archiveCompletedSession(
+                    summary: summary,
+                    startedAt: startedAt
+                        ?? Date().addingTimeInterval(-TimeInterval(summary.durationSec)),
+                    endedAt: endedAt,
+                    timeline: timeline,
+                    alarm: alarmMeta,
+                    source: source,
+                    runtimeMode: mode
+                )
+                await diagnostics.append(
+                    DiagnosticEvent(type: .localStoreWrite,
+                                    sessionId: summary.sessionId,
+                                    message: "session record persisted from watch stop")
+                )
+            }
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStop,
+                                sessionId: sessionId,
+                                message: "origin=watch")
+            )
+            await clearActiveMarker()
+            publishSnapshot()
+        } catch {
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStop,
+                                sessionId: sessionId,
+                                message: "watch-origin stop failed",
+                                error: "\(error)")
+            )
+            await clearActiveMarker()
+            publishSnapshot()
+        }
     }
 
     private func startSnoreDetectorIfEnabled() {
@@ -459,6 +661,7 @@ public final class AppState: ObservableObject {
             activeScenario = nil
             return
         }
+        router.resetSessionTelemetry()
         runtimeMode = .simulated
         activeScenario = scenario
         lastScenarioMark = nil
@@ -505,9 +708,11 @@ public final class AppState: ObservableObject {
         await health.probeHeartRateReadAccess()
         refreshHealthAuthorization()
         await detectInterruptedSession()
+        publishSnapshot()
     }
 
     public func appForeground() {
+        publishSnapshot()
         Task { [diagnostics] in
             await diagnostics.append(DiagnosticEvent(type: .appForeground))
         }

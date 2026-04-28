@@ -86,13 +86,20 @@ public struct MessageEnvelope: Codable, Sendable, Equatable {
     // Dictionary codec used by WCSession `sendMessage` / `transferUserInfo`
     // (both are `[String: Any]`). Keep keys short to trim Bluetooth payloads.
     public func toDictionary() -> [String: Any] {
-        [
+        var dict: [String: Any] = [
             "v":   version,
             "k":   kind.rawValue,
-            "sid": sessionId as Any,
             "ts":  NSNumber(value: tsMs),
             "p":   payload
         ]
+        // WatchConnectivity payloads must be property-list values. Do not
+        // encode Optional.none as `Any`; omit the key when there is no
+        // session id, otherwise `updateApplicationContext` rejects the whole
+        // payload with WCErrorCodePayloadUnsupportedTypes.
+        if let sessionId {
+            dict["sid"] = sessionId
+        }
+        return dict
     }
 
     public static func fromDictionary(_ dict: [String: Any]) -> MessageEnvelope? {

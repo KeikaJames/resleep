@@ -66,6 +66,7 @@
 "survey.alarm.unset" = "—";
 "survey.alarm.good"  = "Yes";
 "survey.alarm.bad"   = "No";
+"survey.alarm.footer" = "Used to tune the smart alarm window.";
 "survey.times.header" = "Actual times (optional)";
 "survey.fellasleep.title" = "Fell asleep at";
 "survey.wokeup.title"     = "Woke up at";
@@ -114,8 +115,10 @@
 "home.source.simulation" = "Simulation";
 "home.source.iphone"     = "iPhone";
 "home.source.watch"      = "Apple Watch";
+"home.source.watchWaiting" = "Waiting for Watch data";
 "home.action.start"      = "Start Tracking";
 "home.action.stop"       = "Stop Tracking";
+"home.error.watchStartQueued" = "Apple Watch is not reachable yet. Open Circadia on the Watch; this session will start there when the link wakes up.";
 
 // Home cards
 "card.smartAlarm"     = "Smart Alarm";
@@ -149,6 +152,29 @@
 
 // Settings
 "settings.title"          = "Settings";
+"settings.section.profile" = "Personal Information";
+"settings.profile.avatar" = "Photo";
+"settings.profile.avatar.subtitle" = "Optional. Stored only on this device.";
+"settings.profile.avatar.choose" = "Choose";
+"settings.profile.avatar.change" = "Change";
+"settings.profile.avatar.remove" = "Remove photo";
+"settings.profile.nickname" = "Nickname";
+"settings.profile.nickname.placeholder" = "Optional";
+"settings.profile.birthday" = "Birthday";
+"settings.profile.birthday.add" = "Add Birthday";
+"settings.profile.birthday.clear" = "Clear Birthday";
+"settings.profile.summary.empty" = "Add profile details";
+"settings.category.permissions.subtitle" = "Health access and sharing";
+"settings.category.privacyInsights" = "Privacy & Insights";
+"settings.category.privacyInsights.subtitle" = "Audio, cloud sync, and local personalization";
+"settings.category.reminders.subtitle" = "Bedtime reminder schedule";
+"settings.category.deviceModel" = "Device & Model";
+"settings.category.deviceModel.subtitle" = "Watch sync and sleep-stage engine";
+"settings.category.aiAssistant.subtitle" = "AI model status and EULA";
+"settings.category.data" = "Diagnostics & Data";
+"settings.category.data.subtitle" = "Logs and local data controls";
+"settings.category.developer.subtitle" = "Runtime mode and review notes";
+"settings.category.about.subtitle" = "Version, legal, and acknowledgments";
 "settings.section.permissions" = "Permissions";
 "settings.shareWithHealth"   = "Share with HealthKit";
 "settings.health.title"                = "HealthKit access";
