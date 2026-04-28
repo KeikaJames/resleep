@@ -23,6 +23,17 @@ struct SettingsView: View {
 
                 Section {
                     NavigationLink {
+                        SleepPlanSettingsView(vm: vm)
+                    } label: {
+                        SettingsCategoryRow(icon: "bed.double.fill",
+                                            tint: .indigo,
+                                            title: "settings.section.sleepPlan",
+                                            subtitle: "settings.category.sleepPlan.subtitle")
+                    }
+                }
+
+                Section {
+                    NavigationLink {
                         PermissionsSettingsView(vm: vm)
                     } label: {
                         SettingsCategoryRow(icon: "heart.text.square.fill",
@@ -96,6 +107,84 @@ struct SettingsView: View {
             }
             .navigationTitle("settings.title")
         }
+    }
+}
+
+// MARK: - Sleep plan
+
+private struct SleepPlanSettingsView: View {
+    @EnvironmentObject private var appState: AppState
+    @ObservedObject var vm: SettingsViewModel
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("settings.sleepPlan.autoTracking", isOn: $vm.sleepPlanAutoTrackingEnabled)
+                    .tint(.accentColor)
+                DatePicker("settings.sleepPlan.bedtime",
+                           selection: $vm.sleepPlanBedtime,
+                           displayedComponents: [.hourAndMinute])
+                DatePicker("settings.sleepPlan.wakeTime",
+                           selection: $vm.sleepPlanWakeTime,
+                           displayedComponents: [.hourAndMinute])
+            } header: {
+                Text("settings.section.sleepPlan")
+            } footer: {
+                Text("settings.sleepPlan.footer")
+            }
+
+            Section {
+                Stepper(goalText,
+                        value: $vm.sleepPlanGoalMinutes,
+                        in: 4 * 60...12 * 60,
+                        step: 15)
+                Stepper(wakeWindowText,
+                        value: $vm.sleepPlanSmartWakeWindowMinutes,
+                        in: 5...45,
+                        step: 5)
+            } header: {
+                Text("settings.sleepPlan.tuning")
+            } footer: {
+                Text("settings.sleepPlan.tuning.footer")
+            }
+
+            Section {
+                Toggle("settings.sleepPlan.nightmareWake", isOn: $vm.sleepPlanNightmareWakeEnabled)
+            } footer: {
+                Text("settings.sleepPlan.nightmare.footer")
+            }
+        }
+        .navigationTitle("settings.section.sleepPlan")
+        .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: vm.sleepPlanAutoTrackingEnabled) { _, _ in syncPlan() }
+        .onChange(of: vm.sleepPlanBedtime) { _, _ in syncPlan() }
+        .onChange(of: vm.sleepPlanWakeTime) { _, _ in syncPlan() }
+        .onChange(of: vm.sleepPlanGoalMinutes) { _, _ in syncPlan() }
+        .onChange(of: vm.sleepPlanSmartWakeWindowMinutes) { _, _ in syncPlan() }
+        .onChange(of: vm.sleepPlanNightmareWakeEnabled) { _, _ in syncPlan() }
+    }
+
+    private var goalText: String {
+        String(format: NSLocalizedString("settings.sleepPlan.goalFmt", comment: ""),
+               formatMinutes(vm.sleepPlanGoalMinutes))
+    }
+
+    private var wakeWindowText: String {
+        String(format: NSLocalizedString("settings.sleepPlan.wakeWindowFmt", comment: ""),
+               vm.sleepPlanSmartWakeWindowMinutes)
+    }
+
+    private func syncPlan() {
+        vm.persistCurrentSleepPlan()
+        appState.applySleepPlanForTonight()
+        appState.publishSnapshot()
+    }
+
+    private func formatMinutes(_ minutes: Int) -> String {
+        let h = minutes / 60
+        let m = minutes % 60
+        if m == 0 { return "\(h)h" }
+        return "\(h)h \(m)m"
     }
 }
 

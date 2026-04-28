@@ -100,6 +100,9 @@ final class HomeViewModel: ObservableObject {
             )
         }
 
+        // Sleep Plan owns nightly alarm timing when automatic tracking is on.
+        appState.applySleepPlanForTonight()
+
         // Arm the Rust engine if the user enabled the alarm; also echo the
         // arm to the Watch as a hint.
         if appState.alarm.isEnabled {

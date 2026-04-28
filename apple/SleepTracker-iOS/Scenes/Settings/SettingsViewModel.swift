@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import UIKit
+import SleepKit
 
 /// Privacy defaults are explicitly conservative to match product principles:
 /// - audio is never recorded, saved or uploaded (no toggles exposed)
@@ -30,6 +31,7 @@ final class SettingsViewModel: ObservableObject {
     }
 
     private let defaults: UserDefaults
+    private let sleepPlanStore: SleepPlanUserDefaultsStore
     private var bag: Set<AnyCancellable> = []
 
     @Published var cloudSyncEnabled: Bool
@@ -38,12 +40,19 @@ final class SettingsViewModel: ObservableObject {
     @Published var personalizationEnabled: Bool
     @Published var bedtimeReminderEnabled: Bool
     @Published var bedtimeReminderTime: Date
+    @Published var sleepPlanAutoTrackingEnabled: Bool
+    @Published var sleepPlanBedtime: Date
+    @Published var sleepPlanWakeTime: Date
+    @Published var sleepPlanGoalMinutes: Int
+    @Published var sleepPlanSmartWakeWindowMinutes: Int
+    @Published var sleepPlanNightmareWakeEnabled: Bool
     @Published var profileAvatarData: Data?
     @Published var profileNickname: String
     @Published var profileBirthday: Date?
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        self.sleepPlanStore = SleepPlanUserDefaultsStore(defaults: defaults)
         // Privacy invariant: raw audio is never persisted and never uploaded.
         // Wipe any stale `true` left over from older builds so the on-disk
         // state matches the published policy and the docs.
@@ -65,6 +74,13 @@ final class SettingsViewModel: ObservableObject {
         comps.hour = hour
         comps.minute = minute
         self.bedtimeReminderTime = Calendar.current.date(from: comps) ?? Date()
+        let plan = sleepPlanStore.load()
+        self.sleepPlanAutoTrackingEnabled = plan.autoTrackingEnabled
+        self.sleepPlanBedtime = Self.timeOnlyDate(hour: plan.bedtimeHour, minute: plan.bedtimeMinute)
+        self.sleepPlanWakeTime = Self.timeOnlyDate(hour: plan.wakeHour, minute: plan.wakeMinute)
+        self.sleepPlanGoalMinutes = plan.sleepGoalMinutes
+        self.sleepPlanSmartWakeWindowMinutes = plan.smartWakeWindowMinutes
+        self.sleepPlanNightmareWakeEnabled = plan.nightmareWakeEnabled
         self.profileAvatarData = defaults.data(forKey: Key.profileAvatarData)
         self.profileNickname = defaults.string(forKey: Key.profileNickname) ?? ""
         if let storedBirthday = defaults.object(forKey: Key.profileBirthday) as? TimeInterval {
@@ -94,6 +110,18 @@ final class SettingsViewModel: ObservableObject {
                 defaults.set(comps.hour ?? 22, forKey: Key.bedtimeHour)
                 defaults.set(comps.minute ?? 30, forKey: Key.bedtimeMinute)
             }
+            .store(in: &bag)
+        Publishers.CombineLatest4($sleepPlanAutoTrackingEnabled,
+                                  $sleepPlanBedtime,
+                                  $sleepPlanWakeTime,
+                                  $sleepPlanGoalMinutes)
+            .dropFirst()
+            .sink { [weak self] _, _, _, _ in self?.persistSleepPlan() }
+            .store(in: &bag)
+        Publishers.CombineLatest($sleepPlanSmartWakeWindowMinutes,
+                                 $sleepPlanNightmareWakeEnabled)
+            .dropFirst()
+            .sink { [weak self] _, _ in self?.persistSleepPlan() }
             .store(in: &bag)
         $profileAvatarData.dropFirst()
             .sink { [defaults] data in
@@ -141,5 +169,39 @@ final class SettingsViewModel: ObservableObject {
 
     func clearProfileAvatar() {
         profileAvatarData = nil
+    }
+
+    var currentSleepPlan: SleepPlanConfiguration {
+        makeSleepPlan()
+    }
+
+    func persistCurrentSleepPlan() {
+        persistSleepPlan()
+    }
+
+    private func persistSleepPlan() {
+        sleepPlanStore.save(makeSleepPlan())
+    }
+
+    private func makeSleepPlan() -> SleepPlanConfiguration {
+        let bed = Calendar.current.dateComponents([.hour, .minute], from: sleepPlanBedtime)
+        let wake = Calendar.current.dateComponents([.hour, .minute], from: sleepPlanWakeTime)
+        return SleepPlanConfiguration(
+            autoTrackingEnabled: sleepPlanAutoTrackingEnabled,
+            bedtimeHour: bed.hour ?? 23,
+            bedtimeMinute: bed.minute ?? 0,
+            wakeHour: wake.hour ?? 7,
+            wakeMinute: wake.minute ?? 0,
+            sleepGoalMinutes: sleepPlanGoalMinutes,
+            smartWakeWindowMinutes: sleepPlanSmartWakeWindowMinutes,
+            nightmareWakeEnabled: sleepPlanNightmareWakeEnabled
+        )
+    }
+
+    private static func timeOnlyDate(hour: Int, minute: Int) -> Date {
+        var comps = DateComponents()
+        comps.hour = hour
+        comps.minute = minute
+        return Calendar.current.date(from: comps) ?? Date()
     }
 }

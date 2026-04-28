@@ -276,6 +276,7 @@ public final class TelemetryRouter: ObservableObject {
                                    alarmTarget: Date?,
                                    alarmWindowMinutes: Int?,
                                    alarmTriggeredAt: Date?,
+                                   sleepPlan: SleepPlanConfiguration? = nil,
                                    runtimeModeRaw: String? = nil) {
         let snap = StatusSnapshotPayload(
             isTracking: isTracking,
@@ -288,6 +289,7 @@ public final class TelemetryRouter: ObservableObject {
             alarmTargetTsMs: alarmTarget.map { UInt64($0.timeIntervalSince1970 * 1000) },
             alarmWindowMinutes: alarmWindowMinutes,
             alarmTriggeredAtTsMs: alarmTriggeredAt.map { UInt64($0.timeIntervalSince1970 * 1000) },
+            sleepPlan: sleepPlan,
             runtimeModeRaw: runtimeModeRaw
         )
         try? connectivity.updateStatusSnapshot(snap, sessionId: sessionId)

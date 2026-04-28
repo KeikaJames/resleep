@@ -133,6 +133,17 @@
 "alarm.state.triggered"  = "Triggered";
 "alarm.state.dismissed"  = "Dismissed";
 "alarm.state.unreachable" = "Apple Watch unavailable";
+"card.sleepPlan" = "Sleep Plan";
+"card.sleepPlan.autoOn" = "Automatic tracking is on";
+"card.sleepPlan.autoOff" = "Automatic tracking is off";
+"card.sleepPlan.bed" = "Bed";
+"card.sleepPlan.wake" = "Wake";
+"card.sleepPlan.window" = "Window";
+"card.sleepPlan.phase.idle" = "Next night is scheduled.";
+"card.sleepPlan.phase.windDown" = "Wind-down window.";
+"card.sleepPlan.phase.sleep" = "Scheduled sleep window.";
+"card.sleepPlan.phase.wakeWindow" = "Smart wake window.";
+"card.sleepPlan.phase.postWake" = "Morning wrap-up window.";
 
 "card.lastSession"        = "Last Session";
 "card.lastSession.total"  = "Total sleep";
@@ -164,6 +175,18 @@
 "settings.profile.birthday.add" = "Add Birthday";
 "settings.profile.birthday.clear" = "Clear Birthday";
 "settings.profile.summary.empty" = "Add profile details";
+"settings.section.sleepPlan" = "Sleep Plan";
+"settings.category.sleepPlan.subtitle" = "Automatic tracking, bedtime, and wake window";
+"settings.sleepPlan.autoTracking" = "Automatic tracking";
+"settings.sleepPlan.bedtime" = "Bedtime";
+"settings.sleepPlan.wakeTime" = "Wake up";
+"settings.sleepPlan.footer" = "Apple Watch can start collecting during this schedule and sync back to iPhone later.";
+"settings.sleepPlan.tuning" = "Goal & Wake";
+"settings.sleepPlan.goalFmt" = "Sleep goal: %@";
+"settings.sleepPlan.wakeWindowFmt" = "Smart wake window: %d min";
+"settings.sleepPlan.tuning.footer" = "Circadia tries to wake during lighter sleep inside the window and still falls back to the hard wake time.";
+"settings.sleepPlan.nightmareWake" = "Experimental nightmare wake";
+"settings.sleepPlan.nightmare.footer" = "Uses movement and heart-rate spikes as a conservative signal. Not medical-grade and may be wrong.";
 "settings.category.permissions.subtitle" = "Health access and sharing";
 "settings.category.privacyInsights" = "Privacy & Insights";
 "settings.category.privacyInsights.subtitle" = "Audio, cloud sync, and local personalization";

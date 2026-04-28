@@ -133,6 +133,17 @@
 "alarm.state.triggered"  = "已触发";
 "alarm.state.dismissed"  = "已关闭";
 "alarm.state.unreachable" = "无法连接 Apple Watch";
+"card.sleepPlan" = "睡眠计划";
+"card.sleepPlan.autoOn" = "已开启自动追踪";
+"card.sleepPlan.autoOff" = "未开启自动追踪";
+"card.sleepPlan.bed" = "睡觉";
+"card.sleepPlan.wake" = "起床";
+"card.sleepPlan.window" = "窗口";
+"card.sleepPlan.phase.idle" = "下一晚已安排。";
+"card.sleepPlan.phase.windDown" = "正在进入放松时段。";
+"card.sleepPlan.phase.sleep" = "处于计划睡眠时段。";
+"card.sleepPlan.phase.wakeWindow" = "处于智能唤醒窗口。";
+"card.sleepPlan.phase.postWake" = "早晨收尾窗口。";
 
 "card.lastSession"        = "上次睡眠";
 "card.lastSession.total"  = "总睡眠";
@@ -164,6 +175,18 @@
 "settings.profile.birthday.add" = "添加生日";
 "settings.profile.birthday.clear" = "清除生日";
 "settings.profile.summary.empty" = "添加个人信息";
+"settings.section.sleepPlan" = "睡眠计划";
+"settings.category.sleepPlan.subtitle" = "自动追踪、就寝时间与唤醒窗口";
+"settings.sleepPlan.autoTracking" = "自动追踪";
+"settings.sleepPlan.bedtime" = "睡觉时间";
+"settings.sleepPlan.wakeTime" = "起床时间";
+"settings.sleepPlan.footer" = "Apple Watch 可在计划时段自动开始采集，稍后再同步回 iPhone。";
+"settings.sleepPlan.tuning" = "目标与唤醒";
+"settings.sleepPlan.goalFmt" = "睡眠目标：%@";
+"settings.sleepPlan.wakeWindowFmt" = "智能唤醒窗口：%d 分钟";
+"settings.sleepPlan.tuning.footer" = "Circadia 会尽量在窗口内的较浅睡眠阶段叫醒，并保留最终起床时间兜底。";
+"settings.sleepPlan.nightmareWake" = "实验性噩梦唤醒";
+"settings.sleepPlan.nightmare.footer" = "基于动作与心率突增做保守判断。非医疗级，可能误判。";
 "settings.category.permissions.subtitle" = "健康权限与共享";
 "settings.category.privacyInsights" = "隐私与洞察";
 "settings.category.privacyInsights.subtitle" = "音频、云同步与本地个性化";

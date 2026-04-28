@@ -27,6 +27,7 @@ final class WatchAppState: ObservableObject {
     @Published private(set) var isAlarmActive: Bool = false
     @Published private(set) var lastError: String?
     @Published private(set) var currentSessionId: String?
+    @Published private(set) var sleepPlan: SleepPlanConfiguration
     /// "live" or "simulated" as reported by the phone via status snapshots.
     /// nil if we have never received one. Debug-oriented only.
     @Published private(set) var runtimeModeRaw: String?
@@ -44,6 +45,7 @@ final class WatchAppState: ObservableObject {
     private let connectivity: ConnectivityManagerProtocol
     private let workout: WatchWorkoutSessionManagerProtocol
     private let motion: MotionSampling
+    private let sleepPlanStore: SleepPlanUserDefaultsStore
 
     // MARK: Buffers
 
@@ -51,11 +53,17 @@ final class WatchAppState: ObservableObject {
     private var pendingAccelWindows: [AccelWindow] = []
     private var guaranteedQueue: [MessageEnvelope] = []  // dropped-oldest cap
     private var stoppedSessionIds: [String] = []
+    private var recentHeartRates: [(bpm: Double, at: Date)] = []
+    private var lastAccelEnergy: Double?
+    private var lastAccelAt: Date?
+    private var lastNightmareWakeAt: Date?
 
     // MARK: Task handles
 
     private var flushTask: Task<Void, Never>?
     private var startTimeoutTask: Task<Void, Never>?
+    private var sleepPlanMonitorTask: Task<Void, Never>?
+    private var lastAutoStartWindowId: String?
 
     // MARK: Init
 
@@ -65,11 +73,14 @@ final class WatchAppState: ObservableObject {
         self.connectivity = connectivity
         self.workout = workout
         self.motion = motion
+        self.sleepPlanStore = SleepPlanUserDefaultsStore()
+        self.sleepPlan = sleepPlanStore.load()
         self.phoneReachable = connectivity.isReachable
         self.phoneAppInstalled = connectivity.isWatchAppInstalled
         wireConnectivity()
         wireSamplers()
         connectivity.activate()
+        startSleepPlanMonitorLoop()
     }
 
     static func makeDefault() -> WatchAppState {
@@ -90,13 +101,7 @@ final class WatchAppState: ObservableObject {
     // MARK: Public (UI) actions
 
     func manualStart() async {
-        guard !isTracking, !isStarting else { return }
-        let sid = UUID().uuidString
-        lastError = nil
-        currentSessionId = sid
-        isStarting = true
-        sendStartRequest(sessionId: sid)
-        startPendingTimeout()
+        await beginWatchOwnedSession()
     }
 
     func manualStop() async {
@@ -143,6 +148,46 @@ final class WatchAppState: ObservableObject {
             }
         }
         connectivity.sendGuaranteedMessage(env)
+    }
+
+    private func beginWatchOwnedSession() async {
+        guard !isTracking, !isStarting else { return }
+        let sid = UUID().uuidString
+        lastError = nil
+        currentSessionId = sid
+        isStarting = true
+        sendStartRequest(sessionId: sid)
+        await startTracking(sessionId: sid)
+        if isTracking {
+            lastError = nil
+        } else if lastError == nil {
+            lastError = "start failed"
+        }
+    }
+
+    private func startSleepPlanMonitorLoop() {
+        sleepPlanMonitorTask?.cancel()
+        sleepPlanMonitorTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                self?.evaluateSleepPlan(now: Date())
+                try? await Task.sleep(nanoseconds: 60_000_000_000)
+            }
+        }
+    }
+
+    private func evaluateSleepPlan(now: Date) {
+        guard sleepPlan.autoTrackingEnabled, !isTracking, !isStarting else { return }
+        let decision = sleepPlan.decision(now: now)
+        guard decision.shouldAutoStart else { return }
+        guard lastAutoStartWindowId != decision.window.id else { return }
+        lastAutoStartWindowId = decision.window.id
+        Task { await beginWatchOwnedSession() }
+    }
+
+    private func applySleepPlan(_ plan: SleepPlanConfiguration) {
+        sleepPlan = plan
+        sleepPlanStore.save(plan)
+        evaluateSleepPlan(now: Date())
     }
 
     // MARK: Start/stop
@@ -214,6 +259,10 @@ final class WatchAppState: ObservableObject {
         latestHeartRateAt = nil
         currentStage = nil
         currentConfidence = nil
+        recentHeartRates.removeAll(keepingCapacity: false)
+        lastAccelEnergy = nil
+        lastAccelAt = nil
+        lastNightmareWakeAt = nil
         smartAlarmArmed = false
         alarmState = .idle
         isAlarmActive = false
@@ -301,13 +350,60 @@ final class WatchAppState: ObservableObject {
     private func onHeartRate(_ bpm: Double, at date: Date) {
         latestHeartRate = bpm
         latestHeartRateAt = date
+        recentHeartRates.append((bpm, date))
+        recentHeartRates.removeAll { date.timeIntervalSince($0.at) > 20 * 60 }
         pendingHeartRates.append(
             HeartRatePoint(tsMs: UInt64(date.timeIntervalSince1970 * 1000), bpm: bpm)
         )
+        evaluateNightmareWake(now: date)
     }
 
     private func onAccelWindow(_ window: AccelWindow) {
+        lastAccelEnergy = window.energy
+        lastAccelAt = WallClock.date(ms: window.tsMs)
         pendingAccelWindows.append(window)
+        evaluateNightmareWake(now: lastAccelAt ?? Date())
+    }
+
+    private func evaluateNightmareWake(now: Date) {
+        guard sleepPlan.nightmareWakeEnabled,
+              isTracking,
+              !isAlarmActive,
+              alarmState != .triggered else { return }
+        let decision = sleepPlan.decision(now: now)
+        guard decision.phase == .scheduledSleep else { return }
+        if let lastNightmareWakeAt,
+           now.timeIntervalSince(lastNightmareWakeAt) < 20 * 60 {
+            return
+        }
+        guard let latestHeartRate,
+              recentHeartRates.count >= 6,
+              let lastAccelEnergy,
+              let lastAccelAt,
+              now.timeIntervalSince(lastAccelAt) <= 15,
+              lastAccelEnergy >= 0.22 else { return }
+
+        let baselineSamples = recentHeartRates
+            .filter { now.timeIntervalSince($0.at) >= 90 }
+            .map(\.bpm)
+        guard baselineSamples.count >= 4 else { return }
+        let baseline = baselineSamples.reduce(0, +) / Double(baselineSamples.count)
+        let heartSpike = latestHeartRate >= 105 || latestHeartRate - baseline >= 24
+        guard heartSpike else { return }
+
+        lastNightmareWakeAt = now
+        alarmState = .triggered
+        isAlarmActive = true
+        haptic.start()
+        lastError = NSLocalizedString("watch.nightmareWake.triggered", comment: "")
+        if let env = try? WatchMessage.ack(sessionId: currentSessionId,
+                                           ackKind: "nightmareWakeTriggered") {
+            if connectivity.isReachable {
+                try? connectivity.sendImmediateMessage(env)
+            } else {
+                connectivity.sendGuaranteedMessage(env)
+            }
+        }
     }
 
     // MARK: Connectivity wiring
@@ -338,10 +434,15 @@ final class WatchAppState: ObservableObject {
             currentStage = snap.currentStageRaw.flatMap(SleepStage.init(rawValue:))
             currentConfidence = snap.currentConfidence
             runtimeModeRaw = snap.runtimeModeRaw
+            if let plan = snap.sleepPlan {
+                applySleepPlan(plan)
+            }
             if !snap.isTracking {
-                rememberStopped(sessionId: env.sessionId)
-                if shouldAcceptIdleSnapshot(sessionId: env.sessionId), isTracking || isStarting {
-                    Task { await stopTracking() }
+                if !isTracking {
+                    rememberStopped(sessionId: env.sessionId)
+                }
+                if shouldAcceptIdleSnapshot(sessionId: env.sessionId), isStarting, !isTracking {
+                    cancelPendingStart()
                 }
             } else if snap.trackingSource == .watch {
                 let sid = env.sessionId ?? currentSessionId ?? UUID().uuidString
@@ -360,11 +461,16 @@ final class WatchAppState: ObservableObject {
                 }
             }
             if let st = snap.alarmState {
-                alarmState = st
-                // Phone may transition to dismissed or idle while haptic is
-                // still running on the Watch — mirror that.
-                if st == .dismissed || st == .idle {
-                    stopAlarmLocally()
+                // A local nightmare wake can trigger while the iPhone still
+                // thinks the alarm is idle. Do not let that stale mirror stop
+                // an active haptic; explicit dismiss/stop controls still win.
+                if !(isAlarmActive && alarmState == .triggered && st == .idle) {
+                    alarmState = st
+                    // Phone may transition to dismissed or idle while haptic
+                    // is still running on the Watch — mirror that.
+                    if st == .dismissed || st == .idle {
+                        stopAlarmLocally()
+                    }
                 }
             }
 
@@ -485,7 +591,8 @@ final class WatchAppState: ObservableObject {
             lastSyncTsMs: WallClock.nowMs(),
             trackingSourceRaw: isTracking
                 ? TrackingSourceWire.watch.rawValue
-                : TrackingSourceWire.none.rawValue
+                : TrackingSourceWire.none.rawValue,
+            sleepPlan: sleepPlan
         )
         try? connectivity.updateStatusSnapshot(snap, sessionId: overrideSessionId ?? currentSessionId)
     }

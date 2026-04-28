@@ -182,6 +182,7 @@ public struct StatusSnapshotPayload: Codable, Sendable, Equatable {
     public let alarmTargetTsMs: UInt64?
     public let alarmWindowMinutes: Int?
     public let alarmTriggeredAtTsMs: UInt64?
+    public let sleepPlan: SleepPlanConfiguration?
     /// "live" or "simulated" — lets the Watch show whether the phone is
     /// driving the session from real data or a debug scenario. Optional so
     /// old payloads (pre-M6.6) still decode.
@@ -197,6 +198,7 @@ public struct StatusSnapshotPayload: Codable, Sendable, Equatable {
                 alarmTargetTsMs: UInt64? = nil,
                 alarmWindowMinutes: Int? = nil,
                 alarmTriggeredAtTsMs: UInt64? = nil,
+                sleepPlan: SleepPlanConfiguration? = nil,
                 runtimeModeRaw: String? = nil) {
         self.isTracking = isTracking
         self.reachable = reachable
@@ -208,6 +210,7 @@ public struct StatusSnapshotPayload: Codable, Sendable, Equatable {
         self.alarmTargetTsMs = alarmTargetTsMs
         self.alarmWindowMinutes = alarmWindowMinutes
         self.alarmTriggeredAtTsMs = alarmTriggeredAtTsMs
+        self.sleepPlan = sleepPlan
         self.runtimeModeRaw = runtimeModeRaw
     }
 

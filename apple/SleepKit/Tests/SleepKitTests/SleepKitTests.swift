@@ -428,6 +428,52 @@ final class SleepKitTests: XCTestCase {
         XCTAssertEqual(ModelContract.resourceName, "SleepStager")
     }
 
+    func testSleepPlanCrossMidnightDecision() throws {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0)!
+        let plan = SleepPlanConfiguration(
+            autoTrackingEnabled: true,
+            bedtimeHour: 23,
+            bedtimeMinute: 0,
+            wakeHour: 7,
+            wakeMinute: 0,
+            sleepGoalMinutes: 480,
+            smartWakeWindowMinutes: 30,
+            nightmareWakeEnabled: true
+        )
+        let now = try XCTUnwrap(cal.date(from: DateComponents(
+            timeZone: cal.timeZone, year: 2026, month: 4, day: 29, hour: 23, minute: 10
+        )))
+        let decision = plan.decision(now: now, calendar: cal)
+        XCTAssertEqual(decision.phase, .scheduledSleep)
+        XCTAssertTrue(decision.shouldAutoStart)
+        XCTAssertTrue(decision.shouldArmSmartAlarm)
+        XCTAssertEqual(cal.component(.day, from: decision.window.wakeTime), 30)
+        XCTAssertEqual(cal.component(.hour, from: decision.window.smartWakeStart), 6)
+        XCTAssertEqual(cal.component(.minute, from: decision.window.smartWakeStart), 30)
+    }
+
+    func testSleepPlanDoesNotAutoStartOutsideWindow() throws {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0)!
+        let plan = SleepPlanConfiguration(
+            autoTrackingEnabled: true,
+            bedtimeHour: 23,
+            bedtimeMinute: 0,
+            wakeHour: 7,
+            wakeMinute: 0,
+            sleepGoalMinutes: 480,
+            smartWakeWindowMinutes: 25,
+            nightmareWakeEnabled: false
+        )
+        let midday = try XCTUnwrap(cal.date(from: DateComponents(
+            timeZone: cal.timeZone, year: 2026, month: 4, day: 29, hour: 12
+        )))
+        let decision = plan.decision(now: midday, calendar: cal)
+        XCTAssertEqual(decision.phase, .idle)
+        XCTAssertFalse(decision.shouldAutoStart)
+    }
+
     // MARK: - M6: descriptor surfaces for heuristic model
 
     @MainActor

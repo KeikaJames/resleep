@@ -149,9 +149,13 @@ struct WatchHomeView: View {
         if state.isStarting {
             return NSLocalizedString("watch.hero.startingSubtitle", comment: "")
         }
-        return state.isTracking
-            ? trackingSummary
-            : NSLocalizedString("watch.hero.readySubtitle", comment: "")
+        if state.isTracking { return trackingSummary }
+        if state.sleepPlan.autoTrackingEnabled {
+            let bedtime = state.sleepPlan.decision().window.bedtime
+                .formatted(date: .omitted, time: .shortened)
+            return String(format: NSLocalizedString("watch.hero.autoSubtitle", comment: ""), bedtime)
+        }
+        return NSLocalizedString("watch.hero.readySubtitle", comment: "")
     }
 
     private var primaryActionKey: LocalizedStringKey {

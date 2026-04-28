@@ -36,8 +36,10 @@ public final class AppState: ObservableObject {
     public let diagnostics: DiagnosticsStoreProtocol
     /// Active-session crash/interruption marker.
     public let markerStore: ActiveSessionMarkerStoreProtocol
+    public let sleepPlanStore: SleepPlanUserDefaultsStore
 
     @Published public var latestSummary: SessionSummary?
+    @Published public private(set) var sleepPlan: SleepPlanConfiguration
     /// Set when the app launches and finds a stale active-session marker.
     /// `nil` once the user finishes-and-saves or discards.
     @Published public private(set) var interruptedSessionStart: ActiveSessionMarker?
@@ -100,6 +102,9 @@ public final class AppState: ObservableObject {
         self.personalization = personalization ?? EngineHost.makePersonalizationService()
         self.diagnostics = diagnostics
         self.markerStore = markerStore
+        let sleepPlanStore = SleepPlanUserDefaultsStore()
+        self.sleepPlanStore = sleepPlanStore
+        self.sleepPlan = sleepPlanStore.load()
 
         let resolvedModel: StageInferenceModel
         let resolvedReason: String?
@@ -282,6 +287,7 @@ public final class AppState: ObservableObject {
             _ = router.sendStart(sessionId: sid)
         }
 
+        applySleepPlanForTonight()
         if alarm.isEnabled {
             _ = alarm.armIfEnabled(engine: engine)
             _ = router.sendArmAlarm(
@@ -596,8 +602,30 @@ public final class AppState: ObservableObject {
             alarmTarget: alarm.isEnabled ? alarm.target : nil,
             alarmWindowMinutes: alarm.isEnabled ? alarm.windowMinutes : nil,
             alarmTriggeredAt: alarm.triggeredAt,
+            sleepPlan: currentSleepPlan(),
             runtimeModeRaw: runtimeMode.rawValue
         )
+    }
+
+    public func currentSleepPlan() -> SleepPlanConfiguration {
+        sleepPlan
+    }
+
+    public func reloadSleepPlan() {
+        sleepPlan = sleepPlanStore.load()
+    }
+
+    /// Sleep plan is the product-level source of truth for nightly alarm
+    /// timing. Manual alarm edits still work when automatic tracking is off.
+    public func applySleepPlanForTonight(now: Date = Date()) {
+        reloadSleepPlan()
+        let plan = sleepPlan
+        guard plan.autoTrackingEnabled else { return }
+        let decision = plan.decision(now: now)
+        guard decision.shouldArmSmartAlarm else { return }
+        alarm.isEnabled = true
+        alarm.target = decision.window.wakeTime
+        alarm.windowMinutes = plan.smartWakeWindowMinutes
     }
 
     private func wireScenarioRunner() {

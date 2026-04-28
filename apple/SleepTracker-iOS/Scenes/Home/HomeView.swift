@@ -36,6 +36,7 @@ struct HomeView: View {
                                 InterruptedSessionCard()
                             }
                             TonightStatusCard()
+                            SleepPlanCard()
                             SmartAlarmCard()
                             LastSummaryCard()
                             InsightsCard()
@@ -194,6 +195,87 @@ private struct StartCurtainView: View {
 
 private struct IdentifiedString: Identifiable, Hashable {
     let id: String
+}
+
+// MARK: - Sleep plan
+
+private struct SleepPlanCard: View {
+    @EnvironmentObject private var appState: AppState
+
+    var body: some View {
+        let plan = appState.currentSleepPlan()
+        let decision = plan.decision()
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                CardHeader(title: "card.sleepPlan")
+                HStack(spacing: 10) {
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(LocalizedStringKey(plan.autoTrackingEnabled
+                                                    ? "card.sleepPlan.autoOn"
+                                                    : "card.sleepPlan.autoOff"))
+                                .font(.subheadline.weight(.medium))
+                            Text(phaseKey(decision.phase))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: plan.autoTrackingEnabled
+                              ? "checkmark.circle.fill"
+                              : "moon.zzz")
+                            .foregroundStyle(plan.autoTrackingEnabled ? .green : .secondary)
+                    }
+                    Spacer()
+                }
+                HStack(spacing: 10) {
+                    PlanTimePill(title: "card.sleepPlan.bed",
+                                 date: decision.window.bedtime)
+                    PlanTimePill(title: "card.sleepPlan.wake",
+                                 date: decision.window.wakeTime)
+                    PlanTimePill(title: "card.sleepPlan.window",
+                                 value: "\(plan.smartWakeWindowMinutes)m")
+                }
+            }
+        }
+    }
+
+    private func phaseKey(_ phase: SleepPlanPhase) -> LocalizedStringKey {
+        switch phase {
+        case .idle: return "card.sleepPlan.phase.idle"
+        case .windDown: return "card.sleepPlan.phase.windDown"
+        case .scheduledSleep: return "card.sleepPlan.phase.sleep"
+        case .wakeWindow: return "card.sleepPlan.phase.wakeWindow"
+        case .postWake: return "card.sleepPlan.phase.postWake"
+        }
+    }
+}
+
+private struct PlanTimePill: View {
+    let title: LocalizedStringKey
+    var date: Date? = nil
+    var value: String? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            if let date {
+                Text(date, style: .time)
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+            } else {
+                Text(value ?? "—")
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Color(.tertiarySystemGroupedBackground),
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
 }
 
 // MARK: - Tonight status

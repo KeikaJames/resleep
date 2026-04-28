@@ -43,7 +43,7 @@ apple/SleepTracker.xcworkspace/
 build/
 DerivedData/
 local_data/
-models/
+/models/
 python/runs/
 rust/target-xcframework/
 target/
