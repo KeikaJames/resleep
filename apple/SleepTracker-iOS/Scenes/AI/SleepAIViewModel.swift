@@ -65,6 +65,9 @@ final class SleepAIViewModel: ObservableObject {
         case needsEULA
         case ready
         case chatting
+        /// Legacy state retained for migration. The current release does
+        /// not region-block the formal model.
+        case regionBlocked
     }
 
     struct SuggestionCard {
@@ -85,12 +88,23 @@ final class SleepAIViewModel: ObservableObject {
 
     @Published var history: [StoredChat] = []
 
+    /// Currently selected model tier. Drives the picker badge and the
+    /// underlying MLX service. Persisted across launches.
+    @Published private(set) var selectedTier: SleepAIModelTier
+    /// Formal model descriptor offered to the user.
+    @Published private(set) var availableTiers: [SleepAIModelTier] = []
+    /// True when the persisted selection is not authorised in the current
+    /// region — used to drive the `.regionBlocked` phase + banner copy.
+    @Published private(set) var regionBlocksSelection: Bool = false
+
     /// Suggestion cards rendered as a 2x2 grid on the idle screen.
     var suggestionCards: [SuggestionCard] {
         let glyphs: [String: (String, Color)] = [
             local("ai.suggestion.summarize"):   ("moon.stars",          .purple),
             local("ai.suggestion.deep"):        ("waveform.path",       .indigo),
             local("ai.suggestion.rem"):         ("eye",                 .pink),
+            local("ai.suggestion.trend"):       ("chart.line.uptrend.xyaxis", .blue),
+            local("ai.suggestion.factors"):     ("tag",                 .green),
             local("ai.suggestion.advice"):      ("lightbulb",           .orange),
             local("ai.suggestion.howItWorks"):  ("sparkles",            .blue),
             local("ai.suggestion.whatTracked"): ("heart.text.square",   .red)
@@ -115,21 +129,47 @@ final class SleepAIViewModel: ObservableObject {
     // MARK: Deps
 
     private weak var appState: AppState?
-    private let service: SleepAIServiceProtocol
+    private var service: SleepAIServiceProtocol
+    /// Factory used to (re)build the LLM service on tier changes. Lets us
+    /// swap models without dragging MLX types into SleepKit.
+    private let serviceFactory: (SleepAIModelTier) -> SleepAIServiceProtocol
 
     // MARK: Persistence keys
 
-    private static let eulaKey      = "sleep.ai.eula.accepted.v1"
-    private static let historyKey   = "sleep.ai.history.v1"
+    private static let eulaKey       = "sleep.ai.eula.accepted.v1"
+    private static let historyKey    = "sleep.ai.history.v1"
     private static let activeChatKey = "sleep.ai.history.activeId.v1"
+    private static let modelKey      = "sleep.ai.selectedModel.v1"     // legacy: raw SleepAIModelKind
+    private static let brandKey      = "sleep.ai.selectedBrand.v1"     // current: SleepAIBrandTier
 
     private var activeChatId: UUID?
 
     // MARK: Init
 
-    init(service: SleepAIServiceProtocol = SleepAIService()) {
-        self.service = service
-        self.phase = computePhase()
+    init(serviceFactory: @escaping (SleepAIModelTier) -> SleepAIServiceProtocol = { _ in SleepAIService() }) {
+        self.serviceFactory = serviceFactory
+
+        // Resolve the single formal model. Legacy tier prefs are ignored
+        // and rewritten to the formal-model identifier because the app no
+        // longer exposes multiple model choices.
+        let region = SleepAIRegion.current
+        UserDefaults.standard.set(SleepAIBrandTier.pro.rawValue, forKey: Self.brandKey)
+        UserDefaults.standard.set(SleepAIModelKind.qwenPro.rawValue, forKey: Self.modelKey)
+        let tier = SleepAIModelCatalog.descriptor(for: .qwenPro, in: region)
+        let bundled = SleepAIModelCatalog.available(in: region)
+        let safeTier = bundled.first ?? tier
+        self.selectedTier = safeTier
+        self.availableTiers = bundled
+        self.regionBlocksSelection = false
+        self.service = serviceFactory(safeTier)
+        // Initial phase honours the persisted EULA acceptance: without this
+        // a fresh install would land on the empty "ready" screen instead of
+        // showing the EULA gate, and the user would have to manually tap
+        // "new chat" before anything appeared.
+        let eulaOK = UserDefaults.standard.bool(forKey: Self.eulaKey)
+        self.phase = eulaOK
+            ? Self.computePhase(blocked: false, hasMessages: false)
+            : .needsEULA
         loadHistory()
     }
 
@@ -176,16 +216,46 @@ final class SleepAIViewModel: ObservableObject {
     func send(prompt rawPrompt: String) async {
         let prompt = rawPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty else { return }
+        guard !regionBlocksSelection else { return } // never invoke a blocked engine
         messages.append(SleepAIMessage(role: .user, text: prompt))
         isReplying = true
         let ctx = await buildContext()
-        let reply = await service.reply(to: prompt, context: ctx)
-        try? await Task.sleep(nanoseconds: 250_000_000)
-        messages.append(SleepAIMessage(role: .assistant, text: reply))
+
+        // Streaming path: append an empty assistant bubble up front, then
+        // mutate its `text` as deltas arrive. The bubble's identity stays
+        // stable so SwiftUI animates only the text change. On `.final` we
+        // overwrite with the sanitized answer (which may differ from the
+        // streamed concatenation if sanitize swapped to a fallback).
+        let assistantId = UUID().uuidString
+        messages.append(SleepAIMessage(id: assistantId, role: .assistant, text: ""))
+
+        for await event in service.streamReply(to: prompt, context: ctx) {
+            switch event {
+            case .delta(let chunk):
+                if let i = messages.firstIndex(where: { $0.id == assistantId }) {
+                    messages[i].text += chunk
+                }
+            case .final(let full):
+                if let i = messages.firstIndex(where: { $0.id == assistantId }) {
+                    messages[i].text = full
+                }
+            }
+        }
+
         isReplying = false
         if phase == .ready { phase = .chatting }
         suggestions = service.suggestedFollowUps(context: ctx)
         persistActiveChat()
+    }
+
+    /// Off-hot-path warm-up. Idempotent. Called when the AI tab actually
+    /// appears so cold-start latency happens in the background instead of
+    /// after the user hits Send. Rule-based service has a no-op default,
+    /// so this is safe to call regardless of the active tier.
+    func prewarmEngine() {
+        Task.detached(priority: .utility) { [service] in
+            await service.prewarm()
+        }
     }
 
     // MARK: History
@@ -226,7 +296,55 @@ final class SleepAIViewModel: ObservableObject {
 
     private func computePhase() -> Phase {
         guard eulaAccepted else { return .needsEULA }
-        return messages.isEmpty ? .ready : .chatting
+        return Self.computePhase(blocked: regionBlocksSelection,
+                                 hasMessages: !messages.isEmpty)
+    }
+
+    /// Stateless phase computation used by both the initial constructor
+    /// (before `self` is fully built) and the live recompute path.
+    private static func computePhase(blocked: Bool, hasMessages: Bool) -> Phase {
+        if blocked { return .regionBlocked }
+        return hasMessages ? .chatting : .ready
+    }
+
+    // MARK: Model switching
+
+    /// Legacy API retained for old call sites. The product now has one AI
+    /// model, so any selection request resolves to the formal model.
+    func selectBrand(_ brand: SleepAIBrandTier) {
+        _ = brand
+        let region = SleepAIRegion.current
+        UserDefaults.standard.set(SleepAIBrandTier.pro.rawValue, forKey: Self.brandKey)
+        UserDefaults.standard.set(SleepAIModelKind.qwenPro.rawValue, forKey: Self.modelKey)
+        let tier = SleepAIModelCatalog.descriptor(for: .qwenPro, in: region)
+        selectedTier = tier
+        regionBlocksSelection = false
+        service = serviceFactory(tier)
+        phase = computePhase()
+        Task { await refreshContext() }
+    }
+
+    /// Backwards-compatible shim. Maps a raw kind to the corresponding
+    /// brand and forwards. Kept only for legacy call sites.
+    func selectTier(_ kind: SleepAIModelKind) {
+        _ = kind
+        selectBrand(.pro)
+    }
+
+    /// Localized banner copy shown when the user's selection (or persisted
+    /// state) is not authorised in the current region. Today this is the
+    /// Legacy banner path; normally unused with the formal model.
+    var regionBlockTitle: String { local("ai.region.blocked.title") }
+    var regionBlockBody: String  { local("ai.region.blocked.body") }
+    var regionBlockSwitchCTA: String { local("ai.region.blocked.switch") }
+
+    /// Suggested fallback tier the user can tap from the banner.
+    var regionFallbackTier: SleepAIModelTier {
+        let region = SleepAIRegion.current
+        return SleepAIModelCatalog.descriptor(
+            for: SleepAIModelCatalog.defaultBrand(for: region),
+            in: region
+        )
     }
 
     private func local(_ key: String) -> String {
@@ -261,32 +379,157 @@ final class SleepAIViewModel: ObservableObject {
 
     private func buildContext() async -> SleepAIContext {
         guard let appState else { return .empty }
-        let summary = appState.latestSummary
-        let weekly = await weeklyAverageScore(via: appState)
-        guard let s = summary else {
-            return SleepAIContext(hasNight: false, weeklyAverageScore: weekly)
+        let records = await recentRecords(via: appState, limit: 7)
+        var nights = records.compactMap(Self.makeNightContext(from:))
+
+        // `latestSummary` can be fresher than the async store snapshot just
+        // after a session ends. Keep it in the context so the assistant never
+        // answers from stale history.
+        if let latest = appState.latestSummary,
+           nights.first?.id != latest.sessionId {
+            nights.insert(Self.makeNightContext(from: latest), at: 0)
+        }
+        if nights.count > 7 { nights = Array(nights.prefix(7)) }
+
+        let weekly = Self.averageScore(nights)
+        let tagInsights = Self.tagInsights(from: nights)
+        guard let latestNight = nights.first else {
+            return SleepAIContext(
+                hasNight: false,
+                weeklyAverageScore: weekly,
+                recentNights: [],
+                tagInsights: tagInsights,
+                healthAuthorization: Self.describe(appState.healthAuthorization),
+                watchPaired: appState.connectivity.isPaired,
+                watchReachable: appState.connectivity.isReachable,
+                watchAppInstalled: appState.connectivity.isWatchAppInstalled,
+                engineFallbackReason: appState.engineFallbackReason,
+                inferenceFallbackReason: appState.inferenceFallbackReason
+            )
         }
         return SleepAIContext(
             hasNight: true,
-            durationSec: s.durationSec,
-            sleepScore: s.sleepScore,
-            timeInDeepSec: s.timeInDeepSec,
-            timeInRemSec: s.timeInRemSec,
-            timeInLightSec: s.timeInLightSec,
-            timeInWakeSec: s.timeInWakeSec,
-            weeklyAverageScore: weekly
+            durationSec: latestNight.durationSec,
+            sleepScore: latestNight.sleepScore,
+            timeInDeepSec: latestNight.timeInDeepSec,
+            timeInRemSec: latestNight.timeInRemSec,
+            timeInLightSec: latestNight.timeInLightSec,
+            timeInWakeSec: latestNight.timeInWakeSec,
+            weeklyAverageScore: weekly,
+            recentNights: nights,
+            tagInsights: tagInsights,
+            healthAuthorization: Self.describe(appState.healthAuthorization),
+            watchPaired: appState.connectivity.isPaired,
+            watchReachable: appState.connectivity.isReachable,
+            watchAppInstalled: appState.connectivity.isWatchAppInstalled,
+            engineFallbackReason: appState.engineFallbackReason,
+            inferenceFallbackReason: appState.inferenceFallbackReason
         )
     }
 
-    private func weeklyAverageScore(via appState: AppState) async -> Double {
-        let sessions = (try? await appState.localStore.listSessions(limit: 7)) ?? []
-        var scores: [Int] = []
+    private func recentRecords(via appState: AppState, limit: Int) async -> [StoredSessionRecord] {
+        let sessions = (try? await appState.localStore.listSessions(limit: limit)) ?? []
+        var records: [StoredSessionRecord] = []
         for s in sessions {
-            if let sm = try? await appState.localStore.summary(for: s.id) {
-                scores.append(sm.sleepScore)
+            if let rec = try? await appState.localStore.record(for: s.id),
+               rec.summary != nil {
+                records.append(rec)
             }
         }
-        guard !scores.isEmpty else { return 0 }
-        return Double(scores.reduce(0, +)) / Double(scores.count)
+        return records
+            .sorted { ($0.endedAt ?? $0.startedAt) > ($1.endedAt ?? $1.startedAt) }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    private static func makeNightContext(from record: StoredSessionRecord) -> SleepAINightContext? {
+        guard let summary = record.summary else { return nil }
+        let notes = firstNonEmpty(record.notes, record.survey?.note)
+        return SleepAINightContext(
+            id: record.id,
+            endedAt: record.endedAt,
+            durationSec: summary.durationSec,
+            sleepScore: summary.sleepScore,
+            timeInDeepSec: summary.timeInDeepSec,
+            timeInRemSec: summary.timeInRemSec,
+            timeInLightSec: summary.timeInLightSec,
+            timeInWakeSec: summary.timeInWakeSec,
+            tags: record.tags?.filter { !$0.isEmpty } ?? [],
+            noteSnippet: notes.map { truncate($0, limit: 160) },
+            surveyQuality: record.survey?.quality,
+            alarmFeltGood: record.survey?.alarmFeltGood,
+            snoreEventCount: record.snoreEventCount,
+            sourceRaw: record.sourceRaw,
+            runtimeModeRaw: record.runtimeModeRaw
+        )
+    }
+
+    private static func makeNightContext(from summary: SessionSummary) -> SleepAINightContext {
+        SleepAINightContext(
+            id: summary.sessionId,
+            endedAt: nil,
+            durationSec: summary.durationSec,
+            sleepScore: summary.sleepScore,
+            timeInDeepSec: summary.timeInDeepSec,
+            timeInRemSec: summary.timeInRemSec,
+            timeInLightSec: summary.timeInLightSec,
+            timeInWakeSec: summary.timeInWakeSec
+        )
+    }
+
+    private static func tagInsights(from nights: [SleepAINightContext]) -> [SleepAITagInsight] {
+        let tags = Set(nights.flatMap(\.tags))
+        return tags.compactMap { tag -> SleepAITagInsight? in
+            let tagged = nights.filter { $0.tags.contains(tag) }.map(\.sleepScore)
+            let untagged = nights.filter { !$0.tags.contains(tag) }.map(\.sleepScore)
+            guard !tagged.isEmpty, !untagged.isEmpty else { return nil }
+            let taggedAvg = average(tagged)
+            let untaggedAvg = average(untagged)
+            return SleepAITagInsight(
+                tag: tag,
+                count: tagged.count,
+                averageScore: taggedAvg,
+                comparisonAverageScore: untaggedAvg,
+                scoreDelta: taggedAvg - untaggedAvg
+            )
+        }
+        .sorted {
+            if abs($0.scoreDelta) == abs($1.scoreDelta) { return $0.count > $1.count }
+            return abs($0.scoreDelta) > abs($1.scoreDelta)
+        }
+        .prefix(5)
+        .map { $0 }
+    }
+
+    private static func averageScore(_ nights: [SleepAINightContext]) -> Double {
+        average(nights.map(\.sleepScore))
+    }
+
+    private static func average(_ values: [Int]) -> Double {
+        guard !values.isEmpty else { return 0 }
+        return Double(values.reduce(0, +)) / Double(values.count)
+    }
+
+    private static func describe(_ status: HealthAuthorizationStatus) -> String {
+        switch status {
+        case .unknown: return "unknown"
+        case .notDetermined: return "notDetermined"
+        case .sharingDenied: return "deniedOrNoReadableData"
+        case .sharingAuthorized: return "authorized"
+        }
+    }
+
+    private static func firstNonEmpty(_ values: String?...) -> String? {
+        for value in values {
+            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !trimmed.isEmpty { return trimmed }
+        }
+        return nil
+    }
+
+    private static func truncate(_ text: String, limit: Int) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > limit else { return trimmed }
+        return String(trimmed.prefix(limit)) + "…"
     }
 }

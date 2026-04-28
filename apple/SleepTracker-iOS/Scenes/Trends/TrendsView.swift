@@ -54,8 +54,8 @@ final class TrendsViewModel: ObservableObject {
 private struct EmptyState: View {
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: "chart.bar.xaxis")
-                .font(.system(size: 44))
+            Image(systemName: "moon.stars")
+                .font(.system(size: 44, weight: .light))
                 .foregroundStyle(.secondary)
             Text("trends.empty.title")
                 .font(.title3.weight(.semibold))

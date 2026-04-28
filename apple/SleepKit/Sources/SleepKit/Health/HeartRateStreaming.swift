@@ -63,10 +63,14 @@ public final class HealthKitHeartRateStream: @preconcurrency HeartRateStreaming 
         guard let hrType = HKObjectType.quantityType(forIdentifier: .heartRate) else {
             throw HeartRateStreamError.unavailable
         }
-        let status = store.authorizationStatus(for: hrType)
-        guard status == .sharingAuthorized else {
-            throw HeartRateStreamError.unauthorized
-        }
+        // Apple deliberately does not expose READ authorization status; calling
+        // `authorizationStatus(for:)` only reports SHARE state, so guarding on
+        // it would falsely reject users who have granted read permission. The
+        // correct contract: optimistically execute the query — if the user
+        // denied reads, HealthKit silently returns no samples (and the engine
+        // simply receives no HR updates). Callers must therefore have already
+        // requested permissions via `HealthPermissionService` before calling
+        // `start()`.
 
         stop()
 

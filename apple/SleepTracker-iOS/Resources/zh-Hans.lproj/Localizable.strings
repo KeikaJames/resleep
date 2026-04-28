@@ -33,19 +33,32 @@
 "onboarding.back" = "返回";
 "onboarding.welcome.title" = "在你的设备上,看见你的睡眠。";
 "onboarding.welcome.body"  = "一种安静的方式去了解你的夜晚。心率、动作与呼吸,全部在你的 iPhone 上分析。";
+"onboarding.gender.title" = "选择你的称呼。";
+"onboarding.gender.body" = "用于个性化睡眠基线，也可以选择不透露。";
+"onboarding.gender.footer" = "之后可在“设置”中更改。";
+"profile.gender.male" = "男士";
+"profile.gender.female" = "女士";
+"profile.gender.notDisclosed" = "不方便透露";
 "onboarding.privacy.title" = "数据留在你这里。";
 "onboarding.privacy.b1" = "所有处理都在这台 iPhone 与 Apple Watch 上完成。";
-"onboarding.privacy.b2" = "永不录制、永不上传音频。";
+"onboarding.privacy.b2" = "音频只在本机处理，不上传。";
 "onboarding.privacy.b3" = "没有账户、没有服务器、没有追踪。";
 "onboarding.privacy.b4" = "随时可在“设置”中清除全部数据。";
 "onboarding.perms.title" = "连接“健康”。";
-"onboarding.perms.body"  = "Sleep 可以读取“健康”里的心率与心率变异性,帮助更准确地识别睡眠阶段。你可以随时更改授权。";
+"onboarding.perms.body"  = "Circadia 可以读取“健康”里的心率与心率变异性,帮助更准确地识别睡眠阶段。你可以随时更改授权。";
 "onboarding.perms.allow" = "允许访问“健康”";
 "onboarding.perms.skip"  = "暂不允许";
+"onboarding.consent.title" = "开始前请先确认。";
+"onboarding.consent.subtitle" = "请阅读并同意以下文件后继续。Circadia 为一般健康类产品，并非医疗器械。";
+"onboarding.consent.terms.accept" = "我已阅读并同意《Circadia 一般使用条款》。";
+"onboarding.consent.terms.read" = "查看《一般使用条款》→";
+"onboarding.consent.privacy.accept" = "我已阅读并同意《Circadia 隐私说明》。";
+"onboarding.consent.privacy.read" = "查看《隐私说明》→";
+"common.done" = "完成";
 
 // Notifications
 "notification.bedtime.title" = "该放松了";
-"notification.bedtime.body"  = "保持规律的就寝时间有帮助。准备好后打开 Sleep。";
+"notification.bedtime.body"  = "保持规律的就寝时间有帮助。准备好后打开 Circadia。";
 
 // Alarm
 "alarm.shake.hint" = "摇一摇 iPhone 即可关闭闹钟。";
@@ -59,6 +72,7 @@
 "survey.alarm.unset" = "—";
 "survey.alarm.good"  = "舒服";
 "survey.alarm.bad"   = "不舒服";
+"survey.alarm.footer" = "用于优化智能闹钟唤醒窗口。";
 "survey.times.header" = "真实时间(可选)";
 "survey.fellasleep.title" = "实际入睡";
 "survey.wokeup.title"     = "实际醒来";
@@ -92,7 +106,7 @@
 "home.notes"  = "添加备注";
 
 // Home — status
-"home.title" = "Sleep";
+"home.title" = "Circadia";
 "home.eyebrow.tracking" = "正在追踪";
 "home.eyebrow.last"     = "昨晚";
 "home.eyebrow.tonight"  = "今晚";
@@ -101,14 +115,23 @@
 "home.status.tracking"  = "追踪中";
 "home.status.ended"     = "已结束";
 "home.status.recorded"  = "已记录";
-"home.status.idle"      = "待机";
+"home.status.idle"      = "就绪";
 "home.stage.ready"      = "就绪";
 "home.stage.ended"      = "已结束";
 "home.source.simulation" = "模拟";
 "home.source.iphone"     = "iPhone";
 "home.source.watch"      = "Apple Watch";
+"home.source.watchWaiting" = "等待手表数据";
 "home.action.start"      = "开始追踪";
 "home.action.stop"       = "停止追踪";
+"home.error.watchStartQueued" = "Apple Watch 暂时不可达。请打开手表上的 Circadia；连接恢复后，本次睡眠会从手表开始。";
+"home.hero.readyTitle" = "今晚准备好了";
+"home.hero.readySubtitle" = "睡眠计划、智能唤醒和设备连接会在这里汇总。";
+"home.hero.trackingSubtitle" = "正在记录睡眠阶段、心率和动作。";
+"home.hero.lastSubtitle" = "昨晚的睡眠摘要已准备好。";
+"home.hero.scoreFormat" = "%d 分";
+"home.hero.watch" = "手表";
+"home.hero.plan" = "计划";
 
 // Home cards
 "card.smartAlarm"     = "智能闹钟";
@@ -122,7 +145,18 @@
 "alarm.state.armed"      = "已布防";
 "alarm.state.triggered"  = "已触发";
 "alarm.state.dismissed"  = "已关闭";
-"alarm.state.unreachable" = "Watch 不可达";
+"alarm.state.unreachable" = "无法连接 Apple Watch";
+"card.sleepPlan" = "睡眠计划";
+"card.sleepPlan.autoOn" = "已开启自动追踪";
+"card.sleepPlan.autoOff" = "未开启自动追踪";
+"card.sleepPlan.bed" = "睡觉";
+"card.sleepPlan.wake" = "起床";
+"card.sleepPlan.window" = "窗口";
+"card.sleepPlan.phase.idle" = "下一晚已安排。";
+"card.sleepPlan.phase.windDown" = "正在进入放松时段。";
+"card.sleepPlan.phase.sleep" = "处于计划睡眠时段。";
+"card.sleepPlan.phase.wakeWindow" = "处于智能唤醒窗口。";
+"card.sleepPlan.phase.postWake" = "早晨收尾窗口。";
 
 "card.lastSession"        = "上次睡眠";
 "card.lastSession.total"  = "总睡眠";
@@ -134,23 +168,77 @@
 "card.deviceSync.lastSync"  = "最近同步";
 "card.deviceSync.yes"       = "是";
 "card.deviceSync.no"        = "否";
+"card.deviceSync.live"      = "手表已连接";
+"card.deviceSync.offline"   = "手表未连接";
+"card.deviceSync.region"    = "地区";
+"card.deviceSync.region.cn" = "中国大陆";
+"card.deviceSync.region.global" = "海外";
+"cycle.card.title" = "周期与睡眠";
+"cycle.card.badge" = "女士";
+"cycle.card.subtitle" = "未来将结合睡眠节律、心率趋势和体温等生命体征，帮助你观察周期相关变化。";
+"cycle.signal.sleep" = "睡眠";
+"cycle.signal.vitals" = "心率";
+"cycle.signal.temperature" = "体温";
+"cycle.card.disclaimer" = "仅用于健康趋势观察，不用于诊断、避孕或预测医疗风险。";
 
 // Settings
 "settings.title"          = "设置";
+"settings.section.profile" = "个人信息";
+"settings.profile.avatar" = "头像";
+"settings.profile.avatar.subtitle" = "可选，仅保存在本机。";
+"settings.profile.avatar.choose" = "选择";
+"settings.profile.avatar.change" = "更换";
+"settings.profile.avatar.remove" = "移除头像";
+"settings.profile.nickname" = "昵称";
+"settings.profile.nickname.placeholder" = "可选";
+"settings.profile.gender" = "称呼";
+"settings.profile.birthday" = "生日";
+"settings.profile.birthday.add" = "添加生日";
+"settings.profile.birthday.clear" = "清除生日";
+"settings.profile.summary.empty" = "添加个人信息";
+"settings.section.sleepPlan" = "睡眠计划";
+"settings.category.sleepPlan.subtitle" = "自动追踪、就寝时间与唤醒窗口";
+"settings.sleepPlan.autoTracking" = "自动追踪";
+"settings.sleepPlan.bedtime" = "睡觉时间";
+"settings.sleepPlan.wakeTime" = "起床时间";
+"settings.sleepPlan.footer" = "Apple Watch 可在计划时段自动开始采集，稍后再同步回 iPhone。";
+"settings.sleepPlan.tuning" = "目标与唤醒";
+"settings.sleepPlan.goalFmt" = "睡眠目标：%@";
+"settings.sleepPlan.wakeWindowFmt" = "智能唤醒窗口：%d 分钟";
+"settings.sleepPlan.tuning.footer" = "Circadia 会尽量在窗口内的较浅睡眠阶段叫醒，并保留最终起床时间兜底。";
+"settings.sleepPlan.nightmareWake" = "实验性噩梦唤醒";
+"settings.sleepPlan.nightmare.footer" = "基于动作与心率突增做保守判断。非医疗级，可能误判。";
+"settings.category.permissions.subtitle" = "健康权限与共享";
+"settings.category.privacyInsights" = "隐私与洞察";
+"settings.category.privacyInsights.subtitle" = "音频、云同步与本地个性化";
+"settings.category.reminders.subtitle" = "就寝提醒时间";
+"settings.category.deviceModel" = "设备与模型";
+"settings.category.deviceModel.subtitle" = "手表同步与睡眠阶段引擎";
+"settings.category.aiAssistant.subtitle" = "正式版模型状态与协议";
+"settings.category.data" = "诊断与数据";
+"settings.category.data.subtitle" = "日志与本地数据控制";
+"settings.category.developer.subtitle" = "运行模式与审核说明";
+"settings.category.about.subtitle" = "版本、法律与致谢";
 "settings.section.permissions" = "权限";
 "settings.shareWithHealth"   = "与“健康”共享";
+"settings.health.title"                = "“健康”访问权限";
+"settings.health.status.granted"       = "心率读取权限 · 已授权";
+"settings.health.status.denied"        = "心率读取权限 · 已拒绝 — 请在 iOS 设置中开启";
+"settings.health.status.notDetermined" = "心率读取权限 · 尚未请求";
+"settings.health.status.unknown"       = "心率读取权限 · 未知";
+"settings.health.recheck"              = "重新检测";
+"settings.health.openSettings"         = "打开 iOS 设置";
 "settings.section.privacy"   = "隐私";
-"settings.saveRawAudio"      = "保存原始录音";
-"settings.allowAudioUpload"  = "允许上传音频";
-"settings.cloudSync"         = "云端同步(未来)";
+"settings.privacy.audio.title" = "不录原始音频";
+"settings.privacy.audio.body"  = "鼾声仅在本地处理，我们不会收集您的原始录音。";
+"settings.cloudSync"         = "云端同步（暂未提供）";
 "settings.section.insights"  = "洞察";
 "settings.snoreDetection"    = "鼾声检测";
 "settings.personalization"   = "本地个性化";
-"settings.insights.footer"   = "鼾声检测完全在本机运行,不录音。个性化会根据你的起床问卷调整模型,所有更新都留在本机。";
+"settings.insights.footer"   = "所有分析将在您的 iPhone 上完成。";
 "settings.section.reminders" = "提醒";
 "settings.bedtimeReminder"   = "每日就寝提醒";
 "settings.bedtimeTime"       = "提醒时间";
-"settings.reminders.footer"  = "仅本地通知。Sleep 不使用远程推送。";
 "settings.section.watch"     = "Apple Watch";
 "settings.section.model"     = "模型";
 "settings.model.backend"     = "后端";
@@ -162,12 +250,11 @@
 "settings.diag.view"           = "查看诊断";
 "settings.diag.refresh"        = "刷新摘要";
 "settings.diag.clear"          = "清除诊断";
-"settings.diag.empty"          = "暂无诊断事件。";
-"settings.diag.footer"         = "本机诊断事件,用于查看夜间无人值守测试的过程。";
+"settings.diag.empty"          = "暂无事件。";
 "settings.section.localData"   = "本地数据";
 "settings.localData.delete"    = "删除本地睡眠数据";
-"settings.localData.footer"    = "删除本机存储的全部会话、汇总与时间线,操作不可撤销。";
-"settings.localData.confirmTitle" = "确认删除全部本地睡眠数据?";
+"settings.localData.footer"    = "操作不可撤销。";
+"settings.localData.confirmTitle" = "确认删除全部本地睡眠数据？";
 "settings.localData.confirmMessage" = "本机上保存的会话、汇总、时间线都会被删除。";
 "settings.localData.confirmDelete"  = "删除";
 "settings.localData.confirmCancel"  = "取消";
@@ -175,11 +262,11 @@
 "settings.dev.runtime"         = "运行模式";
 "settings.dev.simulated"       = "模拟";
 "settings.dev.live"            = "实机";
-"settings.dev.note"            = "模拟控制位于首页的“开发者”分区。";
+"settings.dev.note"            = "模拟相关的开关在首页的开发者分区。";
 "settings.section.compliance"  = "合规";
-"settings.compliance.l1"       = "离线优先。健康数据默认保存在本机。";
-"settings.compliance.l2"       = "永不上传任何录音。";
-"settings.compliance.l3"       = "并非医疗器械,不用于诊断或治疗任何睡眠障碍。";
+"settings.compliance.l1"       = "离线优先。健康数据默认留在这台设备上。";
+"settings.compliance.l2"       = "录音永远不上传。";
+"settings.compliance.l3"       = "并非医疗器械，不用于诊断或治疗任何睡眠障碍。";
 "settings.section.about"       = "关于";
 "settings.about.appVersion"    = "应用版本";
 "settings.about.build"         = "构建号";
@@ -193,9 +280,13 @@
 "history.empty.title" = "还没有记录";
 "history.empty.subtitle" = "你完成的睡眠会出现在这里。";
 "history.summaryUnavailable.title" = "暂无摘要";
-"history.summaryUnavailable.body"  = "这次会话还没有存储摘要。";
+"history.summaryUnavailable.body"  = "无法载入本次睡眠摘要。";
 "history.inProgress" = "进行中";
 "history.score"      = "评分";
+"history.passive.title" = "来自 Apple Watch";
+"history.passive.source.appleWatch" = "Apple Watch";
+"history.passive.source.health" = "Apple 健康";
+"history.passive.asleep" = "睡眠";
 
 // Session Detail
 "detail.title"           = "会话";
@@ -222,7 +313,6 @@
 "recovery.bodyFormat" = "开始于 %@。应用在结束前被关闭。";
 "recovery.finish"     = "完成并保存";
 "recovery.discard"    = "丢弃";
-"settings.localData.confirmMessage" = "本机存储的会话、摘要和时间轴将被删除。";
 
 // Insights
 "insights.header"                  = "睡眠建议";
@@ -245,8 +335,8 @@
 "ai.consent.body"                  = "在这台 iPhone 上运行，数据不会离开设备。";
 "ai.consent.cta"                   = "继续";
 
-"ai.download.title"                = "增强模型";
-"ai.download.body"                 = "可选下载，获得更自然的回应。";
+"ai.download.title"                = "正式版模型";
+"ai.download.body"                 = "本机运行的睡眠助手，回应更自然。";
 "ai.download.cta"                  = "下载";
 "ai.download.cancel"               = "取消";
 "ai.download.skip"                 = "跳过";
@@ -264,6 +354,8 @@
 "ai.suggestion.summarize"          = "总结昨晚";
 "ai.suggestion.deep"               = "深睡怎么样？";
 "ai.suggestion.rem"                = "REM 呢？";
+"ai.suggestion.trend"              = "最近有什么变化？";
+"ai.suggestion.factors"            = "什么影响了睡眠？";
 "ai.suggestion.advice"             = "睡得更好的建议";
 "ai.suggestion.howItWorks"         = "这是怎么工作的？";
 "ai.suggestion.whatTracked"        = "都追踪了什么？";
@@ -282,13 +374,22 @@
 挑一项坚持一周。";
 "ai.reply.hello" = "你好，今晚怎么样？";
 "ai.reply.fallback" = "我可以帮你 **总结昨晚**、看 **深睡 / REM** 比例，或给点 *改善建议*。";
+"ai.refuse.offTopic" = "我只负责睡眠和健康相关的话题，这个问题超出我的范围。要不要我帮你看看 **昨晚** 的数据，或者给个助眠的小建议？";
+"ai.refuse.unsafe"   = "这个我帮不了。如果情况紧急，请联系合格的医生或当地急救服务。";
+"ai.refuse.medical"  = "我无法做诊断，也不能推荐用药。临床问题请咨询合格的医务人员。我可以帮你解读自己的睡眠数据。";
 
 "home.tracking.duration"           = "追踪中 · {time}";
 "home.tracking.stop"               = "结束";
+"home.tracking.holdHint"           = "长按 1 秒结束";
 
 // AI tab — toolbar / history / disclaimer (added in Apple‑style polish pass)
 "ai.toolbar.history"               = "聊天记录";
 "ai.toolbar.newChat"               = "新对话";
+"ai.scrollToBottom"                = "回到最新";
+"ai.toolbar.modelPicker"           = "正式版模型";
+"ai.region.blocked.title"          = "Sleep AI 暂未在该地区提供。";
+"ai.region.blocked.body"           = "当前构建无法使用正式版模型，将继续使用本机规则兜底。";
+"ai.region.blocked.switch"         = "使用本机兜底";
 "ai.history.empty"                 = "还没有聊天记录。";
 "ai.history.title"                 = "记录";
 "ai.history.today"                 = "今天";
@@ -300,15 +401,17 @@
 "ai.eula.accept"                   = "同意并继续";
 "ai.eula.decline"                  = "暂不使用";
 "ai.eula.short"                    = "继续使用即表示你已阅读并同意 Sleep AI 使用协议。";
+"ai.eula.readToEnd"                = "请先阅读到协议底部。";
+"ai.eula.readButton"               = "阅读到底部";
 "settings.section.aiAssistant"     = "AI 助手";
 "settings.ai.eula"                 = "AI 助手协议";
 "settings.ai.disclaimer"           = "AI 助手生成的内容仅供参考，不构成医疗建议。";
-"settings.ai.modelPath"            = "本地模型";
+"settings.ai.modelPath"            = "正式版模型";
 "settings.ai.modelMissing"         = "未安装";
 "ai.reply.howItWorks" = "在你的设备上：
 
 • 心率与运动 → **本地特征引擎**
-• 规则与（即将到来的）小型模型 → 推断阶段
+• 正式版模型与本地规则 → 推断阶段
 • 数据 *不离开设备*。";
 "ai.reply.whatTracked" = "目前会用到：
 
@@ -317,4 +420,23 @@
 • 可选的 **呼吸** / 鼾声事件
 
 所有处理都在本机。";
-"settings.ai.modelPending" = "Gemma 3n · 4‑bit · 推理待集成";
+
+"settings.about.license" = "开源许可（MIT）";
+"settings.about.copyright" = "版权所有";
+"home.start.greeting" = "晚安";
+"settings.ai.engineProductionModel" = "正式版模型 · 本机（MLX）";
+"settings.ai.engineGemma" = "正式版模型 · 本机（MLX）";
+"settings.ai.engineRuleBased" = "规则模板 · 本地";
+"settings.about.legalHeader" = "法律条款";
+"settings.about.legalFooter" = "以上文档随应用一同发布，也可在开源仓库中查阅。";
+"settings.about.thirdParty" = "第三方许可与声明";
+"settings.about.acknowledgmentsHeader" = "特别鸣谢";
+"settings.about.notMedicalDevice" = "非医疗器械";
+"home.permission.title" = "未开启心率读取权限";
+"home.permission.body" = "Circadia 用心率样本来判断睡眠阶段。请在「设置 → 健康 → 数据访问」中开启心率。";
+"home.permission.open" = "前往设置";
+"ai.engine.badge.gemma" = "正式版模型 · 本机推理";
+"ai.engine.badge.simulator" = "规则模式 · 模拟器（真机才能跑正式版模型）";
+"ai.engine.badge.ruleBased" = "规则模式 · 本机";
+"ai.tab.title" = "睡眠助手";
+"settings.localData.deleteError" = "本地数据删除失败，请稍后再试。";

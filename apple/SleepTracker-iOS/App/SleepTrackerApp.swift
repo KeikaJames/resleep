@@ -1,5 +1,6 @@
 import SwiftUI
 import SleepKit
+import UIKit
 
 @main
 struct SleepTrackerApp: App {
@@ -36,18 +37,37 @@ struct SleepTrackerApp: App {
 }
 
 struct RootTabView: View {
+    @State private var selectedTab: Int = 0
+
+    init() {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.backgroundEffect = nil
+        appearance.backgroundColor = .clear
+        appearance.shadowColor = .clear
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+    }
+
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             HomeView()
                 .tabItem { Label("tab.home", systemImage: "moon.stars") }
+                .tag(0)
             TrendsView()
                 .tabItem { Label("tab.trends", systemImage: "chart.bar.xaxis") }
+                .tag(1)
             SleepAIView()
                 .tabItem { Label("tab.ai", systemImage: "sparkles") }
+                .tag(2)
             HistoryView()
                 .tabItem { Label("tab.history", systemImage: "list.bullet.rectangle") }
+                .tag(3)
             SettingsView()
                 .tabItem { Label("tab.settings", systemImage: "gear") }
+                .tag(4)
         }
+        .toolbarBackground(.hidden, for: .tabBar)
+        .sensoryFeedback(.selection, trigger: selectedTab)
     }
 }

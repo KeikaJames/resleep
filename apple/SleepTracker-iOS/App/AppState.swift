@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import SleepKit
 
 /// Runtime mode: live data vs scripted scenario replay.
@@ -17,6 +18,9 @@ public final class AppState: ObservableObject {
     public let connectivity: ConnectivityManagerProtocol
     public let health: HealthPermissionServiceProtocol
     public let healthWriter: HealthKitSleepWriting
+    /// Backfills sleep nights from HealthKit when Circadia did not actively
+    /// track. Read-only fallback path; never writes back to HealthKit.
+    public let passiveImporter: PassiveSleepImporterProtocol
     public let snoreDetector: SnoreDetectorProtocol
     public let personalization: PersonalizationService
     public let heartRateStream: HeartRateStreaming
@@ -35,11 +39,30 @@ public final class AppState: ObservableObject {
     public let diagnostics: DiagnosticsStoreProtocol
     /// Active-session crash/interruption marker.
     public let markerStore: ActiveSessionMarkerStoreProtocol
+    public let sleepPlanStore: SleepPlanUserDefaultsStore
 
     @Published public var latestSummary: SessionSummary?
+    @Published public private(set) var sleepPlan: SleepPlanConfiguration
     /// Set when the app launches and finds a stale active-session marker.
     /// `nil` once the user finishes-and-saves or discards.
     @Published public private(set) var interruptedSessionStart: ActiveSessionMarker?
+
+    /// Latest snapshot of HealthKit heart-rate authorization. Updated on
+    /// app launch, foreground (so granting in iOS Settings.app and returning
+    /// reflects immediately), and after every explicit `requestAuthorization`.
+    @Published public private(set) var healthAuthorization: HealthAuthorizationStatus = .unknown
+
+    /// Sleep nights backfilled from HealthKit's first-party sleep analysis
+    /// (Apple Watch's own classifier, since watchOS 9). These are the
+    /// "user forgot to start Circadia, but the Watch still recorded the
+    /// night" fallback. Always presented as read-only and clearly badged
+    /// as passive in History so the user knows the score did not come
+    /// from Circadia's engine.
+    @Published public private(set) var passiveNights: [PassiveSleepNight] = []
+    /// `nil` until first import attempt completes — lets History tell the
+    /// difference between "no Apple Watch nights yet" and "we haven't
+    /// asked HealthKit yet" so the empty state copy is honest.
+    @Published public private(set) var passiveImportLastRunAt: Date?
 
     // MARK: Simulation
     /// Replay harness. Always instantiated so its `@Published` state is
@@ -54,7 +77,10 @@ public final class AppState: ObservableObject {
 
     /// 1 Hz status snapshot cadence — matches the watch-facing spec.
     private let statusTickSec: Double = 1.0
+    /// Gives the Watch a chance to flush tail telemetry before the phone closes the engine session.
+    private let remoteStopFlushGraceSec: Double = 2.5
     private var statusTickTask: Task<Void, Never>?
+    private var objectChangeBag: Set<AnyCancellable> = []
 
     /// Timeline sampling. Every `timelineTickSec` we record the current
     /// (stage, time) into a flat buffer; at session-stop we collapse
@@ -77,7 +103,8 @@ public final class AppState: ObservableObject {
         inferenceModel: StageInferenceModel? = nil,
         inferenceFallbackReason: String? = nil,
         diagnostics: DiagnosticsStoreProtocol = InMemoryDiagnosticsStore(),
-        markerStore: ActiveSessionMarkerStoreProtocol = InMemoryActiveSessionMarkerStore()
+        markerStore: ActiveSessionMarkerStoreProtocol = InMemoryActiveSessionMarkerStore(),
+        passiveImporter: PassiveSleepImporterProtocol = PassiveSleepImporter()
     ) {
         self.engine = engine
         self.engineFallbackReason = engineFallbackReason
@@ -87,10 +114,14 @@ public final class AppState: ObservableObject {
         self.health = health
         self.heartRateStream = heartRateStream
         self.healthWriter = healthWriter ?? EngineHost.makeHealthKitSleepWriter()
+        self.passiveImporter = passiveImporter
         self.snoreDetector = snoreDetector ?? EngineHost.makeSnoreDetector()
         self.personalization = personalization ?? EngineHost.makePersonalizationService()
         self.diagnostics = diagnostics
         self.markerStore = markerStore
+        let sleepPlanStore = SleepPlanUserDefaultsStore()
+        self.sleepPlanStore = sleepPlanStore
+        self.sleepPlan = sleepPlanStore.load()
 
         let resolvedModel: StageInferenceModel
         let resolvedReason: String?
@@ -116,8 +147,12 @@ public final class AppState: ObservableObject {
             inferencePipeline: pipeline
         )
         self.workout = workout
-        self.router = TelemetryRouter(connectivity: connectivity, workout: workout)
+        self.router = TelemetryRouter(connectivity: connectivity,
+                                      workout: workout,
+                                      diagnostics: diagnostics)
         self.alarm = SmartAlarmController()
+        wireNestedObjectChanges()
+        wireWatchLifecycleRequests()
         wireScenarioRunner()
     }
 
@@ -175,6 +210,201 @@ public final class AppState: ObservableObject {
         timelineTickTask?.cancel()
         timelineTickTask = nil
         snoreDetector.stop()
+    }
+
+    private func wireWatchLifecycleRequests() {
+        router.onWatchStartRequested = { [weak self] requestedSessionId in
+            Task { @MainActor [weak self] in
+                await self?.startSessionFromWatch(requestedSessionId: requestedSessionId)
+            }
+        }
+        router.onWatchStopRequested = { [weak self] requestedSessionId in
+            Task { @MainActor [weak self] in
+                await self?.stopSessionFromWatch(requestedSessionId: requestedSessionId)
+            }
+        }
+    }
+
+    private func wireNestedObjectChanges() {
+        workout.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &objectChangeBag)
+
+        router.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &objectChangeBag)
+
+        alarm.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &objectChangeBag)
+    }
+
+    private func startSessionFromWatch(requestedSessionId: String?) async {
+        guard OnboardingGate.hasCompleted else {
+            _ = router.sendStop(sessionId: requestedSessionId)
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStart,
+                                sessionId: requestedSessionId,
+                                message: "watch-origin start rejected: onboarding incomplete")
+            )
+            publishSnapshot()
+            return
+        }
+
+        if interruptedSessionStart != nil {
+            await finishInterruptedAndSave()
+        }
+
+        guard runtimeMode == .live else {
+            publishSnapshot()
+            return
+        }
+
+        if workout.isTracking {
+            if workout.source == .remoteWatch, let sid = workout.currentSessionID {
+                _ = router.sendStart(sessionId: sid)
+            }
+            publishSnapshot()
+            return
+        }
+
+        do {
+            try await workout.startTracking(source: .remoteWatch)
+        } catch {
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStart,
+                                sessionId: requestedSessionId,
+                                message: "watch-origin start failed",
+                                error: "\(error)")
+            )
+            publishSnapshot()
+            return
+        }
+
+        router.resetSessionTelemetry()
+        installRunningSessionHooks()
+
+        let startedAt = workout.sessionStartedAt ?? Date()
+        if let sid = workout.currentSessionID {
+            await writeActiveMarker(sessionId: sid,
+                                    startedAt: startedAt,
+                                    source: .remoteWatch,
+                                    mode: runtimeMode)
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStart,
+                                sessionId: sid,
+                                message: "source=\(TrackingSource.remoteWatch.rawValue) origin=watch")
+            )
+            _ = router.sendStart(sessionId: sid)
+        }
+
+        applySleepPlanForTonight()
+        if alarm.isEnabled {
+            _ = alarm.armIfEnabled(engine: engine)
+            _ = router.sendArmAlarm(
+                sessionId: workout.currentSessionID,
+                target: alarm.target,
+                windowMinutes: alarm.windowMinutes
+            )
+        }
+
+        publishSnapshot()
+    }
+
+    private func stopSessionFromWatch(requestedSessionId: String?) async {
+        if runtimeMode == .simulated {
+            await stopSimulation()
+            return
+        }
+        guard workout.isTracking else {
+            publishSnapshot()
+            return
+        }
+
+        if let requestedSessionId,
+           let activeSessionId = workout.currentSessionID,
+           requestedSessionId != activeSessionId {
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStop,
+                                sessionId: requestedSessionId,
+                                message: "watch-origin stop ignored: stale session active=\(activeSessionId)")
+            )
+            publishSnapshot()
+            return
+        }
+
+        let sessionId = workout.currentSessionID ?? requestedSessionId
+
+        if alarm.state == .triggered || alarm.state == .failedWatchUnreachable {
+            _ = router.sendStopAlarm(sessionId: sessionId)
+        }
+
+        let alarmMeta = StoredAlarmMeta(
+            enabled: alarm.isEnabled,
+            finalStateRaw: alarm.state.rawValue,
+            targetTsMs: alarm.isEnabled
+                ? Int64(alarm.target.timeIntervalSince1970 * 1000)
+                : nil,
+            windowMinutes: alarm.windowMinutes,
+            triggeredAtTsMs: alarm.triggeredAt.map { Int64($0.timeIntervalSince1970 * 1000) },
+            dismissedAtTsMs: alarm.watchAckedAt.map { Int64($0.timeIntervalSince1970 * 1000) }
+        )
+        alarm.clear()
+
+        if workout.source == .remoteWatch {
+            try? await Task.sleep(nanoseconds: UInt64(remoteStopFlushGraceSec * 1_000_000_000))
+        }
+
+        let endedAt = Date()
+        let timeline = drainTimelineEntries(endedAt: endedAt)
+        let source = workout.source
+        let mode = runtimeMode
+        let startedAt = workout.sessionStartedAt
+
+        teardownRunningSessionHooks()
+
+        do {
+            let summary = try await workout.stopTracking()
+            if let summary {
+                await archiveCompletedSession(
+                    summary: summary,
+                    startedAt: startedAt
+                        ?? Date().addingTimeInterval(-TimeInterval(summary.durationSec)),
+                    endedAt: endedAt,
+                    timeline: timeline,
+                    alarm: alarmMeta,
+                    source: source,
+                    runtimeMode: mode
+                )
+                await diagnostics.append(
+                    DiagnosticEvent(type: .localStoreWrite,
+                                    sessionId: summary.sessionId,
+                                    message: "session record persisted from watch stop")
+                )
+            }
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStop,
+                                sessionId: sessionId,
+                                message: "origin=watch")
+            )
+            await clearActiveMarker()
+            publishSnapshot()
+        } catch {
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStop,
+                                sessionId: sessionId,
+                                message: "watch-origin stop failed",
+                                error: "\(error)")
+            )
+            await clearActiveMarker()
+            publishSnapshot()
+        }
     }
 
     private func startSnoreDetectorIfEnabled() {
@@ -389,8 +619,30 @@ public final class AppState: ObservableObject {
             alarmTarget: alarm.isEnabled ? alarm.target : nil,
             alarmWindowMinutes: alarm.isEnabled ? alarm.windowMinutes : nil,
             alarmTriggeredAt: alarm.triggeredAt,
+            sleepPlan: currentSleepPlan(),
             runtimeModeRaw: runtimeMode.rawValue
         )
+    }
+
+    public func currentSleepPlan() -> SleepPlanConfiguration {
+        sleepPlan
+    }
+
+    public func reloadSleepPlan() {
+        sleepPlan = sleepPlanStore.load()
+    }
+
+    /// Sleep plan is the product-level source of truth for nightly alarm
+    /// timing. Manual alarm edits still work when automatic tracking is off.
+    public func applySleepPlanForTonight(now: Date = Date()) {
+        reloadSleepPlan()
+        let plan = sleepPlan
+        guard plan.autoTrackingEnabled else { return }
+        let decision = plan.decision(now: now)
+        guard decision.shouldArmSmartAlarm else { return }
+        alarm.isEnabled = true
+        alarm.target = decision.window.wakeTime
+        alarm.windowMinutes = plan.smartWakeWindowMinutes
     }
 
     private func wireScenarioRunner() {
@@ -454,6 +706,7 @@ public final class AppState: ObservableObject {
             activeScenario = nil
             return
         }
+        router.resetSessionTelemetry()
         runtimeMode = .simulated
         activeScenario = scenario
         lastScenarioMark = nil
@@ -497,12 +750,61 @@ public final class AppState: ObservableObject {
             inferencePipeline.personalizationEnabled = stored
         }
         await diagnostics.append(DiagnosticEvent(type: .appLaunch))
+        await health.probeHeartRateReadAccess()
+        refreshHealthAuthorization()
         await detectInterruptedSession()
+        publishSnapshot()
     }
 
     public func appForeground() {
+        publishSnapshot()
         Task { [diagnostics] in
             await diagnostics.append(DiagnosticEvent(type: .appForeground))
+        }
+        // Re-poll HealthKit each time the user returns from background.
+        // Crucially this runs after the user grants permission in iOS
+        // Settings.app and switches back to Circadia — without it the
+        // start button stays gated on a stale "denied" state.
+        //
+        // We MUST run a real sample-query probe here because
+        // `authorizationStatus(for:)` only reflects WRITE permission;
+        // for read-only types it returns `.sharingDenied` even after the
+        // user grants access (Apple privacy design).
+        Task { [weak self] in
+            guard let self else { return }
+            await self.health.probeHeartRateReadAccess()
+            await MainActor.run { self.refreshHealthAuthorization() }
+        }
+    }
+
+    /// Re-reads the latest HealthKit authorization status and republishes
+    /// it. Cheap; callers may invoke freely.
+    public func refreshHealthAuthorization() {
+        healthAuthorization = health.heartRateAuthorization()
+        // Once we believe the user has granted Health read access, kick off
+        // a passive-night backfill. The importer is a no-op when access
+        // isn't actually granted, so being optimistic here is safe.
+        if healthAuthorization == .sharingAuthorized {
+            Task { [weak self] in await self?.refreshPassiveNights() }
+        }
+    }
+
+    /// Pulls Apple Watch's first-party sleep analysis from HealthKit for
+    /// roughly the last 30 nights and republishes them as `passiveNights`.
+    /// Idempotent and cheap: HealthKit caches its own queries and we
+    /// over-write the published array atomically. Throws nothing — errors
+    /// degrade silently to "leave passiveNights as-is".
+    public func refreshPassiveNights() async {
+        let end = Date()
+        let start = end.addingTimeInterval(-30 * 86_400)
+        do {
+            let nights = try await passiveImporter.importNights(start: start, end: end)
+            await MainActor.run {
+                self.passiveNights = nights.sorted { $0.startedAt > $1.startedAt }
+                self.passiveImportLastRunAt = Date()
+            }
+        } catch {
+            await MainActor.run { self.passiveImportLastRunAt = Date() }
         }
     }
 

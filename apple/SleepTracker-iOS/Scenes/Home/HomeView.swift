@@ -1,5 +1,6 @@
 import SwiftUI
 import SleepKit
+import UIKit
 
 /// iPhone home screen. Quiet, Apple-style, dark-first. Sections, in order:
 ///   A. Tonight Status        — mode/source/stage/confidence + primary action
@@ -11,14 +12,23 @@ struct HomeView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var model = HomeViewModel()
 
+    /// Drives the cinematic "settling in" curtain shown right after the user
+    /// taps Start tracking. Lives in HomeView (not the VM) because it's pure
+    /// presentation and must reset on every fresh start.
+    @State private var showStartCurtain: Bool = false
+
     var body: some View {
         NavigationStack {
-            Group {
+            ZStack {
                 if appState.workout.isTracking {
                     TrackingHeroView()
                         .environmentObject(appState)
                         .environmentObject(model)
                         .toolbar(.hidden, for: .navigationBar)
+                        .transition(.asymmetric(
+                            insertion: .opacity.animation(.easeOut(duration: 0.55)),
+                            removal: .opacity.animation(.easeIn(duration: 0.35))
+                        ))
                 } else {
                     ScrollView {
                         VStack(spacing: 28) {
@@ -26,29 +36,49 @@ struct HomeView: View {
                                 InterruptedSessionCard()
                             }
                             TonightStatusCard()
+                            SleepPlanCard()
                             SmartAlarmCard()
+                            CycleRhythmCard()
                             LastSummaryCard()
                             InsightsCard()
                             DeviceSyncCard()
-                            DeveloperDebugCard()
                             if let err = model.lastError {
-                                Text(err)
-                                    .font(.footnote)
-                                    .foregroundStyle(.red)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.horizontal, 4)
+                                Card {
+                                    Label {
+                                        Text(err)
+                                            .font(.footnote)
+                                            .foregroundStyle(.primary)
+                                    } icon: {
+                                        Image(systemName: "exclamationmark.circle.fill")
+                                            .foregroundStyle(.orange)
+                                    }
+                                }
                             }
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, 8)
-                        .padding(.bottom, 32)
+                        .padding(.bottom, 96)
                     }
                     .background(Color(.systemGroupedBackground).ignoresSafeArea())
                     .navigationTitle(Text("home.title"))
                     .navigationBarTitleDisplayMode(.large)
+                    .transition(.opacity)
+                }
+
+                if showStartCurtain {
+                    StartCurtainView()
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+                        .zIndex(10)
                 }
             }
+            .animation(.easeInOut(duration: 0.55), value: appState.workout.isTracking)
             .onAppear { model.bind(appState: appState) }
+            .onChange(of: appState.workout.isTracking) { _, nowTracking in
+                if nowTracking {
+                    triggerStartCurtain()
+                }
+            }
             .sheet(item: Binding<IdentifiedString?>(
                 get: { model.pendingSurveySessionId.map(IdentifiedString.init) },
                 set: { newValue in model.pendingSurveySessionId = newValue?.id }
@@ -72,10 +102,181 @@ struct HomeView: View {
             .environmentObject(model)
         }
     }
+
+    /// Briefly cover the screen with a dark cinematic curtain when a session
+    /// starts. Two beats: in (~0.4 s) → hold (~1.0 s) → out (~0.6 s) so the
+    /// jump from "Idle home" to "Hero" reads as intentional motion instead
+    /// of a hard cut. Also fires a soft success haptic.
+    private func triggerStartCurtain() {
+        Haptics.tapHeavy()
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 80_000_000)
+            Haptics.success()
+        }
+        withAnimation(.easeOut(duration: 0.45)) {
+            showStartCurtain = true
+        }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_700_000_000)
+            withAnimation(.easeIn(duration: 0.75)) {
+                showStartCurtain = false
+            }
+        }
+    }
+}
+
+/// Dark "settling in" overlay shown for ~1.4 s after Start. Builds in
+/// three layered beats so the cut from "Idle home" to the night Hero feels
+/// cinematic rather than abrupt:
+///   1. A deep gradient washes in (curtain fall).
+///   2. A radial pulse breathes at the centre, scaling up.
+///   3. The brand moon glyph fades in, gently rising, with the localized
+///      "good night" greeting beneath it.
+/// All driven by a single `phase` value so timing stays cheap and easy to
+/// tune. The hero's own starfield + aurora then takes over without any
+/// visible seam — both layers share the same indigo palette.
+private struct StartCurtainView: View {
+    @State private var phase: CGFloat = 0
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.02, green: 0.02, blue: 0.06),
+                    Color(red: 0.05, green: 0.04, blue: 0.12),
+                    Color.black
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            RadialGradient(
+                colors: [
+                    Color(red: 0.45, green: 0.40, blue: 0.85).opacity(0.32),
+                    .clear
+                ],
+                center: .center,
+                startRadius: 0,
+                endRadius: 320
+            )
+            .scaleEffect(0.78 + 0.28 * phase)
+            .blur(radius: 28)
+
+            VStack(spacing: 20) {
+                Image(systemName: "moon.stars.fill")
+                    .font(.system(size: 52, weight: .light))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.98, green: 0.94, blue: 0.84),
+                                Color(red: 0.85, green: 0.82, blue: 0.74)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .shadow(color: Color(red: 0.95, green: 0.85, blue: 0.6).opacity(0.4),
+                            radius: 22, y: 0)
+                    .opacity(Double(phase))
+                    .scaleEffect(0.85 + 0.20 * phase)
+                    .offset(y: (1 - phase) * 16)
+
+                Text("home.start.greeting")
+                    .font(.system(size: 26, weight: .light, design: .default))
+                    .foregroundStyle(.white.opacity(0.88))
+                    .tracking(2)
+                    .opacity(0.2 + 0.8 * Double(phase))
+                    .offset(y: (1 - phase) * 10)
+            }
+        }
+        .preferredColorScheme(.dark)
+        .onAppear {
+            withAnimation(.easeOut(duration: 1.05)) { phase = 1 }
+        }
+    }
 }
 
 private struct IdentifiedString: Identifiable, Hashable {
     let id: String
+}
+
+// MARK: - Sleep plan
+
+private struct SleepPlanCard: View {
+    @EnvironmentObject private var appState: AppState
+
+    var body: some View {
+        let plan = appState.currentSleepPlan()
+        let decision = plan.decision()
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                CardHeader(title: "card.sleepPlan")
+                HStack(spacing: 10) {
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(LocalizedStringKey(plan.autoTrackingEnabled
+                                                    ? "card.sleepPlan.autoOn"
+                                                    : "card.sleepPlan.autoOff"))
+                                .font(.subheadline.weight(.medium))
+                            Text(phaseKey(decision.phase))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: plan.autoTrackingEnabled
+                              ? "checkmark.circle.fill"
+                              : "moon.zzz")
+                            .foregroundStyle(plan.autoTrackingEnabled ? .green : .secondary)
+                    }
+                    Spacer()
+                }
+                HStack(spacing: 10) {
+                    PlanTimePill(title: "card.sleepPlan.bed",
+                                 date: decision.window.bedtime)
+                    PlanTimePill(title: "card.sleepPlan.wake",
+                                 date: decision.window.wakeTime)
+                    PlanTimePill(title: "card.sleepPlan.window",
+                                 value: "\(plan.smartWakeWindowMinutes)m")
+                }
+            }
+        }
+    }
+
+    private func phaseKey(_ phase: SleepPlanPhase) -> LocalizedStringKey {
+        switch phase {
+        case .idle: return "card.sleepPlan.phase.idle"
+        case .windDown: return "card.sleepPlan.phase.windDown"
+        case .scheduledSleep: return "card.sleepPlan.phase.sleep"
+        case .wakeWindow: return "card.sleepPlan.phase.wakeWindow"
+        case .postWake: return "card.sleepPlan.phase.postWake"
+        }
+    }
+}
+
+private struct PlanTimePill: View {
+    let title: LocalizedStringKey
+    var date: Date? = nil
+    var value: String? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            if let date {
+                Text(date, style: .time)
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+            } else {
+                Text(value ?? "—")
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Color(.tertiarySystemGroupedBackground),
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
 }
 
 // MARK: - Tonight status
@@ -85,18 +286,55 @@ private struct TonightStatusCard: View {
     @EnvironmentObject private var model: HomeViewModel
 
     var body: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 18) {
-                Text(eyebrowKey)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                    .tracking(0.5)
+        ZStack(alignment: .topTrailing) {
+            RoundedRectangle(cornerRadius: 34, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+            RoundedRectangle(cornerRadius: 34, style: .continuous)
+                .fill(
+                    LinearGradient(colors: [
+                        Color.accentColor.opacity(appState.latestSummary == nil ? 0.18 : 0.10),
+                        Color.blue.opacity(0.08),
+                        Color.clear
+                    ], startPoint: .topLeading, endPoint: .bottomTrailing)
+                )
+            Circle()
+                .fill(Color.accentColor.opacity(0.16))
+                .frame(width: 180, height: 180)
+                .blur(radius: 34)
+                .offset(x: 76, y: -70)
+                .accessibilityHidden(true)
 
-                heroBlock
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(eyebrowKey)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+                            .tracking(0.6)
+                        Text(heroTitle)
+                            .font(.system(size: 40, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.primary)
+                            .minimumScaleFactor(0.76)
+                            .lineLimit(2)
+                    }
+                    Spacer(minLength: 12)
+                    Image(systemName: appState.latestSummary == nil ? "moon.stars.fill" : "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 32, weight: .semibold))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: 54, height: 54)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+
+                Text(heroSubtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 HStack(spacing: 6) {
                     StatusDot(color: statusColor)
+                        .animation(.easeInOut(duration: 0.4), value: statusColor)
                     Text(statusTitle)
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
@@ -114,47 +352,86 @@ private struct TonightStatusCard: View {
                             .monospacedDigit()
                     }
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(.thinMaterial, in: Capsule())
+
+                HStack(spacing: 10) {
+                    HeroInfoPill(symbol: "applewatch",
+                                 title: "home.hero.watch",
+                                 value: appState.router.watchReachable
+                                 ? "card.deviceSync.live"
+                                 : "card.deviceSync.offline",
+                                 tint: appState.router.watchReachable ? .green : .secondary)
+                    HeroInfoPill(symbol: "calendar.badge.clock",
+                                 title: "home.hero.plan",
+                                 value: appState.currentSleepPlan().autoTrackingEnabled
+                                 ? "card.sleepPlan.autoOn"
+                                 : "card.sleepPlan.autoOff",
+                                 tint: appState.currentSleepPlan().autoTrackingEnabled ? .blue : .secondary)
+                }
+
+                if needsHealthPermission {
+                    HealthPermissionBanner()
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
 
                 Button(action: {
+                    Haptics.tapRigid()
                     Task { await model.toggleSession() }
                 }) {
-                    Text(appState.workout.isTracking ? LocalizedStringKey("home.action.stop") : LocalizedStringKey("home.action.start"))
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                    HStack(spacing: 10) {
+                        Image(systemName: appState.workout.isTracking ? "stop.fill" : "bed.double.fill")
+                            .font(.subheadline.weight(.semibold))
+                        Text(appState.workout.isTracking
+                             ? LocalizedStringKey("home.action.stop")
+                             : LocalizedStringKey("home.action.start"))
+                            .font(.headline)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(appState.workout.isTracking ? .red : .accentColor)
+                .buttonStyle(PressableProminentButtonStyle(tint: appState.workout.isTracking ? .red : .primary))
                 .disabled(model.isPreparingPermissions)
             }
+            .padding(.horizontal, 22)
+            .padding(.vertical, 22)
+            .animation(.easeInOut(duration: 0.35), value: appState.workout.isTracking)
+            .animation(.easeInOut(duration: 0.35), value: needsHealthPermission)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 34, style: .continuous)
+                .stroke(
+                    LinearGradient(colors: [
+                        .white.opacity(0.58),
+                        Color(.separator).opacity(0.12),
+                        .white.opacity(0.05)
+                    ], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1
+                )
+        }
+        .shadow(color: .black.opacity(0.06), radius: 18, y: 8)
+    }
+
+    private var needsHealthPermission: Bool {
+        appState.healthAuthorization == .sharingDenied && !appState.workout.isTracking
+    }
+
+    private var heroTitle: LocalizedStringKey {
+        if appState.workout.isTracking {
+            return stageKey
+        } else if let s = appState.latestSummary {
+            return LocalizedStringKey(String(format: NSLocalizedString("home.hero.scoreFormat", comment: ""), s.sleepScore))
+        } else {
+            return "home.hero.readyTitle"
         }
     }
 
-    /// The big focal element of the card. Three modes:
-    /// - tracking → current sleep stage label (e.g. "Light")
-    /// - ended    → numeric sleep score (e.g. "87")
-    /// - idle     → calm "Ready" greeting
-    @ViewBuilder
-    private var heroBlock: some View {
-        if appState.workout.isTracking {
-            Text(stageKey)
-                .font(.system(size: 48, weight: .semibold, design: .rounded))
-                .foregroundStyle(.primary)
-        } else if let s = appState.latestSummary {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text("\(s.sleepScore)")
-                    .font(.system(size: 64, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.primary)
-                    .monospacedDigit()
-                Text("card.lastSession.score")
-                    .font(.callout)
-                    .foregroundStyle(.tertiary)
-            }
-        } else {
-            Text("home.stage.ready")
-                .font(.system(size: 36, weight: .semibold, design: .rounded))
-                .foregroundStyle(.primary)
-        }
+    private var heroSubtitle: LocalizedStringKey {
+        if appState.workout.isTracking { return "home.hero.trackingSubtitle" }
+        if appState.latestSummary != nil { return "home.hero.lastSubtitle" }
+        return "home.hero.readySubtitle"
     }
 
     private var statusColor: Color {
@@ -181,7 +458,10 @@ private struct TonightStatusCard: View {
             switch appState.workout.source {
             case .idle: return nil
             case .localPhone: return "home.source.iphone"
-            case .remoteWatch: return "home.source.watch"
+            case .remoteWatch:
+                return appState.router.lastBatchAt == nil
+                    ? "home.source.watchWaiting"
+                    : "home.source.watch"
             }
         }
         if let s = appState.latestSummary {
@@ -213,50 +493,191 @@ private struct TonightStatusCard: View {
     }
 }
 
+private struct HeroInfoPill: View {
+    let symbol: String
+    let title: LocalizedStringKey
+    let value: LocalizedStringKey
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.tertiary)
+                Text(value)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+// MARK: - Cycle & vitals
+
+private struct CycleRhythmCard: View {
+    @AppStorage(UserProfileGender.storageKey) private var profileGenderRaw = UserProfileGender.notDisclosed.rawValue
+
+    var body: some View {
+        if profileGenderRaw == UserProfileGender.female.rawValue {
+            Card {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: "waveform.path.ecg.rectangle")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.pink)
+                            .frame(width: 42, height: 42)
+                            .background(Color.pink.opacity(0.12), in: Circle())
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 8) {
+                                Text("cycle.card.title")
+                                    .font(.headline)
+                                Text("cycle.card.badge")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(.pink)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.pink.opacity(0.10), in: Capsule())
+                            }
+                            Text("cycle.card.subtitle")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+
+                    HStack(spacing: 8) {
+                        CycleSignalPill(symbol: "moon.zzz", text: "cycle.signal.sleep")
+                        CycleSignalPill(symbol: "heart.fill", text: "cycle.signal.vitals")
+                        CycleSignalPill(symbol: "thermometer.medium", text: "cycle.signal.temperature")
+                    }
+
+                    Text("cycle.card.disclaimer")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+}
+
+private struct CycleSignalPill: View {
+    let symbol: String
+    let text: LocalizedStringKey
+
+    var body: some View {
+        VStack(spacing: 5) {
+            Image(systemName: symbol)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.pink)
+            Text(text)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 9)
+        .background(Color(.tertiarySystemGroupedBackground),
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
 // MARK: - Smart alarm
 
 private struct SmartAlarmCard: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var model: HomeViewModel
+    @State private var showingWakePicker: Bool = false
+
+    var body: some View {
+        // Observe the controller directly so binding writes through
+        // `$appState.alarm.target` / `.windowMinutes` actually re-render the
+        // display labels — `appState.alarm` is a nested ObservableObject and
+        // its publishes don't bubble up through `AppState.objectWillChange`.
+        SmartAlarmCardBody(
+            alarm: appState.alarm,
+            showingWakePicker: $showingWakePicker,
+            dismiss: { model.dismissAlarmFromPhone() }
+        )
+        .sheet(isPresented: $showingWakePicker) {
+            WakeTimeSheet(target: $appState.alarm.target)
+                .presentationDetents([.height(320)])
+                .presentationDragIndicator(.visible)
+        }
+    }
+}
+
+private struct SmartAlarmCardBody: View {
+    @ObservedObject var alarm: SmartAlarmController
+    @Binding var showingWakePicker: Bool
+    var dismiss: () -> Void
 
     var body: some View {
         Card {
             VStack(alignment: .leading, spacing: 12) {
                 CardHeader(title: "card.smartAlarm")
 
-                Toggle("card.smartAlarm.enabled", isOn: $appState.alarm.isEnabled)
+                Toggle("card.smartAlarm.enabled", isOn: $alarm.isEnabled)
                     .tint(.accentColor)
 
-                DatePicker(
-                    "card.smartAlarm.wakeBy",
-                    selection: $appState.alarm.target,
-                    displayedComponents: [.hourAndMinute]
-                )
-                .disabled(!appState.alarm.isEnabled)
+                // Tappable row that opens a half-sheet wheel picker — same
+                // affordance Apple's Clock app uses. A bare `.compact`
+                // DatePicker felt locked-in on iPhone; this gives a clear
+                // "tap to change" target with a native picker behind it.
+                Button {
+                    Haptics.tapSoft()
+                    showingWakePicker = true
+                } label: {
+                    HStack {
+                        Text("card.smartAlarm.wakeBy")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Text(alarm.target, style: .time)
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(.tint)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
 
                 Stepper(
                     String(format: NSLocalizedString("card.smartAlarm.windowFmt", comment: ""),
-                           appState.alarm.windowMinutes),
-                    value: $appState.alarm.windowMinutes,
+                           alarm.windowMinutes),
+                    value: $alarm.windowMinutes,
                     in: 5...45,
                     step: 5
                 )
-                .disabled(!appState.alarm.isEnabled)
 
                 Divider().opacity(0.5)
 
                 HStack {
                     Text("card.smartAlarm.state").foregroundStyle(.secondary).font(.subheadline)
                     Spacer()
-                    Text(alarmLabel(appState.alarm.state))
+                    Text(alarmLabel(alarm.state))
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(alarmColor(appState.alarm.state))
+                        .foregroundStyle(alarmColor(alarm.state))
                 }
 
-                if appState.alarm.state == .triggered
-                    || appState.alarm.state == .failedWatchUnreachable {
+                if alarm.state == .triggered
+                    || alarm.state == .failedWatchUnreachable {
                     Button(role: .destructive) {
-                        model.dismissAlarmFromPhone()
+                        Haptics.tapHeavy()
+                        dismiss()
                     } label: {
                         Text("card.smartAlarm.dismiss")
                             .frame(maxWidth: .infinity)
@@ -272,9 +693,9 @@ private struct SmartAlarmCard: View {
                 }
             }
             .modifier(ShakeToSnoozeModifier(
-                isActive: appState.alarm.state == .triggered
-                    || appState.alarm.state == .failedWatchUnreachable,
-                onShake: { model.dismissAlarmFromPhone() }
+                isActive: alarm.state == .triggered
+                    || alarm.state == .failedWatchUnreachable,
+                onShake: dismiss
             ))
         }
     }
@@ -295,6 +716,38 @@ private struct SmartAlarmCard: View {
         case .armed: return .blue
         case .triggered: return .red
         case .failedWatchUnreachable: return .orange
+        }
+    }
+}
+
+/// Half-sheet wheel picker that mirrors the Clock app's "Wake Up" sheet.
+/// The wheel is the spinning DatePicker style — what users expect from a
+/// time-of-day control on iPhone.
+private struct WakeTimeSheet: View {
+    @Binding var target: Date
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack {
+                DatePicker(
+                    "",
+                    selection: $target,
+                    displayedComponents: [.hourAndMinute]
+                )
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .padding(.top, 4)
+                Spacer(minLength: 0)
+            }
+            .navigationTitle(Text("card.smartAlarm.wakeBy"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("common.done") { dismiss() }
+                        .fontWeight(.semibold)
+                }
+            }
         }
     }
 }
@@ -438,40 +891,110 @@ private struct InsightRow: View {
         case "duration.short": return "moon.zzz"
         case "deep.low":       return "waveform.path.ecg"
         case "wake.high":      return "exclamationmark.triangle"
-        default:               return "lightbulb"
+        default:               return "sparkles"
         }
     }
 }
 
 // MARK: - Device & sync
 
+/// Quiet, premium status card that *summarises connectivity* at a glance,
+/// then dives into details on tap. The collapsed state shows an
+/// expressive watch glyph + a single live status line; the expanded state
+/// reveals the full breakdown (last sync, model backend) plus a refresh
+/// affordance. Designed to read like a system widget — you can tell at a
+/// glance whether the night will record properly.
 private struct DeviceSyncCard: View {
     @EnvironmentObject private var appState: AppState
+    @State private var expanded: Bool = false
 
     var body: some View {
         Card {
-            VStack(spacing: 10) {
-                CardHeader(title: "card.deviceSync")
+            VStack(spacing: 14) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.28)) { expanded.toggle() }
+                    Haptics.selection()
+                } label: {
+                    HStack(spacing: 14) {
+                        watchGlyph
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("card.deviceSync")
+                                .font(.subheadline.weight(.semibold))
+                                .textCase(.uppercase)
+                                .tracking(0.5)
+                                .foregroundStyle(.secondary)
+                            HStack(spacing: 6) {
+                                StatusDot(color: appState.router.watchReachable ? .green : .secondary)
+                                Text(headlineKey)
+                                    .font(.body.weight(.medium))
+                                    .foregroundStyle(.primary)
+                            }
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                            .rotationEffect(.degrees(expanded ? 180 : 0))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
 
-                Row(label: "home.source.watch",
-                    value: appState.router.watchReachable
-                        ? NSLocalizedString("card.deviceSync.reachable", comment: "")
-                        : NSLocalizedString("card.deviceSync.no", comment: ""),
-                    valueColor: appState.router.watchReachable ? .green : .secondary)
-                Row(label: "card.deviceSync.lastSync", value: relativeDate(appState.router.lastBatchAt))
-                Row(label: "settings.section.model",
-                    value: appState.inferencePipeline.descriptor.isRealModel
-                        ? NSLocalizedString("settings.model.coreml", comment: "")
-                        : NSLocalizedString("settings.model.heuristic", comment: ""),
-                    valueColor: appState.inferencePipeline.descriptor.isRealModel ? .green : .orange)
+                if expanded {
+                    VStack(spacing: 10) {
+                        Divider().opacity(0.5)
+                        Row(label: "card.deviceSync.lastSync",
+                            value: relativeDate(appState.router.lastBatchAt))
+                        Row(label: "settings.section.model",
+                            value: appState.inferencePipeline.descriptor.isRealModel
+                                ? NSLocalizedString("settings.model.coreml", comment: "")
+                                : NSLocalizedString("settings.model.heuristic", comment: ""),
+                            valueColor: appState.inferencePipeline.descriptor.isRealModel ? .green : .orange)
+                        Row(label: "card.deviceSync.region",
+                            value: regionLabel)
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             }
         }
     }
 
+    /// SF Symbol that breathes when the watch is reachable — tiny ambient
+    /// pulse that confirms "we're live" without a noisy badge.
+    private var watchGlyph: some View {
+        ZStack {
+            Circle()
+                .fill(appState.router.watchReachable
+                      ? Color.green.opacity(0.14)
+                      : Color.secondary.opacity(0.10))
+                .frame(width: 44, height: 44)
+            Image(systemName: "applewatch.radiowaves.left.and.right")
+                .font(.title3.weight(.medium))
+                .foregroundStyle(appState.router.watchReachable ? .green : .secondary)
+                .symbolEffect(
+                    .variableColor.iterative.dimInactiveLayers,
+                    isActive: appState.router.watchReachable
+                )
+        }
+    }
+
+    private var headlineKey: LocalizedStringKey {
+        appState.router.watchReachable
+            ? "card.deviceSync.live"
+            : "card.deviceSync.offline"
+    }
+
+    private var regionLabel: String {
+        switch SleepAIRegion.current {
+        case .mainlandChina: return NSLocalizedString("card.deviceSync.region.cn", comment: "")
+        case .global:        return NSLocalizedString("card.deviceSync.region.global", comment: "")
+        }
+    }
 }
 
 // MARK: - Developer debug (collapsed)
 
+#if DEBUG
 private struct DeveloperDebugCard: View {
     @EnvironmentObject private var appState: AppState
     @State private var expanded: Bool = false
@@ -553,6 +1076,7 @@ private struct DeveloperDebugCard: View {
         }
     }
 }
+#endif
 
 // MARK: - Generic UI atoms
 
@@ -644,9 +1168,10 @@ private struct ScoreRing: View {
                     .monospacedDigit()
                     .foregroundStyle(.primary)
                 Text("card.lastSession.score")
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.tertiary)
                     .textCase(.uppercase)
+                    .tracking(0.4)
             }
         }
     }
@@ -739,5 +1264,65 @@ private struct ShakeToSnoozeModifier: ViewModifier {
         if isActive {
             detector.start { onShake() }
         }
+    }
+}
+
+// MARK: - Polished prominent button
+
+/// A `.borderedProminent`-style button with subtle press feedback —
+/// 0.97 scale + soft opacity dip — so the start/stop control feels
+/// tactile rather than flat.
+private struct PressableProminentButtonStyle: ButtonStyle {
+    let tint: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(.white)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(tint.opacity(configuration.isPressed ? 0.85 : 1.0))
+            )
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(.easeOut(duration: 0.18), value: configuration.isPressed)
+    }
+}
+
+// MARK: - Permission banner
+
+/// Inline nudge that appears when HealthKit heart-rate read access is
+/// denied. Tapping deep-links into iOS Settings.app for the user; on
+/// returning to the foreground `AppState.appForeground()` re-polls and
+/// the banner self-dismisses without any restart.
+private struct HealthPermissionBanner: View {
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "heart.text.square")
+                .font(.title3)
+                .foregroundStyle(.pink)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("home.permission.title")
+                    .font(.subheadline.weight(.semibold))
+                Text("home.permission.body")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            Button {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            } label: {
+                Text("home.permission.open")
+                    .font(.footnote.weight(.semibold))
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.pink.opacity(0.08))
+        )
     }
 }

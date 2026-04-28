@@ -1,4 +1,4 @@
-Sleep is a quiet sleep tracker that runs entirely on your iPhone and Apple Watch.
+Circadia is a quiet sleep tracker that runs entirely on your iPhone and Apple Watch.
 
 WHY SLEEP
 
@@ -12,7 +12,7 @@ WHAT YOU GET
 · Smart wake. The Apple Watch buzzes gently inside a window you choose, when you are in light sleep.
 · Trends. A simple weekly score line and stage composition for the last 7 to 30 nights.
 · Wake-up survey. A two-tap morning check-in that quietly personalizes the model to you over time.
-· Sleep notes. Tag caffeine, alcohol, exercise, stress, travel, and more — see what affects your nights.
+· Circadia notes. Tag caffeine, alcohol, exercise, stress, travel, and more — see what affects your nights.
 
 PRIVACY PROMISES
 
@@ -22,7 +22,7 @@ PRIVACY PROMISES
 
 NOT A MEDICAL DEVICE
 
-Sleep is for personal wellness. It is not intended to diagnose, treat, cure, or prevent any disease. Do not rely on the smart alarm if missing it would cause harm.
+Circadia is for personal wellness. It is not intended to diagnose, treat, cure, or prevent any disease. Do not rely on the smart alarm if missing it would cause harm.
 
 REQUIREMENTS
 

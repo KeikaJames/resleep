@@ -136,9 +136,23 @@ public actor PersistentPersonalizationStore: PersonalizationStoreProtocol {
         encoder.outputFormatting = [.sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         guard let data = try? encoder.encode(cache) else { return }
-        let tmp = fileURL.appendingPathExtension("tmp")
-        try? data.write(to: tmp, options: .atomic)
-        _ = try? FileManager.default.replaceItemAt(fileURL, withItemAt: tmp)
+        // Ensure the parent directory exists before any write attempt — the
+        // sandbox container may not have it on first launch.
+        let parent = fileURL.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: parent,
+                                                 withIntermediateDirectories: true)
+        // Atomic write straight to the destination handles the first-write
+        // case (where there is no existing file to "replace"). On
+        // subsequent writes this still goes through Foundation's safe-save
+        // path (write to temp, fsync, rename) under the hood.
+        do {
+            try data.write(to: fileURL, options: .atomic)
+        } catch {
+            // Last-ditch fallback: write next to the destination so we do
+            // not silently lose user labels if the primary write fails.
+            let fallback = fileURL.appendingPathExtension("recovery")
+            try? data.write(to: fallback, options: .atomic)
+        }
     }
 
     public func loadVector() -> PersonalizationVector {
