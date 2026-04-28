@@ -33,11 +33,11 @@
 "onboarding.back" = "Back";
 "onboarding.welcome.title" = "Sleep, on your device.";
 "onboarding.welcome.body"  = "A quiet way to understand your nights. Heart rate, motion, and breathing — analyzed locally on your iPhone.";
-"onboarding.gender.title" = "Personalize your sleep baseline.";
-"onboarding.gender.body" = "Choose the option that best fits you. This is optional and only used on this device.";
-"onboarding.gender.footer" = "You can change this later in Settings → Personal Information.";
-"profile.gender.male" = "Male";
-"profile.gender.female" = "Female";
+"onboarding.gender.title" = "Choose how to be addressed.";
+"onboarding.gender.body" = "Used to personalize your sleep baseline. You can also choose not to say.";
+"onboarding.gender.footer" = "You can change this later in Settings.";
+"profile.gender.male" = "Man";
+"profile.gender.female" = "Woman";
 "profile.gender.notDisclosed" = "Prefer Not to Say";
 "onboarding.privacy.title" = "Your data stays here.";
 "onboarding.privacy.b1" = "All processing happens on this iPhone and Apple Watch.";
@@ -177,7 +177,7 @@
 "settings.profile.avatar.remove" = "Remove photo";
 "settings.profile.nickname" = "Nickname";
 "settings.profile.nickname.placeholder" = "Optional";
-"settings.profile.gender" = "Gender";
+"settings.profile.gender" = "How to Address You";
 "settings.profile.birthday" = "Birthday";
 "settings.profile.birthday.add" = "Add Birthday";
 "settings.profile.birthday.clear" = "Clear Birthday";

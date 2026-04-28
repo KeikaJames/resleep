@@ -224,252 +224,122 @@ private struct WelcomePage: View {
 private struct GenderSelectionPage: View {
     @Binding var selection: UserProfileGender
 
-    private let columns = [
-        GridItem(.flexible(), spacing: 12),
-        GridItem(.flexible(), spacing: 12)
-    ]
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Spacer(minLength: 18)
-            Image(systemName: "person.crop.circle.badge.checkmark")
-                .font(.system(size: 46, weight: .light))
-                .foregroundStyle(.tint)
-            Text("onboarding.gender.title")
-                .font(.largeTitle.weight(.bold))
-                .multilineTextAlignment(.leading)
-            Text("onboarding.gender.body")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+        GeometryReader { proxy in
+            let portraitSide = min(max(proxy.size.height * 0.34, 220), 300)
 
-            LazyVGrid(columns: columns, spacing: 12) {
-                GenderOptionCard(kind: .male, selection: $selection)
-                GenderOptionCard(kind: .female, selection: $selection)
+            VStack(spacing: 0) {
+                Spacer(minLength: 22)
+
+                VStack(spacing: 10) {
+                    Text("onboarding.gender.title")
+                        .font(.largeTitle.weight(.bold))
+                        .multilineTextAlignment(.center)
+                    Text("onboarding.gender.body")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 30)
+
+                Spacer(minLength: 18)
+
+                Image(selection.onboardingAssetName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: portraitSide, height: portraitSide)
+                    .id(selection)
+                    .transition(.opacity.combined(with: .scale(scale: 0.985)))
+                    .animation(.smooth(duration: 0.22), value: selection)
+                    .accessibilityHidden(true)
+
+                Spacer(minLength: 22)
+
+                VStack(spacing: 0) {
+                    ForEach(UserProfileGender.allCases, id: \.self) { gender in
+                        GenderOptionRow(kind: gender, selection: $selection)
+                        if gender != .notDisclosed {
+                            Divider()
+                                .padding(.leading, 70)
+                        }
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .fill(Color(.secondarySystemBackground))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .stroke(Color(.separator).opacity(0.12), lineWidth: 1)
+                )
+                .padding(.horizontal, 26)
+
+                Text("onboarding.gender.footer")
+                    .font(.footnote)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 12)
+                    .padding(.horizontal, 30)
+
+                Spacer(minLength: 18)
             }
-            GenderOptionCard(kind: .notDisclosed, selection: $selection, compact: true)
-
-            Text("onboarding.gender.footer")
-                .font(.footnote)
-                .foregroundStyle(.tertiary)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(.horizontal, 28)
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-private struct GenderOptionCard: View {
+private struct GenderOptionRow: View {
     let kind: UserProfileGender
     @Binding var selection: UserProfileGender
-    var compact: Bool = false
 
     private var isSelected: Bool { selection == kind }
 
     var body: some View {
         Button {
-            withAnimation(.snappy(duration: 0.22)) { selection = kind }
+            withAnimation(.smooth(duration: 0.2)) { selection = kind }
         } label: {
-            VStack(spacing: compact ? 8 : 12) {
-                if compact {
-                    HStack(spacing: 12) {
-                        GenderPortraitGlyph(kind: kind)
-                            .frame(width: 54, height: 54)
-                        Text(LocalizedStringKey(kind.titleKey))
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        checkmark
-                    }
-                } else {
-                    GenderPortraitGlyph(kind: kind)
-                        .frame(height: 108)
-                    HStack {
-                        Text(LocalizedStringKey(kind.titleKey))
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        checkmark
-                    }
-                }
+            HStack(spacing: 14) {
+                Image(kind.onboardingAssetName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 36, height: 36)
+                    .padding(6)
+                    .background(
+                        Circle()
+                            .fill(Color(.tertiarySystemBackground))
+                    )
+
+                Text(LocalizedStringKey(kind.titleKey))
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(.primary)
+
+                Spacer()
+
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary.opacity(0.34))
             }
-            .padding(compact ? 14 : 16)
-            .frame(maxWidth: .infinity, minHeight: compact ? 80 : 170)
-            .background(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color(.secondarySystemBackground))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(isSelected ? Color.accentColor : Color(.separator).opacity(0.18),
-                            lineWidth: isSelected ? 2 : 1)
-            )
-            .shadow(color: .black.opacity(isSelected ? 0.08 : 0.035),
-                    radius: isSelected ? 14 : 8,
-                    y: isSelected ? 8 : 4)
+            .frame(height: 64)
+            .padding(.horizontal, 14)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(LocalizedStringKey(kind.titleKey)))
     }
-
-    @ViewBuilder
-    private var checkmark: some View {
-        if isSelected {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.tint)
-        } else {
-            Image(systemName: "circle")
-                .font(.title3.weight(.regular))
-                .foregroundStyle(.tertiary)
-        }
-    }
 }
 
-private struct GenderPortraitGlyph: View {
-    let kind: UserProfileGender
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color(.systemBackground))
-            switch kind {
-            case .male:
-                MaleGlyph()
-                    .padding(16)
-            case .female:
-                FemaleGlyph()
-                    .padding(14)
-            case .notDisclosed:
-                Image(systemName: "person.crop.circle.badge.questionmark")
-                    .font(.system(size: 34, weight: .regular))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(.primary)
-            }
-        }
-        .aspectRatio(1, contentMode: .fit)
-    }
-}
-
-private struct MaleGlyph: View {
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            ZStack {
-                sparkle(in: geo.size)
-
-                Path { p in
-                    p.move(to: CGPoint(x: w * 0.42, y: h * 0.25))
-                    p.addLine(to: CGPoint(x: w * 0.80, y: h * 0.25))
-                    p.addQuadCurve(to: CGPoint(x: w * 0.90, y: h * 0.58),
-                                   control: CGPoint(x: w * 0.96, y: h * 0.34))
-                    p.addQuadCurve(to: CGPoint(x: w * 0.58, y: h * 0.42),
-                                   control: CGPoint(x: w * 0.76, y: h * 0.46))
-                    p.addQuadCurve(to: CGPoint(x: w * 0.42, y: h * 0.25),
-                                   control: CGPoint(x: w * 0.44, y: h * 0.39))
-                }
-                .fill(Color.primary)
-
-                Path { p in
-                    p.move(to: CGPoint(x: w * 0.47, y: h * 0.34))
-                    p.addLine(to: CGPoint(x: w * 0.28, y: h * 0.64))
-                    p.addLine(to: CGPoint(x: w * 0.42, y: h * 0.64))
-                    p.addLine(to: CGPoint(x: w * 0.42, y: h * 0.80))
-                    p.addLine(to: CGPoint(x: w * 0.72, y: h * 0.76))
-                    p.addLine(to: CGPoint(x: w * 0.72, y: h * 0.90))
-                    p.addLine(to: CGPoint(x: w * 0.46, y: h * 0.94))
-                    p.addLine(to: CGPoint(x: w * 0.46, y: h * 0.70))
-                    p.addLine(to: CGPoint(x: w * 0.34, y: h * 0.70))
-                    p.closeSubpath()
-                }
-                .fill(Color.primary)
-
-                Path { p in
-                    p.move(to: CGPoint(x: w * 0.50, y: h * 0.56))
-                    p.addQuadCurve(to: CGPoint(x: w * 0.64, y: h * 0.56),
-                                   control: CGPoint(x: w * 0.57, y: h * 0.64))
-                }
-                .stroke(Color.primary, style: StrokeStyle(lineWidth: max(3, w * 0.045),
-                                                          lineCap: .round))
-            }
+private extension UserProfileGender {
+    var onboardingAssetName: String {
+        switch self {
+        case .male:
+            return "OnboardingGenderMale"
+        case .female:
+            return "OnboardingGenderFemale"
+        case .notDisclosed:
+            return "OnboardingGenderUndisclosed"
         }
     }
-}
-
-private struct FemaleGlyph: View {
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            ZStack {
-                sparkle(in: geo.size)
-
-                Path { p in
-                    p.move(to: CGPoint(x: w * 0.47, y: h * 0.28))
-                    p.addQuadCurve(to: CGPoint(x: w * 0.88, y: h * 0.68),
-                                   control: CGPoint(x: w * 0.86, y: h * 0.20))
-                    p.addQuadCurve(to: CGPoint(x: w * 0.54, y: h * 0.86),
-                                   control: CGPoint(x: w * 0.74, y: h * 0.86))
-                    p.addQuadCurve(to: CGPoint(x: w * 0.42, y: h * 0.62),
-                                   control: CGPoint(x: w * 0.35, y: h * 0.74))
-                    p.addLine(to: CGPoint(x: w * 0.35, y: h * 0.36))
-                    p.closeSubpath()
-                }
-                .fill(Color.primary)
-
-                Path { p in
-                    p.move(to: CGPoint(x: w * 0.42, y: h * 0.34))
-                    p.addLine(to: CGPoint(x: w * 0.72, y: h * 0.62))
-                    p.addQuadCurve(to: CGPoint(x: w * 0.53, y: h * 0.74),
-                                   control: CGPoint(x: w * 0.67, y: h * 0.74))
-                    p.addQuadCurve(to: CGPoint(x: w * 0.44, y: h * 0.58),
-                                   control: CGPoint(x: w * 0.42, y: h * 0.70))
-                    p.addLine(to: CGPoint(x: w * 0.42, y: h * 0.34))
-                }
-                .fill(Color(.systemBackground))
-
-                Path { p in
-                    p.move(to: CGPoint(x: w * 0.36, y: h * 0.58))
-                    p.addQuadCurve(to: CGPoint(x: w * 0.28, y: h * 0.94),
-                                   control: CGPoint(x: w * 0.14, y: h * 0.76))
-                    p.addQuadCurve(to: CGPoint(x: w * 0.64, y: h * 0.82),
-                                   control: CGPoint(x: w * 0.44, y: h * 0.78))
-                    p.addQuadCurve(to: CGPoint(x: w * 0.50, y: h * 0.66),
-                                   control: CGPoint(x: w * 0.58, y: h * 0.68))
-                    p.closeSubpath()
-                }
-                .fill(Color.primary)
-
-                Path { p in
-                    p.move(to: CGPoint(x: w * 0.50, y: h * 0.56))
-                    p.addQuadCurve(to: CGPoint(x: w * 0.62, y: h * 0.56),
-                                   control: CGPoint(x: w * 0.56, y: h * 0.62))
-                }
-                .stroke(Color.primary, style: StrokeStyle(lineWidth: max(3, w * 0.043),
-                                                          lineCap: .round))
-            }
-        }
-    }
-}
-
-private func sparkle(in size: CGSize) -> some View {
-    Path { p in
-        let cx = size.width * 0.22
-        let cy = size.height * 0.22
-        let r = size.width * 0.10
-        p.move(to: CGPoint(x: cx, y: cy - r))
-        p.addQuadCurve(to: CGPoint(x: cx + r, y: cy),
-                       control: CGPoint(x: cx + r * 0.22, y: cy - r * 0.22))
-        p.addQuadCurve(to: CGPoint(x: cx, y: cy + r),
-                       control: CGPoint(x: cx + r * 0.22, y: cy + r * 0.22))
-        p.addQuadCurve(to: CGPoint(x: cx - r, y: cy),
-                       control: CGPoint(x: cx - r * 0.22, y: cy + r * 0.22))
-        p.addQuadCurve(to: CGPoint(x: cx, y: cy - r),
-                       control: CGPoint(x: cx - r * 0.22, y: cy - r * 0.22))
-    }
-    .fill(Color.primary)
 }
 
 private struct PrivacyPage: View {
