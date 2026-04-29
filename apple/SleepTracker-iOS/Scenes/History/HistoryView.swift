@@ -96,6 +96,9 @@ private struct PassiveNightsSection: View {
 
 private struct PassiveNightRow: View {
     let night: PassiveSleepNight
+    private var evidence: NightEvidenceAssessment {
+        NightEvidence(passiveNight: night).assessment
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
@@ -107,19 +110,9 @@ private struct PassiveNightRow: View {
                     .font(.subheadline)
                     .foregroundStyle(.tertiary)
                 HStack(spacing: 6) {
-                    Image(systemName: night.isAppleWatchOriginated ? "applewatch.watchface" : "heart.text.square")
-                        .font(.caption2.weight(.semibold))
-                    Text(night.isAppleWatchOriginated
-                         ? NSLocalizedString("history.passive.source.appleWatch", comment: "")
-                         : NSLocalizedString("history.passive.source.health", comment: ""))
-                        .font(.caption2.weight(.semibold))
+                    passiveBadge
+                    confidenceBadge
                 }
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(
-                    Capsule().fill(Color.accentColor.opacity(0.10))
-                )
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
@@ -142,6 +135,35 @@ private struct PassiveNightRow: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(Color.accentColor.opacity(0.16), lineWidth: 1)
         )
+    }
+
+    private var passiveBadge: some View {
+        HStack(spacing: 5) {
+            Image(systemName: night.isAppleWatchOriginated ? "applewatch.watchface" : "heart.text.square")
+                .font(.caption2.weight(.semibold))
+            Text(night.isAppleWatchOriginated
+                 ? NSLocalizedString("history.passive.source.appleWatch", comment: "")
+                 : NSLocalizedString("history.passive.source.health", comment: ""))
+                .font(.caption2.weight(.semibold))
+        }
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(Capsule().fill(Color.accentColor.opacity(0.10)))
+    }
+
+    private var confidenceBadge: some View {
+        Text(String(format: NSLocalizedString("history.evidence.confidence", comment: ""),
+                    evidence.confidencePercent))
+            .font(.caption2.weight(.semibold))
+            .monospacedDigit()
+            .foregroundStyle(evidence.quality == .low ? .orange : .secondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(
+                Capsule().fill((evidence.quality == .low ? Color.orange : Color.accentColor)
+                    .opacity(0.10))
+            )
     }
 }
 

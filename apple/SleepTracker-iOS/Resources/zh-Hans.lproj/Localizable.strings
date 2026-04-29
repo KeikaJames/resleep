@@ -157,6 +157,7 @@
 "card.sleepPlan.phase.sleep" = "处于计划睡眠时段。";
 "card.sleepPlan.phase.wakeWindow" = "处于智能唤醒窗口。";
 "card.sleepPlan.phase.postWake" = "早晨收尾窗口。";
+"card.protocolCheckIn" = "协议打卡";
 
 "card.lastSession"        = "上次睡眠";
 "card.lastSession.total"  = "总睡眠";
@@ -231,7 +232,7 @@
 "settings.section.privacy"   = "隐私";
 "settings.privacy.audio.title" = "不录原始音频";
 "settings.privacy.audio.body"  = "鼾声仅在本地处理，我们不会收集您的原始录音。";
-"settings.cloudSync"         = "云端同步（暂未提供）";
+"settings.cloudSync"         = "云端同步（不支持）";
 "settings.section.insights"  = "洞察";
 "settings.snoreDetection"    = "鼾声检测";
 "settings.personalization"   = "本地个性化";
@@ -287,6 +288,7 @@
 "history.passive.source.appleWatch" = "Apple Watch";
 "history.passive.source.health" = "Apple 健康";
 "history.passive.asleep" = "睡眠";
+"history.evidence.confidence" = "%d%% 置信度";
 
 // Session Detail
 "detail.title"           = "会话";
@@ -357,6 +359,8 @@
 "ai.suggestion.trend"              = "最近有什么变化？";
 "ai.suggestion.factors"            = "什么影响了睡眠？";
 "ai.suggestion.advice"             = "睡得更好的建议";
+"ai.suggestion.jetLag"             = "规划倒时差";
+"ai.suggestion.memory"             = "记忆睡眠方案";
 "ai.suggestion.howItWorks"         = "这是怎么工作的？";
 "ai.suggestion.whatTracked"        = "都追踪了什么？";
 

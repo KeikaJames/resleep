@@ -157,6 +157,7 @@
 "card.sleepPlan.phase.sleep" = "Scheduled sleep window.";
 "card.sleepPlan.phase.wakeWindow" = "Smart wake window.";
 "card.sleepPlan.phase.postWake" = "Morning wrap-up window.";
+"card.protocolCheckIn" = "Protocol Check-in";
 
 "card.lastSession"        = "Last Session";
 "card.lastSession.total"  = "Total sleep";
@@ -231,7 +232,7 @@
 "settings.section.privacy"   = "Privacy";
 "settings.privacy.audio.title" = "Audio is never recorded";
 "settings.privacy.audio.body"  = "Snore-like sounds are processed locally. Raw audio is never saved or uploaded.";
-"settings.cloudSync"         = "Cloud sync (not in this build)";
+"settings.cloudSync"         = "Cloud sync (not supported)";
 "settings.section.insights"  = "Insights";
 "settings.snoreDetection"    = "Snore detection";
 "settings.personalization"   = "On-device personalization";
@@ -287,6 +288,7 @@
 "history.passive.source.appleWatch" = "Apple Watch";
 "history.passive.source.health" = "Apple Health";
 "history.passive.asleep" = "Asleep";
+"history.evidence.confidence" = "%d%% confidence";
 
 // Session Detail
 "detail.title"           = "Session";
@@ -358,6 +360,8 @@
 "ai.suggestion.trend"              = "What changed recently?";
 "ai.suggestion.factors"            = "What affected my sleep?";
 "ai.suggestion.advice"             = "Tips to sleep better";
+"ai.suggestion.jetLag"             = "Plan jet lag";
+"ai.suggestion.memory"             = "Memory sleep plan";
 "ai.suggestion.howItWorks"         = "How does this work?";
 "ai.suggestion.whatTracked"        = "What do you track?";
 

@@ -150,11 +150,9 @@ Sleep AI is designed for on-device processing in order to reduce the need for co
 
 If you actively share, export, submit feedback, contact support, or otherwise transmit Sleep AI content to BIRI GA, Apple or third parties, the content may include personal information, health information or other sensitive information. Please consider carefully before transmitting.
 
-## 12. Not used to train cloud AI models
+## 12. No cloud AI training or inference for Sleep AI core
 
-Unless explicitly stated otherwise and with the consent required, BIRI GA does not use your Sleep AI core Q&A content to train cloud-side AI models.
-
-If a future version of Sleep AI introduces cloud models, remote inference, cross-device sync, server-side log analytics or any other capability that may cause core Q&A content to leave your device, BIRI GA will explain this prior to enabling the feature, and will obtain your consent where applicable.
+BIRI GA does not use your Sleep AI core Q&A content to train cloud-side AI models. Sleep AI core reasoning, local skills, sleep-plan adjustment and sleep advice are designed to run on device, without cloud models or remote inference.
 
 ## 13. Withdrawing consent
 

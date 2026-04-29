@@ -86,6 +86,8 @@ public enum SleepTopicGate {
         "rest", "restful", "stress", "relax", "wind down",
         "caffeine", "coffee", "alcohol", "melatonin",
         "circadian", "rhythm", "schedule", "routine",
+        "jet lag", "time zone", "timezone", "long flight", "eastward", "westward",
+        "memory", "memorize", "remember", "study", "learning", "exam", "test",
         "score", "summary", "trend", "last night", "tonight",
         // Simplified Chinese
         "睡", "睡眠", "睡觉", "入睡", "睡着", "醒", "醒来", "起床",
@@ -98,6 +100,8 @@ public enum SleepTopicGate {
         "休息", "放松", "压力",
         "咖啡", "咖啡因", "酒",
         "节律", "作息", "习惯",
+        "倒时差", "时差", "跨时区", "长途飞行", "航班",
+        "记忆", "背诵", "背单词", "学习", "复习", "考试",
         "评分", "总结", "趋势", "昨晚", "今晚"
     ]
 

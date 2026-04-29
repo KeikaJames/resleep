@@ -42,6 +42,10 @@ public struct SleepAINightContext: Codable, Equatable, Sendable, Identifiable {
     public let snoreEventCount: Int?
     public let sourceRaw: String?
     public let runtimeModeRaw: String?
+    public let evidenceQualityRaw: String?
+    public let evidenceConfidence: Double?
+    public let missingSignals: [String]
+    public let isEstimated: Bool
 
     public init(id: String,
                 endedAt: Date? = nil,
@@ -57,7 +61,11 @@ public struct SleepAINightContext: Codable, Equatable, Sendable, Identifiable {
                 alarmFeltGood: Bool? = nil,
                 snoreEventCount: Int? = nil,
                 sourceRaw: String? = nil,
-                runtimeModeRaw: String? = nil) {
+                runtimeModeRaw: String? = nil,
+                evidenceQualityRaw: String? = nil,
+                evidenceConfidence: Double? = nil,
+                missingSignals: [String] = [],
+                isEstimated: Bool = false) {
         self.id = id
         self.endedAt = endedAt
         self.durationSec = durationSec
@@ -73,6 +81,78 @@ public struct SleepAINightContext: Codable, Equatable, Sendable, Identifiable {
         self.snoreEventCount = snoreEventCount
         self.sourceRaw = sourceRaw
         self.runtimeModeRaw = runtimeModeRaw
+        self.evidenceQualityRaw = evidenceQualityRaw
+        self.evidenceConfidence = evidenceConfidence
+        self.missingSignals = missingSignals
+        self.isEstimated = isEstimated
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case endedAt
+        case durationSec
+        case sleepScore
+        case timeInDeepSec
+        case timeInRemSec
+        case timeInLightSec
+        case timeInWakeSec
+        case tags
+        case noteSnippet
+        case surveyQuality
+        case alarmFeltGood
+        case snoreEventCount
+        case sourceRaw
+        case runtimeModeRaw
+        case evidenceQualityRaw
+        case evidenceConfidence
+        case missingSignals
+        case isEstimated
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try c.decode(String.self, forKey: .id)
+        self.endedAt = try c.decodeIfPresent(Date.self, forKey: .endedAt)
+        self.durationSec = try c.decode(Int.self, forKey: .durationSec)
+        self.sleepScore = try c.decode(Int.self, forKey: .sleepScore)
+        self.timeInDeepSec = try c.decode(Int.self, forKey: .timeInDeepSec)
+        self.timeInRemSec = try c.decode(Int.self, forKey: .timeInRemSec)
+        self.timeInLightSec = try c.decode(Int.self, forKey: .timeInLightSec)
+        self.timeInWakeSec = try c.decode(Int.self, forKey: .timeInWakeSec)
+        self.tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
+        self.noteSnippet = try c.decodeIfPresent(String.self, forKey: .noteSnippet)
+        self.surveyQuality = try c.decodeIfPresent(Int.self, forKey: .surveyQuality)
+        self.alarmFeltGood = try c.decodeIfPresent(Bool.self, forKey: .alarmFeltGood)
+        self.snoreEventCount = try c.decodeIfPresent(Int.self, forKey: .snoreEventCount)
+        self.sourceRaw = try c.decodeIfPresent(String.self, forKey: .sourceRaw)
+        self.runtimeModeRaw = try c.decodeIfPresent(String.self, forKey: .runtimeModeRaw)
+        self.evidenceQualityRaw = try c.decodeIfPresent(String.self, forKey: .evidenceQualityRaw)
+        self.evidenceConfidence = try c.decodeIfPresent(Double.self, forKey: .evidenceConfidence)
+        self.missingSignals = try c.decodeIfPresent([String].self, forKey: .missingSignals) ?? []
+        self.isEstimated = try c.decodeIfPresent(Bool.self, forKey: .isEstimated) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encodeIfPresent(endedAt, forKey: .endedAt)
+        try c.encode(durationSec, forKey: .durationSec)
+        try c.encode(sleepScore, forKey: .sleepScore)
+        try c.encode(timeInDeepSec, forKey: .timeInDeepSec)
+        try c.encode(timeInRemSec, forKey: .timeInRemSec)
+        try c.encode(timeInLightSec, forKey: .timeInLightSec)
+        try c.encode(timeInWakeSec, forKey: .timeInWakeSec)
+        try c.encode(tags, forKey: .tags)
+        try c.encodeIfPresent(noteSnippet, forKey: .noteSnippet)
+        try c.encodeIfPresent(surveyQuality, forKey: .surveyQuality)
+        try c.encodeIfPresent(alarmFeltGood, forKey: .alarmFeltGood)
+        try c.encodeIfPresent(snoreEventCount, forKey: .snoreEventCount)
+        try c.encodeIfPresent(sourceRaw, forKey: .sourceRaw)
+        try c.encodeIfPresent(runtimeModeRaw, forKey: .runtimeModeRaw)
+        try c.encodeIfPresent(evidenceQualityRaw, forKey: .evidenceQualityRaw)
+        try c.encodeIfPresent(evidenceConfidence, forKey: .evidenceConfidence)
+        try c.encode(missingSignals, forKey: .missingSignals)
+        try c.encode(isEstimated, forKey: .isEstimated)
     }
 }
 
@@ -119,6 +199,19 @@ public struct SleepAIContext: Sendable, Equatable {
     public let watchAppInstalled: Bool?
     public let engineFallbackReason: String?
     public let inferenceFallbackReason: String?
+    public let sleepPlanAutoTrackingEnabled: Bool?
+    public let sleepPlanBedtimeMinute: Int?
+    public let sleepPlanWakeMinute: Int?
+    public let sleepPlanGoalMinutes: Int?
+    public let sleepPlanSmartWakeWindowMinutes: Int?
+    public let adaptivePlanSampleCount: Int
+    public let adaptivePlanConfidence: Double?
+    public let adaptiveSuggestedBedtimeMinute: Int?
+    public let adaptiveSuggestedWakeMinute: Int?
+    public let adaptiveSuggestedGoalMinutes: Int?
+    public let adaptiveSuggestedSmartWakeWindowMinutes: Int?
+    public let adaptivePlanReasons: [String]
+    public let skillResults: [SleepAISkillResult]
 
     public init(hasNight: Bool,
                 durationSec: Int = 0,
@@ -135,7 +228,20 @@ public struct SleepAIContext: Sendable, Equatable {
                 watchReachable: Bool? = nil,
                 watchAppInstalled: Bool? = nil,
                 engineFallbackReason: String? = nil,
-                inferenceFallbackReason: String? = nil) {
+                inferenceFallbackReason: String? = nil,
+                sleepPlanAutoTrackingEnabled: Bool? = nil,
+                sleepPlanBedtimeMinute: Int? = nil,
+                sleepPlanWakeMinute: Int? = nil,
+                sleepPlanGoalMinutes: Int? = nil,
+                sleepPlanSmartWakeWindowMinutes: Int? = nil,
+                adaptivePlanSampleCount: Int = 0,
+                adaptivePlanConfidence: Double? = nil,
+                adaptiveSuggestedBedtimeMinute: Int? = nil,
+                adaptiveSuggestedWakeMinute: Int? = nil,
+                adaptiveSuggestedGoalMinutes: Int? = nil,
+                adaptiveSuggestedSmartWakeWindowMinutes: Int? = nil,
+                adaptivePlanReasons: [String] = [],
+                skillResults: [SleepAISkillResult] = []) {
         self.hasNight = hasNight
         self.durationSec = durationSec
         self.sleepScore = sleepScore
@@ -152,11 +258,38 @@ public struct SleepAIContext: Sendable, Equatable {
         self.watchAppInstalled = watchAppInstalled
         self.engineFallbackReason = engineFallbackReason
         self.inferenceFallbackReason = inferenceFallbackReason
+        self.sleepPlanAutoTrackingEnabled = sleepPlanAutoTrackingEnabled
+        self.sleepPlanBedtimeMinute = sleepPlanBedtimeMinute
+        self.sleepPlanWakeMinute = sleepPlanWakeMinute
+        self.sleepPlanGoalMinutes = sleepPlanGoalMinutes
+        self.sleepPlanSmartWakeWindowMinutes = sleepPlanSmartWakeWindowMinutes
+        self.adaptivePlanSampleCount = max(0, adaptivePlanSampleCount)
+        self.adaptivePlanConfidence = adaptivePlanConfidence.map { min(max($0, 0), 1) }
+        self.adaptiveSuggestedBedtimeMinute = adaptiveSuggestedBedtimeMinute
+        self.adaptiveSuggestedWakeMinute = adaptiveSuggestedWakeMinute
+        self.adaptiveSuggestedGoalMinutes = adaptiveSuggestedGoalMinutes
+        self.adaptiveSuggestedSmartWakeWindowMinutes = adaptiveSuggestedSmartWakeWindowMinutes
+        self.adaptivePlanReasons = adaptivePlanReasons
+        self.skillResults = skillResults
     }
 
     public static let empty = SleepAIContext(hasNight: false)
 
     public var latestNight: SleepAINightContext? { recentNights.first }
+
+    public var currentSleepPlanConfiguration: SleepPlanConfiguration {
+        SleepPlanConfiguration(
+            autoTrackingEnabled: sleepPlanAutoTrackingEnabled ?? SleepPlanConfiguration.default.autoTrackingEnabled,
+            bedtimeHour: (sleepPlanBedtimeMinute ?? SleepPlanConfiguration.default.bedtimeHour * 60) / 60,
+            bedtimeMinute: (sleepPlanBedtimeMinute ?? SleepPlanConfiguration.default.bedtimeMinute) % 60,
+            wakeHour: (sleepPlanWakeMinute ?? SleepPlanConfiguration.default.wakeHour * 60) / 60,
+            wakeMinute: (sleepPlanWakeMinute ?? SleepPlanConfiguration.default.wakeMinute) % 60,
+            sleepGoalMinutes: sleepPlanGoalMinutes ?? SleepPlanConfiguration.default.sleepGoalMinutes,
+            smartWakeWindowMinutes: sleepPlanSmartWakeWindowMinutes
+                ?? SleepPlanConfiguration.default.smartWakeWindowMinutes,
+            nightmareWakeEnabled: SleepPlanConfiguration.default.nightmareWakeEnabled
+        )
+    }
 
     public var averageDurationSec: Int {
         guard !recentNights.isEmpty else { return 0 }
@@ -175,6 +308,40 @@ public struct SleepAIContext: Sendable, Equatable {
 
     public var strongestTagInsight: SleepAITagInsight? { tagInsights.first }
 
+    public func withSkillResults(_ skillResults: [SleepAISkillResult]) -> SleepAIContext {
+        SleepAIContext(
+            hasNight: hasNight,
+            durationSec: durationSec,
+            sleepScore: sleepScore,
+            timeInDeepSec: timeInDeepSec,
+            timeInRemSec: timeInRemSec,
+            timeInLightSec: timeInLightSec,
+            timeInWakeSec: timeInWakeSec,
+            weeklyAverageScore: weeklyAverageScore,
+            recentNights: recentNights,
+            tagInsights: tagInsights,
+            healthAuthorization: healthAuthorization,
+            watchPaired: watchPaired,
+            watchReachable: watchReachable,
+            watchAppInstalled: watchAppInstalled,
+            engineFallbackReason: engineFallbackReason,
+            inferenceFallbackReason: inferenceFallbackReason,
+            sleepPlanAutoTrackingEnabled: sleepPlanAutoTrackingEnabled,
+            sleepPlanBedtimeMinute: sleepPlanBedtimeMinute,
+            sleepPlanWakeMinute: sleepPlanWakeMinute,
+            sleepPlanGoalMinutes: sleepPlanGoalMinutes,
+            sleepPlanSmartWakeWindowMinutes: sleepPlanSmartWakeWindowMinutes,
+            adaptivePlanSampleCount: adaptivePlanSampleCount,
+            adaptivePlanConfidence: adaptivePlanConfidence,
+            adaptiveSuggestedBedtimeMinute: adaptiveSuggestedBedtimeMinute,
+            adaptiveSuggestedWakeMinute: adaptiveSuggestedWakeMinute,
+            adaptiveSuggestedGoalMinutes: adaptiveSuggestedGoalMinutes,
+            adaptiveSuggestedSmartWakeWindowMinutes: adaptiveSuggestedSmartWakeWindowMinutes,
+            adaptivePlanReasons: adaptivePlanReasons,
+            skillResults: skillResults
+        )
+    }
+
     /// True only when there is a tracked night with non-trivial duration.
     /// A 30-second start/stop test session leaves `hasNight=true` with all
     /// zero stage durations — that's not real data and the assistant must
@@ -192,7 +359,22 @@ public struct SleepAIContext: Sendable, Equatable {
         lines.append("Rules: use only these facts for personal claims; say data is limited when counts are small; do not diagnose.")
 
         if hasUsableNight {
-            lines.append("Latest: duration=\(Self.formatHours(durationSec)); score=\(sleepScore); deep=\(Self.formatHours(timeInDeepSec)); REM=\(Self.formatHours(timeInRemSec)); light=\(Self.formatHours(timeInLightSec)); awake=\(Self.formatMinutes(timeInWakeSec)).")
+            var latest = "Latest: duration=\(Self.formatHours(durationSec)); score=\(sleepScore); deep=\(Self.formatHours(timeInDeepSec)); REM=\(Self.formatHours(timeInRemSec)); light=\(Self.formatHours(timeInLightSec)); awake=\(Self.formatMinutes(timeInWakeSec))"
+            if let night = latestNight {
+                if let quality = night.evidenceQualityRaw {
+                    latest += "; dataQuality=\(quality)"
+                }
+                if let confidence = night.evidenceConfidence {
+                    latest += "; confidence=\(Self.formatPercent(confidence))"
+                }
+                if night.isEstimated {
+                    latest += "; estimated=true"
+                }
+                if !night.missingSignals.isEmpty {
+                    latest += "; missingSignals=\(night.missingSignals.joined(separator: ","))"
+                }
+            }
+            lines.append(latest + ".")
         } else {
             lines.append("Latest: NO_NIGHT_RECORDED.")
             lines.append("If the user asks about last night, sleep score, deep/REM/wake, trends, or factors: tell them no night has been tracked yet on this device and suggest starting a session tonight. NEVER invent numbers, percentages, durations, or trends. Do not echo the user's question back as your reply.")
@@ -224,6 +406,12 @@ public struct SleepAIContext: Sendable, Equatable {
                 if let note = night.noteSnippet, !note.isEmpty { parts.append("note=\"\(note)\"") }
                 if let source = night.sourceRaw { parts.append("source=\(source)") }
                 if let mode = night.runtimeModeRaw { parts.append("mode=\(mode)") }
+                if let quality = night.evidenceQualityRaw { parts.append("dataQuality=\(quality)") }
+                if let confidence = night.evidenceConfidence { parts.append("confidence=\(Self.formatPercent(confidence))") }
+                if night.isEstimated { parts.append("estimated=true") }
+                if !night.missingSignals.isEmpty {
+                    parts.append("missingSignals=\(night.missingSignals.joined(separator: ","))")
+                }
                 lines.append(parts.joined(separator: "; "))
             }
         }
@@ -242,6 +430,27 @@ public struct SleepAIContext: Sendable, Equatable {
             }
         }
 
+        if !skillResults.isEmpty {
+            lines.append("LOCAL_SLEEP_SKILLS_AVAILABLE")
+            for skill in SleepAISkillRunner.availableSkills {
+                lines.append("skill=\(skill.id); input=\(skill.inputContract); output=\(skill.outputContract); description=\(skill.description)")
+            }
+            lines.append("LOCAL_SLEEP_SKILL_RESULTS")
+            lines.append("These are on-device MCP-style tool results. Use them for advice and planning; do not claim raw audio or health data left the device.")
+            for result in skillResults {
+                lines.append("tool=\(result.id); confidence=\(Self.formatPercent(result.confidence))")
+                if !result.facts.isEmpty {
+                    lines.append("facts=\(result.facts.joined(separator: "; "))")
+                }
+                if !result.findings.isEmpty {
+                    lines.append("findings=\(result.findings.joined(separator: ","))")
+                }
+                if !result.adviceInputs.isEmpty {
+                    lines.append("adviceInputs=\(result.adviceInputs.joined(separator: ","))")
+                }
+            }
+        }
+
         var status: [String] = []
         if let healthAuthorization { status.append("HealthKit=\(healthAuthorization)") }
         if let watchPaired { status.append("watchPaired=\(watchPaired)") }
@@ -250,6 +459,35 @@ public struct SleepAIContext: Sendable, Equatable {
         if let engineFallbackReason { status.append("engineFallback=\(engineFallbackReason)") }
         if let inferenceFallbackReason { status.append("stageModelFallback=\(inferenceFallbackReason)") }
         if !status.isEmpty { lines.append("Data status: " + status.joined(separator: "; ")) }
+
+        var plan: [String] = []
+        if let sleepPlanAutoTrackingEnabled { plan.append("autoTracking=\(sleepPlanAutoTrackingEnabled)") }
+        if let sleepPlanBedtimeMinute { plan.append("bedtime=\(Self.formatClockMinute(sleepPlanBedtimeMinute))") }
+        if let sleepPlanWakeMinute { plan.append("wake=\(Self.formatClockMinute(sleepPlanWakeMinute))") }
+        if let sleepPlanGoalMinutes { plan.append("goal=\(sleepPlanGoalMinutes)m") }
+        if let sleepPlanSmartWakeWindowMinutes { plan.append("smartWakeWindow=\(sleepPlanSmartWakeWindowMinutes)m") }
+        if !plan.isEmpty { lines.append("Current Sleep Plan: " + plan.joined(separator: "; ")) }
+
+        var adaptivePlan: [String] = ["samples=\(adaptivePlanSampleCount)"]
+        if let adaptivePlanConfidence {
+            adaptivePlan.append("confidence=\(Self.formatPercent(adaptivePlanConfidence))")
+        }
+        if let adaptiveSuggestedBedtimeMinute {
+            adaptivePlan.append("suggestedBedtime=\(Self.formatClockMinute(adaptiveSuggestedBedtimeMinute))")
+        }
+        if let adaptiveSuggestedWakeMinute {
+            adaptivePlan.append("suggestedWake=\(Self.formatClockMinute(adaptiveSuggestedWakeMinute))")
+        }
+        if let adaptiveSuggestedGoalMinutes {
+            adaptivePlan.append("suggestedGoal=\(adaptiveSuggestedGoalMinutes)m")
+        }
+        if let adaptiveSuggestedSmartWakeWindowMinutes {
+            adaptivePlan.append("suggestedSmartWakeWindow=\(adaptiveSuggestedSmartWakeWindowMinutes)m")
+        }
+        if !adaptivePlanReasons.isEmpty {
+            adaptivePlan.append("reasons=\(adaptivePlanReasons.joined(separator: ","))")
+        }
+        lines.append("Adaptive Sleep Model: " + adaptivePlan.joined(separator: "; "))
 
         return lines.joined(separator: "\n")
     }
@@ -270,6 +508,15 @@ public struct SleepAIContext: Sendable, Equatable {
 
     private static func formatMinutes(_ seconds: Int) -> String {
         "\(max(seconds / 60, 0))m"
+    }
+
+    private static func formatClockMinute(_ minute: Int) -> String {
+        let normalized = ((minute % (24 * 60)) + (24 * 60)) % (24 * 60)
+        return String(format: "%02d:%02d", normalized / 60, normalized % 60)
+    }
+
+    private static func formatPercent(_ value: Double) -> String {
+        "\(Int((min(max(value, 0), 1) * 100).rounded()))%"
     }
 }
 
@@ -317,8 +564,69 @@ public protocol SleepAIServiceProtocol: AnyObject, Sendable {
 /// answer — what the model actually produced may have included thinking
 /// tokens or translation artefacts that we want to swallow).
 public enum SleepAIStreamEvent: Sendable {
+    case planDraft(SleepPlanDraft)
+    case checkInPlan(SleepProtocolCheckInPlan)
     case delta(String)
     case final(String)
+    case metrics(SleepAIPerformanceMetrics)
+}
+
+public enum SleepAIPerformanceRoute: String, Codable, Sendable, Equatable {
+    case topicGate
+    case deterministicSkill
+    case localLLM
+    case ruleBased
+    case fallback
+}
+
+public struct SleepAIPerformanceMetrics: Codable, Sendable, Equatable {
+    public let engineKind: SleepAIEngineKind
+    public let route: SleepAIPerformanceRoute
+    public let promptCharacters: Int
+    public let contextCharacters: Int
+    public let skillResultCount: Int
+    public let startedAt: Date
+    public let totalMs: Double
+    public let firstVisibleTokenMs: Double?
+    public let generatedCharacters: Int
+    public let visibleCharacters: Int
+    public let finalCharacters: Int
+    public let hiddenBlockCount: Int
+    public let planDraftDetected: Bool
+    public let usedFallback: Bool
+    public let fallbackReason: String?
+
+    public init(engineKind: SleepAIEngineKind,
+                route: SleepAIPerformanceRoute,
+                promptCharacters: Int,
+                contextCharacters: Int,
+                skillResultCount: Int,
+                startedAt: Date,
+                totalMs: Double,
+                firstVisibleTokenMs: Double? = nil,
+                generatedCharacters: Int = 0,
+                visibleCharacters: Int = 0,
+                finalCharacters: Int = 0,
+                hiddenBlockCount: Int = 0,
+                planDraftDetected: Bool = false,
+                usedFallback: Bool = false,
+                fallbackReason: String? = nil) {
+        self.engineKind = engineKind
+        self.route = route
+        self.promptCharacters = promptCharacters
+        self.contextCharacters = contextCharacters
+        self.skillResultCount = skillResultCount
+        self.startedAt = startedAt
+        self.totalMs = max(0, totalMs)
+        self.firstVisibleTokenMs = firstVisibleTokenMs.map { max(0, $0) }
+        self.generatedCharacters = max(0, generatedCharacters)
+        self.visibleCharacters = max(0, visibleCharacters)
+        self.finalCharacters = max(0, finalCharacters)
+        self.hiddenBlockCount = max(0, hiddenBlockCount)
+        self.planDraftDetected = planDraftDetected
+        self.usedFallback = usedFallback
+        self.fallbackReason = fallbackReason
+    }
 }
 
 public extension SleepAIServiceProtocol {
@@ -326,14 +634,29 @@ public extension SleepAIServiceProtocol {
                      context: SleepAIContext) -> AsyncStream<SleepAIStreamEvent> {
         AsyncStream { continuation in
             Task {
+                let startedAt = Date()
                 let answer = await self.reply(to: prompt, context: context)
                 continuation.yield(.final(answer))
+                continuation.yield(.metrics(SleepAIPerformanceMetrics(
+                    engineKind: self.engineKind,
+                    route: .ruleBased,
+                    promptCharacters: prompt.count,
+                    contextCharacters: context.llmContextPack().count,
+                    skillResultCount: context.skillResults.count,
+                    startedAt: startedAt,
+                    totalMs: Self.elapsedMs(since: startedAt),
+                    finalCharacters: answer.count
+                )))
                 continuation.finish()
             }
         }
     }
 
     func prewarm() async { /* no-op default */ }
+
+    static func elapsedMs(since startedAt: Date, now: Date = Date()) -> Double {
+        now.timeIntervalSince(startedAt) * 1000
+    }
 }
 
 public enum SleepAIEngineKind: String, Sendable, Codable, Equatable {
@@ -394,7 +717,78 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
         case .allow, .borderline:
             break
         }
+        if let optimization = SleepProtocolOptimizer.optimize(prompt: prompt, context: ctx) {
+            return optimization.visibleText
+        }
         return skillReply(to: prompt, context: ctx) ?? Self.local("ai.reply.fallback")
+    }
+
+    public func streamReply(to prompt: String,
+                            context ctx: SleepAIContext) -> AsyncStream<SleepAIStreamEvent> {
+        AsyncStream { continuation in
+            Task {
+                let startedAt = Date()
+                let contextCharacters = ctx.llmContextPack().count
+                switch SleepTopicGate.classify(prompt) {
+                case .refuse(let reason):
+                    let refusal = SleepTopicGate.refusal(for: reason)
+                    continuation.yield(.final(refusal))
+                    continuation.yield(.metrics(SleepAIPerformanceMetrics(
+                        engineKind: self.engineKind,
+                        route: .topicGate,
+                        promptCharacters: prompt.count,
+                        contextCharacters: contextCharacters,
+                        skillResultCount: ctx.skillResults.count,
+                        startedAt: startedAt,
+                        totalMs: Self.elapsedMs(since: startedAt),
+                        finalCharacters: refusal.count
+                    )))
+                    continuation.finish()
+                    return
+                case .allow, .borderline:
+                    break
+                }
+
+                if let optimization = SleepProtocolOptimizer.optimize(prompt: prompt, context: ctx) {
+                    if let draft = optimization.draft {
+                        continuation.yield(.planDraft(draft))
+                    }
+                    if let checkIn = SleepProtocolCheckInFactory.makePlan(from: optimization,
+                                                                          prompt: prompt,
+                                                                          now: startedAt) {
+                        continuation.yield(.checkInPlan(checkIn))
+                    }
+                    continuation.yield(.final(optimization.visibleText))
+                    continuation.yield(.metrics(SleepAIPerformanceMetrics(
+                        engineKind: self.engineKind,
+                        route: .deterministicSkill,
+                        promptCharacters: prompt.count,
+                        contextCharacters: contextCharacters,
+                        skillResultCount: ctx.skillResults.count,
+                        startedAt: startedAt,
+                        totalMs: Self.elapsedMs(since: startedAt),
+                        finalCharacters: optimization.visibleText.count,
+                        planDraftDetected: optimization.draft != nil
+                    )))
+                    continuation.finish()
+                    return
+                }
+
+                let answer = await self.reply(to: prompt, context: ctx)
+                continuation.yield(.final(answer))
+                continuation.yield(.metrics(SleepAIPerformanceMetrics(
+                    engineKind: self.engineKind,
+                    route: .ruleBased,
+                    promptCharacters: prompt.count,
+                    contextCharacters: contextCharacters,
+                    skillResultCount: ctx.skillResults.count,
+                    startedAt: startedAt,
+                    totalMs: Self.elapsedMs(since: startedAt),
+                    finalCharacters: answer.count
+                )))
+                continuation.finish()
+            }
+        }
     }
 
     /// Skill router used by both the rule-based service (as the body of
@@ -492,6 +886,9 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
         ]) {
             return Self.dataStatusReply(context: ctx, chinese: Self.isChinese(p))
         }
+        if Self.isAdaptivePlanIntent(p) {
+            return Self.adaptivePlanFallback(context: ctx, chinese: Self.isChinese(p))
+        }
         if Self.matches(p, [
             "sleep plan", "schedule", "automatic", "auto track", "smart alarm",
             "cycle wake", "nightmare wake", "press start", "bedtime",
@@ -522,14 +919,15 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
             return [
                 Self.local("ai.suggestion.howItWorks"),
                 Self.local("ai.suggestion.whatTracked"),
-                Self.local("ai.suggestion.advice")
+                Self.local("ai.suggestion.jetLag"),
+                Self.local("ai.suggestion.memory")
             ]
         }
         return [
             Self.local("ai.suggestion.summarize"),
             Self.local("ai.suggestion.trend"),
-            Self.local("ai.suggestion.factors"),
-            Self.local("ai.suggestion.advice")
+            Self.local("ai.suggestion.jetLag"),
+            Self.local("ai.suggestion.memory")
         ]
     }
 
@@ -538,6 +936,29 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
     private static func matches(_ haystack: String, _ needles: [String]) -> Bool {
         for n in needles where haystack.contains(n.lowercased()) { return true }
         return false
+    }
+
+    public static func isAdaptivePlanIntent(_ lowered: String) -> Bool {
+        let needles = [
+            "jet lag", "jetlag", "time zone", "timezone", "flight", "travel",
+            "circadian", "memory", "memor", "study", "learn", "exam", "test",
+            "倒时差", "时差", "飞往", "飞到", "航班", "旅行", "出差", "记忆", "学习",
+            "背", "考试", "复习", "高效记忆"
+        ]
+        return needles.contains { lowered.contains($0) }
+            || containsChineseFlightRoute(lowered)
+    }
+
+    private static func containsChineseFlightRoute(_ text: String) -> Bool {
+        let patterns = [
+            #"从.{1,16}飞.{1,16}"#,
+            #".{1,16}飞往.{1,16}"#,
+            #".{1,16}飞到.{1,16}"#
+        ]
+        return patterns.contains { pattern in
+            (try? NSRegularExpression(pattern: pattern))?
+                .firstMatch(in: text, range: NSRange(text.startIndex..<text.endIndex, in: text)) != nil
+        }
     }
 
     /// Detects when the user is complaining about the bot itself —
@@ -663,6 +1084,44 @@ public final class SleepAIService: SleepAIServiceProtocol, @unchecked Sendable {
             ]
             return (isChinese ? zh : en).randomElement()!
         }
+    }
+
+    private static func adaptivePlanFallback(context ctx: SleepAIContext,
+                                             chinese: Bool) -> String {
+        let plan = ctx.skillResults.first { $0.id == "plan_requirements" }
+        let missing = plan?.adviceInputs
+            .filter { $0.hasPrefix("ask_for_") }
+            .map { String($0.dropFirst("ask_for_".count)) } ?? []
+
+        if !missing.isEmpty {
+            let questions = missing.prefix(3).map { input -> String in
+                switch input {
+                case "route_or_time_zones":
+                    return chinese ? "出发地和目的地，或跨几个时区" : "departure and arrival cities or time zones"
+                case "departure_and_arrival_times":
+                    return chinese ? "出发和到达时间" : "departure and arrival times"
+                case "first_must_be_awake_time":
+                    return chinese ? "到达后第一件必须清醒的安排时间" : "the first must-be-awake time after arrival"
+                case "habitual_sleep_window":
+                    return chinese ? "你平时大概几点睡、几点起" : "your usual sleep and wake window"
+                case "learning_deadline_or_performance_time":
+                    return chinese ? "考试、汇报或需要表现的时间" : "the exam, presentation, or performance time"
+                case "study_or_sleep_timing":
+                    return chinese ? "今天学习大概到几点、今晚能睡多久" : "when study ends and how much sleep you can protect tonight"
+                default:
+                    return input.replacingOccurrences(of: "_", with: " ")
+                }
+            }
+            if chinese {
+                return "可以，我先缺这几项：\(questions.joined(separator: "；"))。补齐后我会直接给你一版可执行的睡眠计划。"
+            }
+            return "I can do that. I need: \(questions.joined(separator: "; ")). Then I can give you a plan you can follow."
+        }
+
+        if chinese {
+            return "信息基本够了。本地正式模型不可用时，我先给保守版本：保持当前睡眠计划，早晨尽快接触亮光，下午后停止咖啡因，睡前一小时减光。"
+        }
+        return "I have enough to plan. If the local model is unavailable, use the conservative path: keep the current Sleep Plan, get bright morning light, stop caffeine after early afternoon, and dim light in the last hour."
     }
 
     private static func trendReply(context ctx: SleepAIContext, chinese: Bool) -> String {

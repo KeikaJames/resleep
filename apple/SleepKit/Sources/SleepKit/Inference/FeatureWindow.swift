@@ -37,6 +37,10 @@ public enum FeatureNormalization {
     /// the seq_len, so we scale by the configured HR window length.
     public static let hrvCountFullScaleSamples: Float = 60
 
+    /// Acoustic event count over the feature window. We cap at 12 events per
+    /// minute so occasional classifier bursts cannot dominate physiology.
+    public static let acousticEventFullScaleCount: Float = 12
+
     @inline(__always)
     public static func clamp01(_ x: Float) -> Float {
         if x.isNaN || x.isInfinite { return 0 }
@@ -73,6 +77,7 @@ public struct FeatureWindowBuilder {
 
     private var hrSamples: [(ts: Date, bpm: Float)] = []
     private var accelWindows: [(ts: Date, mag: Float, energy: Float, variance: Float)] = []
+    private var acousticEvents: [Date] = []
 
     public init(featureDim: Int = StageInferenceHyperparameters.default.featureDim) {
         self.featureDim = featureDim
@@ -95,9 +100,15 @@ public struct FeatureWindowBuilder {
         trim(now: date)
     }
 
+    public mutating func addAcousticEvent(at date: Date) {
+        acousticEvents.append(date)
+        trim(now: date)
+    }
+
     public mutating func reset() {
         hrSamples.removeAll(keepingCapacity: true)
         accelWindows.removeAll(keepingCapacity: true)
+        acousticEvents.removeAll(keepingCapacity: true)
     }
 
     // MARK: Query
@@ -149,8 +160,12 @@ public struct FeatureWindowBuilder {
                   FeatureNormalization.clamp01(accelEnergy / FeatureNormalization.accelEnergyFullScaleG))
         }
 
-        // No audio events yet; keep slot at zero.
-        write(&v, .eventCountLikeSnore, 0)
+        let eventCount = acousticEvents
+            .filter { now.timeIntervalSince($0) <= accelWindowSec }
+            .count
+        write(&v, .eventCountLikeSnore,
+              FeatureNormalization.clamp01(Float(eventCount)
+                  / FeatureNormalization.acousticEventFullScaleCount))
         // HRV-like proxies: range and sample density (real HRV needs RR
         // intervals, not BPM samples). Both scaled into [0, 1].
         if hr.count >= 2 {
@@ -168,6 +183,7 @@ public struct FeatureWindowBuilder {
 
     public var hrSampleCount: Int { hrSamples.count }
     public var accelWindowCount: Int { accelWindows.count }
+    public var acousticEventCount: Int { acousticEvents.count }
 
     // MARK: - Internals
 
@@ -180,6 +196,10 @@ public struct FeatureWindowBuilder {
         if let firstFresh = accelWindows.firstIndex(where: { $0.ts >= accelCutoff }),
            firstFresh > 0 {
             accelWindows.removeFirst(firstFresh)
+        }
+        if let firstFresh = acousticEvents.firstIndex(where: { $0 >= accelCutoff }),
+           firstFresh > 0 {
+            acousticEvents.removeFirst(firstFresh)
         }
     }
 

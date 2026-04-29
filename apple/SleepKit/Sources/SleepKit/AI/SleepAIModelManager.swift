@@ -90,10 +90,8 @@ public final class SleepAIModelManager: ObservableObject {
     // MARK: Internals
 
     private func runDownload() async {
-        // No real URL → simulate a believable progress curve so the UI
-        // (rainbow ring + percentage) is exercisable today. Real path
-        // (URLSession.shared.download(...)) is a one-line swap when a
-        // descriptor with `downloadURL != nil` is configured.
+        // Closed-system placeholder: exercise the local install UI without
+        // adding network model download behavior.
         let totalSteps = 100
         for step in 0...totalSteps {
             if Task.isCancelled { return }

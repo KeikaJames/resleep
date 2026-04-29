@@ -63,13 +63,18 @@ public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendabl
             break
         }
 
+        if let optimization = SleepProtocolOptimizer.optimize(prompt: prompt, context: ctx) {
+            return optimization.visibleText
+        }
+
         // Skill router: high-confidence intents (summary, deep, REM, wake,
         // score, trend, factors, advice, howItWorks, whatTracked, hello)
         // are answered deterministically from local state. The LLM only
         // sees genuinely free-form questions. This is what stops "总结昨晚"
         // from being routed to a 1.4 GB model that has no facts to ground
         // on and ends up rephrasing the prompt as a question.
-        if let skill = ruleBased.skillReply(to: prompt, context: ctx) {
+        if !SleepAIService.isAdaptivePlanIntent(prompt.lowercased()),
+           let skill = ruleBased.skillReply(to: prompt, context: ctx) {
             return skill
         }
 
@@ -110,17 +115,64 @@ public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendabl
         AsyncStream { continuation in
             Task { [weak self] in
                 guard let self else { continuation.finish(); return }
+                let startedAt = Date()
+                let contextCharacters = ctx.llmContextPack().count
 
                 switch SleepTopicGate.classify(prompt) {
                 case .refuse(let reason):
                     continuation.yield(.final(SleepTopicGate.refusal(for: reason)))
+                    continuation.yield(.metrics(SleepAIPerformanceMetrics(
+                        engineKind: self.engineKind,
+                        route: .topicGate,
+                        promptCharacters: prompt.count,
+                        contextCharacters: contextCharacters,
+                        skillResultCount: ctx.skillResults.count,
+                        startedAt: startedAt,
+                        totalMs: Self.elapsedMs(since: startedAt),
+                        finalCharacters: SleepTopicGate.refusal(for: reason).count
+                    )))
                     continuation.finish(); return
                 case .allow, .borderline:
                     break
                 }
 
-                if let skill = self.ruleBased.skillReply(to: prompt, context: ctx) {
+                if let optimization = SleepProtocolOptimizer.optimize(prompt: prompt, context: ctx) {
+                    if let draft = optimization.draft {
+                        continuation.yield(.planDraft(draft))
+                    }
+                    if let checkIn = SleepProtocolCheckInFactory.makePlan(from: optimization,
+                                                                          prompt: prompt,
+                                                                          now: startedAt) {
+                        continuation.yield(.checkInPlan(checkIn))
+                    }
+                    continuation.yield(.final(optimization.visibleText))
+                    continuation.yield(.metrics(SleepAIPerformanceMetrics(
+                        engineKind: self.engineKind,
+                        route: .deterministicSkill,
+                        promptCharacters: prompt.count,
+                        contextCharacters: contextCharacters,
+                        skillResultCount: ctx.skillResults.count,
+                        startedAt: startedAt,
+                        totalMs: Self.elapsedMs(since: startedAt),
+                        finalCharacters: optimization.visibleText.count,
+                        planDraftDetected: optimization.draft != nil
+                    )))
+                    continuation.finish(); return
+                }
+
+                if !SleepAIService.isAdaptivePlanIntent(prompt.lowercased()),
+                   let skill = self.ruleBased.skillReply(to: prompt, context: ctx) {
                     continuation.yield(.final(skill))
+                    continuation.yield(.metrics(SleepAIPerformanceMetrics(
+                        engineKind: self.engineKind,
+                        route: .deterministicSkill,
+                        promptCharacters: prompt.count,
+                        contextCharacters: contextCharacters,
+                        skillResultCount: ctx.skillResults.count,
+                        startedAt: startedAt,
+                        totalMs: Self.elapsedMs(since: startedAt),
+                        finalCharacters: skill.count
+                    )))
                     continuation.finish(); return
                 }
 
@@ -128,30 +180,82 @@ public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendabl
                 do {
                     let session = try await self.ensureSession()
                     let user = self.composeUserMessage(prompt: prompt, ctx: ctx)
-                    var thinkFilter = ThinkBlockFilter()
+                    var hiddenFilter = HiddenBlockFilter()
                     var collected = ""
+                    var firstVisibleTokenMs: Double?
+                    var visibleCharacters = 0
                     for try await chunk in session.streamResponse(to: user) {
                         collected += chunk
-                        let visible = thinkFilter.feed(chunk)
+                        let visible = hiddenFilter.feed(chunk)
                         if !visible.isEmpty {
+                            if firstVisibleTokenMs == nil {
+                                firstVisibleTokenMs = Self.elapsedMs(since: startedAt)
+                            }
+                            visibleCharacters += visible.count
                             continuation.yield(.delta(visible))
                         }
+                    }
+                    let draft = SleepProtocolPlanner.extractPlanDraft(
+                        from: collected,
+                        currentPlan: ctx.currentSleepPlanConfiguration,
+                        allowLooseDirective: SleepProtocolPlanner.allowsLoosePlanDraft(for: prompt)
+                    )
+                    if let draft {
+                        continuation.yield(.planDraft(draft))
                     }
                     let finalText = Self.sanitize(collected,
                                                   originalPrompt: prompt,
                                                   ctx: ctx,
                                                   ruleBased: self.ruleBased)
                     continuation.yield(.final(finalText))
+                    continuation.yield(.metrics(SleepAIPerformanceMetrics(
+                        engineKind: self.engineKind,
+                        route: .localLLM,
+                        promptCharacters: prompt.count,
+                        contextCharacters: contextCharacters,
+                        skillResultCount: ctx.skillResults.count,
+                        startedAt: startedAt,
+                        totalMs: Self.elapsedMs(since: startedAt),
+                        firstVisibleTokenMs: firstVisibleTokenMs,
+                        generatedCharacters: collected.count,
+                        visibleCharacters: visibleCharacters,
+                        finalCharacters: finalText.count,
+                        hiddenBlockCount: hiddenFilter.hiddenBlockCount,
+                        planDraftDetected: draft != nil
+                    )))
                     continuation.finish()
                 } catch {
                     let fallback = await self.ruleBased.reply(to: prompt, context: ctx)
-                    continuation.yield(.final(fallback +
-                        "\n\n*— rule-based fallback (\(Self.shortDescription(of: error)))*"))
+                    let reason = Self.shortDescription(of: error)
+                    let final = fallback + "\n\n*— rule-based fallback (\(reason))*"
+                    continuation.yield(.final(final))
+                    continuation.yield(.metrics(SleepAIPerformanceMetrics(
+                        engineKind: self.engineKind,
+                        route: .fallback,
+                        promptCharacters: prompt.count,
+                        contextCharacters: contextCharacters,
+                        skillResultCount: ctx.skillResults.count,
+                        startedAt: startedAt,
+                        totalMs: Self.elapsedMs(since: startedAt),
+                        finalCharacters: final.count,
+                        usedFallback: true,
+                        fallbackReason: reason
+                    )))
                     continuation.finish()
                 }
                 #else
                 let fallback = await self.ruleBased.reply(to: prompt, context: ctx)
                 continuation.yield(.final(fallback))
+                continuation.yield(.metrics(SleepAIPerformanceMetrics(
+                    engineKind: self.engineKind,
+                    route: .ruleBased,
+                    promptCharacters: prompt.count,
+                    contextCharacters: contextCharacters,
+                    skillResultCount: ctx.skillResults.count,
+                    startedAt: startedAt,
+                    totalMs: Self.elapsedMs(since: startedAt),
+                    finalCharacters: fallback.count
+                )))
                 continuation.finish()
                 #endif
             }
@@ -188,11 +292,15 @@ public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendabl
                 cleaned.removeSubrange(start.lowerBound..<cleaned.endIndex)
             }
         }
+        cleaned = SleepProtocolPlanner.visibleText(from: cleaned)
         cleaned = cleaned
             .replacingOccurrences(of: "<think>", with: "", options: .caseInsensitive)
             .replacingOccurrences(of: "</think>", with: "", options: .caseInsensitive)
 
-        let trimmed = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+        var trimmed = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !Self.promptLooksLikeComplaint(originalPrompt) {
+            trimmed = Self.strippingUnpromptedApology(from: trimmed)
+        }
         if trimmed.count < 8 { return Self.fallbackText(ruleBased: ruleBased) }
 
         // "I can translate that to…" is a common small-model failure mode
@@ -247,6 +355,28 @@ public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendabl
                                     table: nil)
     }
 
+    private static func promptLooksLikeComplaint(_ prompt: String) -> Bool {
+        let p = prompt.lowercased()
+        return [
+            "答非所问", "没懂", "不是这个", "你错了", "没回答", "不对",
+            "missed the point", "wrong", "not what i asked", "you misunderstood"
+        ].contains { p.contains($0) }
+    }
+
+    private static func strippingUnpromptedApology(from text: String) -> String {
+        var out = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prefixes = [
+            "抱歉，", "抱歉,", "对不起，", "对不起,",
+            "不好意思，", "不好意思,",
+            "Sorry, ", "Sorry，", "I'm sorry, ", "I’m sorry, "
+        ]
+        for prefix in prefixes where out.hasPrefix(prefix) {
+            out.removeFirst(prefix.count)
+            return out.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return out
+    }
+
     // MARK: Internals
 
     private let weightsLocator: GemmaWeightsLocator
@@ -283,7 +413,7 @@ public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendabl
                 container,
                 instructions: Self.systemPrompt,
                 generateParameters: GenerateParameters(
-                    maxTokens: 220,
+                    maxTokens: 320,
                     temperature: 0.25,
                     topP: 0.85
                 )
@@ -302,9 +432,11 @@ public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendabl
 
     SCOPE
     You ONLY help with: sleep, sleep stages, dreams, naps, alarms, bedtime
-    routines, snoring, breathing during sleep, fatigue, drowsiness, and
-    general wellness habits that affect sleep (caffeine, alcohol, light,
-    stress, exercise timing, screen use). For anything else (politics,
+    routines, snoring, breathing during sleep, fatigue, drowsiness,
+    circadian travel / jet lag, and learning or memory plans where sleep
+    timing is the main intervention. You may also discuss general wellness
+    habits that affect sleep (caffeine, alcohol, light, stress, exercise
+    timing, screen use). For anything else (politics,
     news, code, math, finance, recipes, weather, poems, lyrics,
     relationships, celebrities) decline politely in ONE short sentence
     and offer to help with sleep instead. Do NOT write code, pseudocode,
@@ -350,6 +482,30 @@ public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendabl
       • For summaries, cite score, exact duration, deep, REM, and awake
         when those values are present.
       • If a fact is missing from the context, say so plainly.
+      • Examples below are illustrative. Never copy example numbers into a
+        real answer unless those exact numbers appear in the current
+        CIRCADIA_LOCAL_CONTEXT.
+      • Mention snore only when the current context includes snoreEvents,
+        latest_microphone_snore_events, or latest_snore_events_per_hour.
+      • For jet-lag or memory-optimization plans, ask up to three targeted
+        clarification questions when route, timing, sleep window, or goal
+        details are missing. Do not invent a travel itinerary or exam time.
+      • If a jet-lag request already includes route, departure/arrival times,
+        first must-be-awake time, and habitual sleep window, do NOT ask for
+        confirmation. Give the plan and append the save block.
+      • Behave like an on-device planning assistant, not a script. Reason from
+        the user message plus local context, ask for missing constraints only
+        when needed, then produce a plan the user can follow.
+      • If CIRCADIA_LOCAL_CONTEXT includes LOCAL_SLEEP_SKILL_RESULTS, treat
+        each tool result as a local skill you already called. Use
+        sleep_status for what happened, sleep_continuity for fragmentation
+        and efficiency, evidence for data quality/missing signals,
+        advice_inputs for behavioral suggestions, and plan_requirements
+        for jet-lag or memory-plan missing inputs. Do not say you cannot
+        inspect sleep state when these tool results are present.
+      • If advice_inputs includes latest_microphone_snore_events or
+        latest_snore_events_per_hour, mention snore events as a local
+        microphone-derived count, never as saved audio.
 
     PRODUCT FACTS
       • Sleep Plan is the main automatic path: the user sets bedtime,
@@ -363,22 +519,32 @@ public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendabl
         the wake window; if none is found, it rings at the target time.
       • Nightmare wake is experimental and conservative; it is not a
         medical judgment.
+      • Circadia is a closed system: do not suggest external cycle,
+        fertility, wellness, or AI APIs. Personal data stays on device.
+      • Microphone data is used only as local snore-event counts. Never imply
+        raw audio was saved, uploaded, or replayed.
+
+    \(SleepProtocolPlanner.directiveInstructions)
 
     OUTPUT
-      • ANSWER the question. NEVER reply with a question that just
-        rephrases the user's input.
+      • ANSWER the question. For protocol-building requests, ask concise
+        clarification questions only when needed. Never ask a question that
+        only rephrases the user's input.
+      • No markdown headings or tables in Sleep Plan answers. Keep the plan
+        compact enough that the hidden save block can be appended.
       • If the user complains that you missed the point, apologize first
         in the user's language ("抱歉" or "对不起" in Chinese, "Sorry" in
         English), then answer directly. Never answer a Chinese complaint
         in English.
+      • If the user did NOT complain, do not begin with an apology.
       • Match the user's language: 中文输入用简体中文回答, English
         input → English. If the input contains no Chinese characters,
         never answer in Chinese. Default to 简体中文 if the input is mixed.
       • Style: short sentences, like a thoughtful coach. No hype, no
-        clinical claims, no emojis.
-      • Use **bold** for the headline number. Bullet lists only when
-        you have 3+ concrete tips.
-      • Stay under 140 words.
+        clinical claims, no emojis. Prefer Apple-style progressive disclosure:
+        the next action first, details only when useful.
+      • Use **bold** only for the one number or action that matters most.
+      • Stay under 110 words unless the user asks for detail.
 
     EXAMPLE 1 (Chinese, with data)
     USER:
@@ -418,6 +584,37 @@ public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendabl
       • bedroom temperature above ~22°C
       • a bright phone screen close to lights-out
     Track a few more nights with tags so I can compare patterns.
+
+    EXAMPLE 4 (Chinese, local skills)
+    USER:
+    CIRCADIA_LOCAL_CONTEXT
+    Latest: duration=6h05m; score=64; deep=42m; REM=58m; awake=40m; dataQuality=moderate; confidence=68%.
+    LOCAL_SLEEP_SKILL_RESULTS
+    tool=advice_inputs; confidence=68%
+    facts=latest_microphone_snore_events=<count>; latest_snore_events_per_hour=<rate>
+    findings=high_snore_density
+    adviceInputs=discuss_sleep_position_nasal_congestion_alcohol_timing
+
+    User: 我为什么睡醒还是累？
+    ASSISTANT:
+    你昨晚得分 **64**，睡了 6h05m，清醒 40m；这三个信号都指向恢复不足。
+    本地麦克风也有打鼾事件计数，没有保存录音。今晚先试侧睡、减少睡前酒精和鼻塞刺激，并把睡眠机会拉到 7h 以上。
+
+    EXAMPLE 5 (Chinese, saveable jet-lag plan)
+    USER:
+    CIRCADIA_LOCAL_CONTEXT
+    Current Sleep Plan: autoTracking=true; bedtime=23:30; wake=07:30; goal=480m; smartWakeWindow=25m.
+
+    User: 我5月3日20:00从上海飞纽约，5月4日22:00到，5月5日上午9点开会。给我一个可以保存的倒时差睡眠计划。
+    ASSISTANT:
+    保存前建议这样执行：到达纽约后当晚 **23:30 入睡，07:30 起床**；5月5日早上尽快接触亮光，下午后避免咖啡因，睡前一小时减光。
+    <CIRCADIA_PLAN>
+    autoTracking=true
+    bedtime=23:30
+    wake=07:30
+    goalMinutes=480
+    smartWakeWindowMinutes=25
+    </CIRCADIA_PLAN>
     """
     #endif
 
@@ -553,46 +750,44 @@ private extension String {
     func appending(_ tail: String) -> String { self + tail }
 }
 
-// MARK: - <think> block streaming filter
+// MARK: - Hidden block streaming filter
 
-/// Streams text through unchanged unless it falls inside a `<think>...</think>`
-/// span, which Gemma-style instruction-tuned models occasionally emit when
-/// they slip into a chain-of-thought register despite the system prompt
-/// asking them not to. The filter is stateful across `feed` calls because a
-/// tag boundary may straddle two chunks (`"<thi"` then `"nk>"`). It buffers a
-/// short tail so a partially-typed open tag is never emitted as visible text.
-struct ThinkBlockFilter {
-    private var inThink = false
+/// Streams text through unchanged unless it falls inside internal blocks such
+/// as `<think>...</think>` or `<CIRCADIA_PLAN>...</CIRCADIA_PLAN>`. The filter
+/// is stateful because tag boundaries can straddle streamed chunks.
+struct HiddenBlockFilter {
+    private let hiddenPairs: [(open: String, close: String)] = [
+        ("<think>", "</think>"),
+        (SleepProtocolPlanner.directiveOpen, SleepProtocolPlanner.directiveClose)
+    ]
+    private var hiddenCloseTag: String?
     private var pending = ""
-
-    private static let openTag = "<think>"
-    private static let closeTag = "</think>"
+    private(set) var hiddenBlockCount = 0
 
     /// Append `chunk` and return the substring safe to show to the user.
     mutating func feed(_ chunk: String) -> String {
         pending += chunk
         var out = ""
         while !pending.isEmpty {
-            if inThink {
-                if let r = pending.range(of: Self.closeTag) {
+            if let close = hiddenCloseTag {
+                if let r = pending.range(of: close, options: [.caseInsensitive]) {
                     pending.removeSubrange(pending.startIndex..<r.upperBound)
-                    inThink = false
+                    hiddenCloseTag = nil
                 } else {
-                    // Could be a partial close tag at the tail — keep enough
-                    // bytes around to recognize it on the next feed.
-                    let keep = min(pending.count, Self.closeTag.count - 1)
+                    let keep = min(pending.count, close.count - 1)
                     pending = String(pending.suffix(keep))
                     return out
                 }
             } else {
-                if let r = pending.range(of: Self.openTag) {
+                if let match = earliestOpenTag(in: pending) {
+                    let r = match.range
                     out += pending[pending.startIndex..<r.lowerBound]
                     pending.removeSubrange(pending.startIndex..<r.upperBound)
-                    inThink = true
-                } else if pending.count >= Self.openTag.count {
-                    // Emit everything except a possible partial open at tail.
+                    hiddenCloseTag = match.close
+                    hiddenBlockCount += 1
+                } else if pending.count >= maxOpenTagLength {
                     let safeEnd = pending.index(pending.endIndex,
-                                                offsetBy: -(Self.openTag.count - 1))
+                                                offsetBy: -(maxOpenTagLength - 1))
                     out += pending[pending.startIndex..<safeEnd]
                     pending = String(pending[safeEnd..<pending.endIndex])
                     return out
@@ -603,5 +798,20 @@ struct ThinkBlockFilter {
             }
         }
         return out
+    }
+
+    private var maxOpenTagLength: Int {
+        hiddenPairs.map(\.open.count).max() ?? 1
+    }
+
+    private func earliestOpenTag(in text: String) -> (range: Range<String.Index>, close: String)? {
+        hiddenPairs
+            .compactMap { pair -> (range: Range<String.Index>, close: String)? in
+                guard let r = text.range(of: pair.open, options: [.caseInsensitive]) else {
+                    return nil
+                }
+                return (r, pair.close)
+            }
+            .min { $0.range.lowerBound < $1.range.lowerBound }
     }
 }

@@ -11,15 +11,13 @@ import CoreML
 
 /// Privacy-first acoustic event detector.
 ///
-/// Lives entirely on-device. Microphone tap delivers PCM frames; we compute
-/// log-mel spectrograms in 1 s windows and run a tiny CNN classifier. The
-/// pipeline emits two signals to its consumer:
-///   - `event` — `true` when the latest window scored above threshold
-///   - `count` — running count since `start()`
+/// Lives entirely on-device. Microphone tap delivers PCM frames to Apple's
+/// bundled SoundAnalysis classifier. The pipeline emits only one signal to its
+/// consumer: a running local snore-event count since `start()`.
 ///
 /// **Audio bytes are never persisted, never logged, never uploaded.** Each
 /// PCM buffer is consumed in-place and dropped. The only thing leaving the
-/// audio queue is a Float32 logits pair `[non_snore, snore]`.
+/// audio queue is a timestamped event count.
 @MainActor
 public protocol SnoreDetectorProtocol: AnyObject {
     var isAvailable: Bool { get }

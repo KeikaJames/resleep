@@ -21,7 +21,9 @@ final class M67SimulationLoopsTests: XCTestCase {
             insights: LocalInsightsService(),
             connectivity: InMemoryConnectivityManager(),
             health: HealthPermissionService(),
-            heartRateStream: MockHeartRateStream()
+            heartRateStream: MockHeartRateStream(),
+            adaptiveSleepModel: AdaptiveSleepModelService(store: InMemoryAdaptiveSleepProfileStore()),
+            protocolCheckIns: SleepProtocolCheckInService(store: InMemorySleepProtocolCheckInStore())
         )
     }
 
@@ -34,6 +36,8 @@ final class M67SimulationLoopsTests: XCTestCase {
             connectivity: connectivity,
             health: GrantingHealthPermissionService(),
             heartRateStream: MockHeartRateStream(),
+            adaptiveSleepModel: AdaptiveSleepModelService(store: InMemoryAdaptiveSleepProfileStore()),
+            protocolCheckIns: SleepProtocolCheckInService(store: InMemorySleepProtocolCheckInStore()),
             inferenceModel: FallbackHeuristicStageInferenceModel()
         )
     }

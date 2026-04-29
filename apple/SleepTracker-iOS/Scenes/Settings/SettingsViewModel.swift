@@ -24,7 +24,8 @@ enum UserProfileGender: String, CaseIterable, Equatable {
 }
 
 /// Privacy defaults are explicitly conservative to match product principles:
-/// - audio is never recorded, saved or uploaded (no toggles exposed)
+/// - microphone analysis is opt-in and emits only local event counts
+/// - raw audio is never saved or uploaded
 /// - cloudSyncEnabled = false
 /// - shareWithHealthKit = false (user must opt in)
 ///
@@ -78,9 +79,10 @@ final class SettingsViewModel: ObservableObject {
         // Privacy invariant: raw audio is never persisted and never uploaded.
         // Wipe any stale `true` left over from older builds so the on-disk
         // state matches the published policy and the docs.
+        defaults.removeObject(forKey: Key.cloudSyncEnabled)
         defaults.removeObject(forKey: Key.legacySaveRawAudio)
         defaults.removeObject(forKey: Key.legacyAudioUploadEnabled)
-        self.cloudSyncEnabled   = defaults.bool(forKey: Key.cloudSyncEnabled)
+        self.cloudSyncEnabled = false
         self.shareWithHealthKit = defaults.bool(forKey: Key.shareWithHealthKit)
         self.snoreDetectionEnabled = defaults.bool(forKey: Key.snoreDetection)
         // personalization defaults to ON (key absent -> true)
@@ -113,9 +115,6 @@ final class SettingsViewModel: ObservableObject {
             self.profileBirthday = nil
         }
 
-        $cloudSyncEnabled.dropFirst()
-            .sink { [defaults] in defaults.set($0, forKey: Key.cloudSyncEnabled) }
-            .store(in: &bag)
         $shareWithHealthKit.dropFirst()
             .sink { [defaults] in defaults.set($0, forKey: Key.shareWithHealthKit) }
             .store(in: &bag)

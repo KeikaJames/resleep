@@ -94,6 +94,13 @@ public final class StageInferencePipeline: ObservableObject {
         )
     }
 
+    /// Privacy-safe microphone signal. The detector passes only a local
+    /// event timestamp, never raw audio or spectrograms. This fills the
+    /// `event_count_like_snore` feature slot used by the model contract.
+    public func ingestAcousticSleepEvent(at date: Date = Date()) {
+        featureBuilder.addAcousticEvent(at: date)
+    }
+
     // MARK: Tick / inference
 
     @discardableResult

@@ -85,6 +85,7 @@ final class SleepAIViewModel: ObservableObject {
     @Published var isReplying: Bool = false
 
     @Published var summaryText: String = ""
+    @Published private(set) var lastPerformanceMetrics: SleepAIPerformanceMetrics?
 
     @Published var history: [StoredChat] = []
 
@@ -106,6 +107,8 @@ final class SleepAIViewModel: ObservableObject {
             local("ai.suggestion.trend"):       ("chart.line.uptrend.xyaxis", .blue),
             local("ai.suggestion.factors"):     ("tag",                 .green),
             local("ai.suggestion.advice"):      ("lightbulb",           .orange),
+            local("ai.suggestion.jetLag"):       ("airplane.departure",  .cyan),
+            local("ai.suggestion.memory"):       ("brain.head.profile",  .mint),
             local("ai.suggestion.howItWorks"):  ("sparkles",            .blue),
             local("ai.suggestion.whatTracked"): ("heart.text.square",   .red)
         ]
@@ -143,6 +146,8 @@ final class SleepAIViewModel: ObservableObject {
     private static let brandKey      = "sleep.ai.selectedBrand.v1"     // current: SleepAIBrandTier
 
     private var activeChatId: UUID?
+    private var pendingSleepPlanDraft: SleepPlanDraft?
+    private var pendingProtocolCheckInPlan: SleepProtocolCheckInPlan?
 
     // MARK: Init
 
@@ -219,7 +224,15 @@ final class SleepAIViewModel: ObservableObject {
         guard !regionBlocksSelection else { return } // never invoke a blocked engine
         messages.append(SleepAIMessage(role: .user, text: prompt))
         isReplying = true
-        let ctx = await buildContext()
+        if await handleSleepPlanApplyCommand(prompt: prompt) {
+            isReplying = false
+            if phase == .ready { phase = .chatting }
+            let ctx = await buildContext()
+            suggestions = service.suggestedFollowUps(context: ctx)
+            persistActiveChat()
+            return
+        }
+        let ctx = await buildContext(prompt: prompt)
 
         // Streaming path: append an empty assistant bubble up front, then
         // mutate its `text` as deltas arrive. The bubble's identity stays
@@ -231,6 +244,10 @@ final class SleepAIViewModel: ObservableObject {
 
         for await event in service.streamReply(to: prompt, context: ctx) {
             switch event {
+            case .planDraft(let draft):
+                pendingSleepPlanDraft = draft
+            case .checkInPlan(let plan):
+                pendingProtocolCheckInPlan = plan
             case .delta(let chunk):
                 if let i = messages.firstIndex(where: { $0.id == assistantId }) {
                     messages[i].text += chunk
@@ -239,6 +256,8 @@ final class SleepAIViewModel: ObservableObject {
                 if let i = messages.firstIndex(where: { $0.id == assistantId }) {
                     messages[i].text = full
                 }
+            case .metrics(let metrics):
+                lastPerformanceMetrics = metrics
             }
         }
 
@@ -265,6 +284,8 @@ final class SleepAIViewModel: ObservableObject {
             persistActiveChat() // make sure the current one is saved
         }
         activeChatId = nil
+        pendingSleepPlanDraft = nil
+        pendingProtocolCheckInPlan = nil
         messages = []
         draft = ""
         phase = computePhase()
@@ -377,10 +398,12 @@ final class SleepAIViewModel: ObservableObject {
         }
     }
 
-    private func buildContext() async -> SleepAIContext {
+    private func buildContext(prompt: String? = nil) async -> SleepAIContext {
         guard let appState else { return .empty }
         let records = await recentRecords(via: appState, limit: 7)
-        var nights = records.compactMap(Self.makeNightContext(from:))
+        let activeNights = records.compactMap(Self.makeNightContext(from:))
+        let passiveNights = appState.passiveNights.compactMap(Self.makeNightContext(from:))
+        var nights = Self.mergeNightContexts(active: activeNights, passive: passiveNights)
 
         // `latestSummary` can be fresher than the async store snapshot just
         // after a session ends. Keep it in the context so the assistant never
@@ -393,8 +416,47 @@ final class SleepAIViewModel: ObservableObject {
 
         let weekly = Self.averageScore(nights)
         let tagInsights = Self.tagInsights(from: nights)
-        guard let latestNight = nights.first else {
-            return SleepAIContext(
+        let sleepPlan = appState.currentSleepPlan()
+        let adaptive = await appState.adaptiveSleepModel.recommendation(currentPlan: sleepPlan)
+        let adaptivePlan = adaptive.plan
+        let baseContext: SleepAIContext
+        if let latestNight = nights.first {
+            baseContext = SleepAIContext(
+                hasNight: true,
+                durationSec: latestNight.durationSec,
+                sleepScore: latestNight.sleepScore,
+                timeInDeepSec: latestNight.timeInDeepSec,
+                timeInRemSec: latestNight.timeInRemSec,
+                timeInLightSec: latestNight.timeInLightSec,
+                timeInWakeSec: latestNight.timeInWakeSec,
+                weeklyAverageScore: weekly,
+                recentNights: nights,
+                tagInsights: tagInsights,
+                healthAuthorization: Self.describe(appState.healthAuthorization),
+                watchPaired: appState.connectivity.isPaired,
+                watchReachable: appState.connectivity.isReachable,
+                watchAppInstalled: appState.connectivity.isWatchAppInstalled,
+                engineFallbackReason: appState.engineFallbackReason,
+                inferenceFallbackReason: appState.inferenceFallbackReason,
+                sleepPlanAutoTrackingEnabled: sleepPlan.autoTrackingEnabled,
+                sleepPlanBedtimeMinute: Self.minuteOfDay(hour: sleepPlan.bedtimeHour,
+                                                         minute: sleepPlan.bedtimeMinute),
+                sleepPlanWakeMinute: Self.minuteOfDay(hour: sleepPlan.wakeHour,
+                                                      minute: sleepPlan.wakeMinute),
+                sleepPlanGoalMinutes: sleepPlan.sleepGoalMinutes,
+                sleepPlanSmartWakeWindowMinutes: sleepPlan.smartWakeWindowMinutes,
+                adaptivePlanSampleCount: adaptive.sampleCount,
+                adaptivePlanConfidence: adaptive.confidence,
+                adaptiveSuggestedBedtimeMinute: Self.minuteOfDay(hour: adaptivePlan.bedtimeHour,
+                                                                 minute: adaptivePlan.bedtimeMinute),
+                adaptiveSuggestedWakeMinute: Self.minuteOfDay(hour: adaptivePlan.wakeHour,
+                                                              minute: adaptivePlan.wakeMinute),
+                adaptiveSuggestedGoalMinutes: adaptivePlan.sleepGoalMinutes,
+                adaptiveSuggestedSmartWakeWindowMinutes: adaptivePlan.smartWakeWindowMinutes,
+                adaptivePlanReasons: adaptive.reasons
+            )
+        } else {
+            baseContext = SleepAIContext(
                 hasNight: false,
                 weeklyAverageScore: weekly,
                 recentNights: [],
@@ -404,27 +466,49 @@ final class SleepAIViewModel: ObservableObject {
                 watchReachable: appState.connectivity.isReachable,
                 watchAppInstalled: appState.connectivity.isWatchAppInstalled,
                 engineFallbackReason: appState.engineFallbackReason,
-                inferenceFallbackReason: appState.inferenceFallbackReason
+                inferenceFallbackReason: appState.inferenceFallbackReason,
+                sleepPlanAutoTrackingEnabled: sleepPlan.autoTrackingEnabled,
+                sleepPlanBedtimeMinute: Self.minuteOfDay(hour: sleepPlan.bedtimeHour,
+                                                         minute: sleepPlan.bedtimeMinute),
+                sleepPlanWakeMinute: Self.minuteOfDay(hour: sleepPlan.wakeHour,
+                                                      minute: sleepPlan.wakeMinute),
+                sleepPlanGoalMinutes: sleepPlan.sleepGoalMinutes,
+                sleepPlanSmartWakeWindowMinutes: sleepPlan.smartWakeWindowMinutes,
+                adaptivePlanSampleCount: adaptive.sampleCount,
+                adaptivePlanConfidence: adaptive.confidence,
+                adaptiveSuggestedBedtimeMinute: Self.minuteOfDay(hour: adaptivePlan.bedtimeHour,
+                                                                 minute: adaptivePlan.bedtimeMinute),
+                adaptiveSuggestedWakeMinute: Self.minuteOfDay(hour: adaptivePlan.wakeHour,
+                                                              minute: adaptivePlan.wakeMinute),
+                adaptiveSuggestedGoalMinutes: adaptivePlan.sleepGoalMinutes,
+                adaptiveSuggestedSmartWakeWindowMinutes: adaptivePlan.smartWakeWindowMinutes,
+                adaptivePlanReasons: adaptive.reasons
             )
         }
-        return SleepAIContext(
-            hasNight: true,
-            durationSec: latestNight.durationSec,
-            sleepScore: latestNight.sleepScore,
-            timeInDeepSec: latestNight.timeInDeepSec,
-            timeInRemSec: latestNight.timeInRemSec,
-            timeInLightSec: latestNight.timeInLightSec,
-            timeInWakeSec: latestNight.timeInWakeSec,
-            weeklyAverageScore: weekly,
-            recentNights: nights,
-            tagInsights: tagInsights,
-            healthAuthorization: Self.describe(appState.healthAuthorization),
-            watchPaired: appState.connectivity.isPaired,
-            watchReachable: appState.connectivity.isReachable,
-            watchAppInstalled: appState.connectivity.isWatchAppInstalled,
-            engineFallbackReason: appState.engineFallbackReason,
-            inferenceFallbackReason: appState.inferenceFallbackReason
-        )
+        return baseContext.withSkillResults(SleepAISkillRunner.run(context: baseContext,
+                                                                    prompt: prompt))
+    }
+
+    private func handleSleepPlanApplyCommand(prompt: String) async -> Bool {
+        guard let appState else { return false }
+        if SleepProtocolPlanner.isApplyCommand(prompt) {
+            guard let draft = pendingSleepPlanDraft else { return false }
+            appState.saveSleepPlan(draft.plan)
+            if let pendingProtocolCheckInPlan {
+                await appState.activateProtocolCheckInPlan(pendingProtocolCheckInPlan)
+            }
+            messages.append(SleepAIMessage(role: .assistant, text: Self.appliedText(for: draft.plan)))
+            pendingSleepPlanDraft = nil
+            pendingProtocolCheckInPlan = nil
+            return true
+        }
+        return false
+    }
+
+    private static func appliedText(for plan: SleepPlanConfiguration) -> String {
+        let bed = clock(hour: plan.bedtimeHour, minute: plan.bedtimeMinute)
+        let wake = clock(hour: plan.wakeHour, minute: plan.wakeMinute)
+        return "已更新睡眠计划：\(bed) 入睡，\(wake) 起床。今晚照这个执行。"
     }
 
     private func recentRecords(via appState: AppState, limit: Int) async -> [StoredSessionRecord] {
@@ -445,6 +529,7 @@ final class SleepAIViewModel: ObservableObject {
     private static func makeNightContext(from record: StoredSessionRecord) -> SleepAINightContext? {
         guard let summary = record.summary else { return nil }
         let notes = firstNonEmpty(record.notes, record.survey?.note)
+        let evidence = NightEvidence(record: record).assessment
         return SleepAINightContext(
             id: record.id,
             endedAt: record.endedAt,
@@ -460,7 +545,37 @@ final class SleepAIViewModel: ObservableObject {
             alarmFeltGood: record.survey?.alarmFeltGood,
             snoreEventCount: record.snoreEventCount,
             sourceRaw: record.sourceRaw,
-            runtimeModeRaw: record.runtimeModeRaw
+            runtimeModeRaw: record.runtimeModeRaw,
+            evidenceQualityRaw: evidence.quality.rawValue,
+            evidenceConfidence: evidence.confidence,
+            missingSignals: evidence.missingSignals.map(\.rawValue),
+            isEstimated: evidence.isEstimated
+        )
+    }
+
+    private static func makeNightContext(from night: PassiveSleepNight) -> SleepAINightContext? {
+        let evidence = NightEvidence(passiveNight: night).assessment
+        let score = SleepScoreEstimator.estimate(
+            durationSec: night.durationSec,
+            asleepSec: night.asleepSec,
+            wakeSec: night.awakeSec,
+            deepSec: night.deepSec,
+            remSec: night.remSec
+        )
+        return SleepAINightContext(
+            id: night.id,
+            endedAt: night.endedAt,
+            durationSec: night.durationSec,
+            sleepScore: score,
+            timeInDeepSec: night.deepSec,
+            timeInRemSec: night.remSec,
+            timeInLightSec: night.coreSec,
+            timeInWakeSec: night.awakeSec,
+            sourceRaw: "passiveHealthKit",
+            evidenceQualityRaw: evidence.quality.rawValue,
+            evidenceConfidence: evidence.confidence,
+            missingSignals: evidence.missingSignals.map(\.rawValue),
+            isEstimated: true
         )
     }
 
@@ -501,6 +616,36 @@ final class SleepAIViewModel: ObservableObject {
         .map { $0 }
     }
 
+    private static func mergeNightContexts(active: [SleepAINightContext],
+                                           passive: [SleepAINightContext]) -> [SleepAINightContext] {
+        var merged: [SleepAINightContext] = []
+        for night in (active + passive).sorted(by: sortNightDescending) {
+            let key = nightKey(night)
+            if let existing = merged.firstIndex(where: { nightKey($0) == key }) {
+                let current = merged[existing]
+                if current.isEstimated && !night.isEstimated {
+                    merged[existing] = night
+                }
+            } else {
+                merged.append(night)
+            }
+        }
+        return merged
+    }
+
+    private static func sortNightDescending(_ lhs: SleepAINightContext,
+                                            _ rhs: SleepAINightContext) -> Bool {
+        (lhs.endedAt ?? .distantPast) > (rhs.endedAt ?? .distantPast)
+    }
+
+    private static func nightKey(_ night: SleepAINightContext) -> String {
+        guard let endedAt = night.endedAt else { return night.id }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let comps = calendar.dateComponents([.year, .month, .day], from: endedAt)
+        return "\(comps.year ?? 0)-\(comps.month ?? 0)-\(comps.day ?? 0)"
+    }
+
     private static func averageScore(_ nights: [SleepAINightContext]) -> Double {
         average(nights.map(\.sleepScore))
     }
@@ -508,6 +653,14 @@ final class SleepAIViewModel: ObservableObject {
     private static func average(_ values: [Int]) -> Double {
         guard !values.isEmpty else { return 0 }
         return Double(values.reduce(0, +)) / Double(values.count)
+    }
+
+    private static func minuteOfDay(hour: Int, minute: Int) -> Int {
+        (max(0, min(23, hour)) * 60) + max(0, min(59, minute))
+    }
+
+    private static func clock(hour: Int, minute: Int) -> String {
+        String(format: "%02d:%02d", max(0, min(23, hour)), max(0, min(59, minute)))
     }
 
     private static func describe(_ status: HealthAuthorizationStatus) -> String {

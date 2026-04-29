@@ -131,11 +131,15 @@ public final class PassiveSleepImporter: PassiveSleepImporterProtocol, @unchecke
     /// bathroom wake doesn't break a single night into two.
     static func groupIntoNights(_ samples: [HKCategorySample]) -> [PassiveSleepNight] {
         let nightGap: TimeInterval = 90 * 60
+        let ordered = samples.sorted {
+            if $0.startDate == $1.startDate { return $0.endDate < $1.endDate }
+            return $0.startDate < $1.startDate
+        }
         var nights: [[HKCategorySample]] = []
         var bucket: [HKCategorySample] = []
         var lastEnd: Date?
 
-        for s in samples {
+        for s in ordered {
             if let prev = lastEnd, s.startDate.timeIntervalSince(prev) > nightGap {
                 if !bucket.isEmpty { nights.append(bucket); bucket = [] }
             }
@@ -153,13 +157,23 @@ public final class PassiveSleepImporter: PassiveSleepImporterProtocol, @unchecke
         let end   = samples.map(\.endDate).max()   ?? last.endDate
 
         var inBed = 0, asleep = 0, awake = 0, core = 0, deep = 0, rem = 0
+        let boundaries = Array(Set(samples.flatMap { [$0.startDate, $0.endDate] })).sorted()
 
-        for s in samples {
-            let dur = max(0, Int(s.endDate.timeIntervalSince(s.startDate)))
-            guard let v = HKCategoryValueSleepAnalysis(rawValue: s.value) else { continue }
-            switch v {
-            case .inBed:
+        for idx in 0..<max(boundaries.count - 1, 0) {
+            let segStart = boundaries[idx]
+            let segEnd = boundaries[idx + 1]
+            let dur = max(0, Int(segEnd.timeIntervalSince(segStart)))
+            guard dur > 0 else { continue }
+
+            let covering = samples.filter { sample in
+                sample.startDate < segEnd && sample.endDate > segStart
+            }
+            if covering.contains(where: { sleepValue($0) == .inBed }) {
                 inBed += dur
+            }
+
+            guard let stage = dominantSleepStage(in: covering) else { continue }
+            switch stage {
             case .asleepUnspecified:
                 asleep += dur
             case .awake:
@@ -169,7 +183,9 @@ public final class PassiveSleepImporter: PassiveSleepImporterProtocol, @unchecke
             case .asleepDeep:
                 deep += dur; asleep += dur
             case .asleepREM:
-                rem  += dur; asleep += dur
+                rem += dur; asleep += dur
+            case .inBed:
+                continue
             @unknown default:
                 continue
             }
@@ -201,6 +217,36 @@ public final class PassiveSleepImporter: PassiveSleepImporterProtocol, @unchecke
             remSec: rem,
             sourceBundleIDs: bundles
         )
+    }
+
+    private static func dominantSleepStage(in samples: [HKCategorySample]) -> HKCategoryValueSleepAnalysis? {
+        samples
+            .compactMap { sleepValue($0) }
+            .filter { $0 != .inBed }
+            .max { priority($0) < priority($1) }
+    }
+
+    private static func sleepValue(_ sample: HKCategorySample) -> HKCategoryValueSleepAnalysis? {
+        HKCategoryValueSleepAnalysis(rawValue: sample.value)
+    }
+
+    private static func priority(_ value: HKCategoryValueSleepAnalysis) -> Int {
+        switch value {
+        case .awake:
+            return 50
+        case .asleepDeep:
+            return 40
+        case .asleepREM:
+            return 35
+        case .asleepCore:
+            return 30
+        case .asleepUnspecified:
+            return 20
+        case .inBed:
+            return 10
+        @unknown default:
+            return 0
+        }
     }
     #endif
 }

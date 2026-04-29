@@ -259,6 +259,21 @@ final class SleepKitTests: XCTestCase {
         XCTAssertEqual(v[StageFeature.accelEnergy.rawValue], 0.36, accuracy: 0.001)
     }
 
+    func testFeatureWindowBuilderIncludesAcousticSleepEvents() {
+        var b = FeatureWindowBuilder()
+        let t0 = Date()
+        b.addAcousticEvent(at: t0.addingTimeInterval(-20))
+        b.addAcousticEvent(at: t0.addingTimeInterval(-10))
+        b.addAcousticEvent(at: t0.addingTimeInterval(-90))
+
+        let v = b.currentFeatureVector(now: t0)
+
+        XCTAssertEqual(b.acousticEventCount, 3)
+        XCTAssertEqual(v[StageFeature.eventCountLikeSnore.rawValue],
+                       Float(2) / FeatureNormalization.acousticEventFullScaleCount,
+                       accuracy: 0.001)
+    }
+
     // MARK: - M5: sequence buffer fills and rolls
 
     func testSequenceBufferFillsAndRolls() {

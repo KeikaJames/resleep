@@ -37,6 +37,7 @@ struct HomeView: View {
                             }
                             TonightStatusCard()
                             SleepPlanCard()
+                            ProtocolCheckInCard()
                             SmartAlarmCard()
                             CycleRhythmCard()
                             LastSummaryCard()
@@ -57,7 +58,7 @@ struct HomeView: View {
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, 8)
-                        .padding(.bottom, 96)
+                        .padding(.bottom, 144)
                     }
                     .background(Color(.systemGroupedBackground).ignoresSafeArea())
                     .navigationTitle(Text("home.title"))
@@ -276,6 +277,101 @@ private struct PlanTimePill: View {
         .padding(.vertical, 8)
         .background(Color(.tertiarySystemGroupedBackground),
                     in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+private struct ProtocolCheckInCard: View {
+    @EnvironmentObject private var appState: AppState
+
+    var body: some View {
+        if let plan = appState.activeProtocolCheckInPlan {
+            Card {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("card.protocolCheckIn")
+                            .font(.title3.weight(.bold))
+                        Spacer()
+                        Text("\(plan.completedCount)/\(plan.tasks.count)")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(plan.title)
+                            .font(.headline.weight(.semibold))
+                        ProgressView(value: plan.completionRatio)
+                            .tint(.green)
+                    }
+
+                    VStack(spacing: 8) {
+                        ForEach(plan.tasks) { task in
+                            Button {
+                                guard !task.isCompleted else { return }
+                                Task { await appState.completeProtocolCheckInTask(id: task.id) }
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Image(systemName: task.isCompleted
+                                          ? "checkmark.circle.fill"
+                                          : symbol(for: task.category))
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .foregroundStyle(task.isCompleted ? .green : .accentColor)
+                                        .frame(width: 24, height: 24)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                            Text(task.title)
+                                                .font(.subheadline.weight(.semibold))
+                                                .foregroundStyle(.primary)
+                                                .lineLimit(2)
+                                                .fixedSize(horizontal: false, vertical: true)
+                                            Spacer(minLength: 8)
+                                            if let scheduled = task.scheduledMinute {
+                                                Text(Self.clock(scheduled))
+                                                    .font(.caption.weight(.medium))
+                                                    .foregroundStyle(.secondary)
+                                                    .monospacedDigit()
+                                            }
+                                        }
+                                        Text(task.detail)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(2)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 9)
+                                .background(
+                                    Color(.tertiarySystemGroupedBackground),
+                                    in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                )
+                                .opacity(task.isCompleted ? 0.68 : 1)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(task.isCompleted)
+                            .accessibilityLabel(Text(task.title))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func symbol(for category: SleepProtocolCheckInCategory) -> String {
+        switch category {
+        case .light: return "sun.max.fill"
+        case .caffeine: return "cup.and.saucer.fill"
+        case .nap: return "bed.double.fill"
+        case .windDown: return "lamp.desk.fill"
+        case .sleepWindow: return "moon.zzz.fill"
+        case .review: return "book.closed.fill"
+        }
+    }
+
+    private static func clock(_ minute: Int) -> String {
+        let normalized = ((minute % (24 * 60)) + (24 * 60)) % (24 * 60)
+        return String(format: "%02d:%02d", normalized / 60, normalized % 60)
     }
 }
 

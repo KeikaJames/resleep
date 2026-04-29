@@ -37,9 +37,68 @@ final class SleepAIServiceTests: XCTestCase {
         XCTAssertFalse(r.isEmpty)
     }
 
+    func testDefaultStreamEmitsPerformanceMetrics() async {
+        var final = ""
+        var metrics: SleepAIPerformanceMetrics?
+
+        for await event in svc.streamReply(to: "give me tips", context: .empty) {
+            switch event {
+            case .final(let text):
+                final = text
+            case .metrics(let value):
+                metrics = value
+            case .delta, .planDraft, .checkInPlan:
+                break
+            }
+        }
+
+        XCTAssertFalse(final.isEmpty)
+        XCTAssertEqual(metrics?.route, .ruleBased)
+        XCTAssertEqual(metrics?.engineKind, .ruleBased)
+        XCTAssertGreaterThanOrEqual(metrics?.totalMs ?? -1, 0)
+        XCTAssertEqual(metrics?.finalCharacters, final.count)
+    }
+
+    func testProtocolPlanStreamEmitsDraftAndCheckInPlan() async {
+        let ctx = SleepAIContext(
+            hasNight: true,
+            durationSec: 7 * 3600,
+            sleepScore: 80,
+            sleepPlanAutoTrackingEnabled: true,
+            sleepPlanBedtimeMinute: 23 * 60 + 30,
+            sleepPlanWakeMinute: 7 * 60 + 30,
+            sleepPlanGoalMinutes: 480,
+            sleepPlanSmartWakeWindowMinutes: 25
+        )
+        let prompt = "我向西跨12个时区，20:00出发，22:00到，第二天09:00开会，帮我保存倒时差计划"
+        var draft: SleepPlanDraft?
+        var checkIn: SleepProtocolCheckInPlan?
+        var final = ""
+
+        for await event in svc.streamReply(to: prompt, context: ctx) {
+            switch event {
+            case .planDraft(let value):
+                draft = value
+            case .checkInPlan(let value):
+                checkIn = value
+            case .final(let value):
+                final = value
+            case .delta, .metrics:
+                break
+            }
+        }
+
+        XCTAssertNotNil(draft)
+        XCTAssertNotNil(checkIn)
+        XCTAssertEqual(checkIn?.kind, .jetLag)
+        XCTAssertEqual(draft?.plan.bedtimeHour, 1)
+        XCTAssertEqual(draft?.plan.wakeHour, 9)
+        XCTAssertTrue(final.contains("01:00"))
+    }
+
     func testFollowUps_emptyContext_returnsOnboardingChoices() {
         let s = svc.suggestedFollowUps(context: .empty)
-        XCTAssertEqual(s.count, 3)
+        XCTAssertEqual(s.count, 4)
     }
 
     func testFollowUps_withNight_returnsFour() {
@@ -73,7 +132,11 @@ final class SleepAIServiceTests: XCTestCase {
                     alarmFeltGood: true,
                     snoreEventCount: 2,
                     sourceRaw: "watch",
-                    runtimeModeRaw: "live"
+                    runtimeModeRaw: "live",
+                    evidenceQualityRaw: NightEvidenceQuality.high.rawValue,
+                    evidenceConfidence: 0.86,
+                    missingSignals: [NightEvidenceSignal.wakeSurvey.rawValue],
+                    isEstimated: false
                 )
             ],
             tagInsights: [
@@ -96,6 +159,9 @@ final class SleepAIServiceTests: XCTestCase {
         XCTAssertTrue(pack.contains("caffeine"))
         XCTAssertTrue(pack.contains("HealthKit=authorized"))
         XCTAssertTrue(pack.contains("watchReachable=false"))
+        XCTAssertTrue(pack.contains("dataQuality=high"))
+        XCTAssertTrue(pack.contains("confidence=86%"))
+        XCTAssertTrue(pack.contains("missingSignals=wakeSurvey"))
     }
 
     func testReply_trendUsesRecentWindow() async {
@@ -167,6 +233,11 @@ final class SleepAIServiceTests: XCTestCase {
         XCTAssertNil(r, "Free-form non-skill prompts must return nil so the caller escalates to the LLM")
     }
 
+    func testAdaptivePlanIntentDoesNotMatchDreamFlight() {
+        XCTAssertFalse(SleepAIService.isAdaptivePlanIntent("我做了一个奇怪的梦，感觉在飞"))
+        XCTAssertTrue(SleepAIService.isAdaptivePlanIntent("我下周从上海飞纽约，帮我安排睡眠"))
+    }
+
     func testSkillReply_singleWordAffirmation_isTrivialFiller() {
         // "可以" — without this guard Gemma routes it to translation.
         let r = svc.skillReply(to: "可以", context: .empty)
@@ -218,6 +289,26 @@ final class SleepAIServiceTests: XCTestCase {
         XCTAssertNotNil(r)
         XCTAssertTrue(r!.contains("睡眠计划"))
         XCTAssertTrue(r!.contains("自动"))
+    }
+
+    func testSkillReply_adaptiveJetLagPlanAsksForMissingInputsNotGenericScript() {
+        let base = SleepAIContext(
+            hasNight: false,
+            sleepPlanAutoTrackingEnabled: true,
+            sleepPlanBedtimeMinute: 23 * 60 + 30,
+            sleepPlanWakeMinute: 7 * 60 + 30,
+            sleepPlanGoalMinutes: 480,
+            sleepPlanSmartWakeWindowMinutes: 25
+        )
+        let prompt = "帮我做一个倒时差睡眠计划"
+        let ctx = base.withSkillResults(SleepAISkillRunner.run(context: base, prompt: prompt))
+
+        let r = svc.skillReply(to: prompt, context: ctx)
+
+        XCTAssertNotNil(r)
+        XCTAssertTrue(r!.contains("出发地"))
+        XCTAssertTrue(r!.contains("到达时间"))
+        XCTAssertFalse(r!.contains(NSLocalizedString("ai.reply.sleepPlan", comment: "")))
     }
 
     func testSkillReply_tiredUsesLocalNumbers() {

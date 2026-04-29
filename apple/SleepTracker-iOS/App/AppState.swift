@@ -23,6 +23,8 @@ public final class AppState: ObservableObject {
     public let passiveImporter: PassiveSleepImporterProtocol
     public let snoreDetector: SnoreDetectorProtocol
     public let personalization: PersonalizationService
+    public let adaptiveSleepModel: AdaptiveSleepModelService
+    public let protocolCheckIns: SleepProtocolCheckInService
     public let heartRateStream: HeartRateStreaming
     public let workout: WorkoutSessionManager
     public let router: TelemetryRouter
@@ -43,6 +45,7 @@ public final class AppState: ObservableObject {
 
     @Published public var latestSummary: SessionSummary?
     @Published public private(set) var sleepPlan: SleepPlanConfiguration
+    @Published public private(set) var activeProtocolCheckInPlan: SleepProtocolCheckInPlan?
     /// Set when the app launches and finds a stale active-session marker.
     /// `nil` once the user finishes-and-saves or discards.
     @Published public private(set) var interruptedSessionStart: ActiveSessionMarker?
@@ -100,6 +103,8 @@ public final class AppState: ObservableObject {
         healthWriter: HealthKitSleepWriting? = nil,
         snoreDetector: SnoreDetectorProtocol? = nil,
         personalization: PersonalizationService? = nil,
+        adaptiveSleepModel: AdaptiveSleepModelService? = nil,
+        protocolCheckIns: SleepProtocolCheckInService? = nil,
         inferenceModel: StageInferenceModel? = nil,
         inferenceFallbackReason: String? = nil,
         diagnostics: DiagnosticsStoreProtocol = InMemoryDiagnosticsStore(),
@@ -117,6 +122,8 @@ public final class AppState: ObservableObject {
         self.passiveImporter = passiveImporter
         self.snoreDetector = snoreDetector ?? EngineHost.makeSnoreDetector()
         self.personalization = personalization ?? EngineHost.makePersonalizationService()
+        self.adaptiveSleepModel = adaptiveSleepModel ?? EngineHost.makeAdaptiveSleepModelService()
+        self.protocolCheckIns = protocolCheckIns ?? EngineHost.makeSleepProtocolCheckInService()
         self.diagnostics = diagnostics
         self.markerStore = markerStore
         let sleepPlanStore = SleepPlanUserDefaultsStore()
@@ -410,6 +417,12 @@ public final class AppState: ObservableObject {
     private func startSnoreDetectorIfEnabled() {
         let enabled = UserDefaults.standard.bool(forKey: "settings.enableSnoreDetection")
         guard enabled else { return }
+        snoreDetector.onEvent { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.workout.isTracking else { return }
+                self.inferencePipeline.ingestAcousticSleepEvent()
+            }
+        }
         do { try snoreDetector.start() }
         catch { /* graceful: detector simply stays inactive */ }
     }
@@ -490,6 +503,7 @@ public final class AppState: ObservableObject {
         )
         try? await localStore.recordSessionRecord(record)
         latestSummary = summary
+        await adaptiveSleepModel.ingest(record: record, plan: sleepPlan)
 
         if let survey {
             await ingestSurveyAsLabels(sessionId: summary.sessionId,
@@ -536,6 +550,7 @@ public final class AppState: ObservableObject {
         await ingestSurveyAsLabels(sessionId: sessionId,
                                    timeline: rec.timeline,
                                    survey: survey)
+        await adaptiveSleepModel.ingest(record: rec, plan: sleepPlan)
     }
 
     /// Persist Sleep Notes (tags + free text) for an already-archived session.
@@ -630,6 +645,33 @@ public final class AppState: ObservableObject {
 
     public func reloadSleepPlan() {
         sleepPlan = sleepPlanStore.load()
+    }
+
+    public func saveSleepPlan(_ plan: SleepPlanConfiguration) {
+        sleepPlanStore.save(plan)
+        sleepPlan = plan
+        applySleepPlanForTonight()
+        publishSnapshot()
+    }
+
+    public func reloadProtocolCheckInPlan() async {
+        let plan = await protocolCheckIns.activePlan()
+        await MainActor.run { self.activeProtocolCheckInPlan = plan }
+    }
+
+    public func activateProtocolCheckInPlan(_ plan: SleepProtocolCheckInPlan) async {
+        let saved = await protocolCheckIns.activate(plan)
+        await MainActor.run { self.activeProtocolCheckInPlan = saved }
+    }
+
+    public func completeProtocolCheckInTask(id taskID: String) async {
+        let updated = await protocolCheckIns.completeTask(id: taskID)
+        await MainActor.run { self.activeProtocolCheckInPlan = updated }
+    }
+
+    public func clearProtocolCheckInPlan() async {
+        await protocolCheckIns.clear()
+        await MainActor.run { self.activeProtocolCheckInPlan = nil }
     }
 
     /// Sleep plan is the product-level source of truth for nightly alarm
@@ -752,6 +794,7 @@ public final class AppState: ObservableObject {
         await diagnostics.append(DiagnosticEvent(type: .appLaunch))
         await health.probeHeartRateReadAccess()
         refreshHealthAuthorization()
+        await reloadProtocolCheckInPlan()
         await detectInterruptedSession()
         publishSnapshot()
     }
@@ -773,6 +816,7 @@ public final class AppState: ObservableObject {
         Task { [weak self] in
             guard let self else { return }
             await self.health.probeHeartRateReadAccess()
+            await self.reloadProtocolCheckInPlan()
             await MainActor.run { self.refreshHealthAuthorization() }
         }
     }
