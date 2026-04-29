@@ -396,13 +396,14 @@ public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendabl
             let dir = try weightsLocator.locate()
 
             // Cap GPU/Metal cache on iOS to keep us within the app's memory
-            // budget while still letting MLX hold the active KV cache and
-            // the most-touched weight tiles in fast memory. 64 MB was
-            // far too aggressive for a multi-hundred-megabyte model and
-            // caused repeated re-tile latency on every token. 256 MB lets
-            // the cache stay warm across a multi-turn conversation
-            // without OOM-ing on a 6 GB iPhone.
-            MLX.GPU.set(cacheLimit: 256 * 1024 * 1024)
+            // budget while still letting MLX hold the active KV cache
+            // and the most-touched weight tiles in fast memory. With the
+            // 2.1 GB Qwen-4B-4bit weight set, leaving room for KV cache
+            // growth + Swift runtime + UI is what keeps us under jetsam
+            // even with com.apple.developer.kernel.increased-memory-limit
+            // enabled. 128 MB still avoids the constant re-tile churn we
+            // hit at 64 MB without eating into the weight-mmap budget.
+            MLX.GPU.set(cacheLimit: 128 * 1024 * 1024)
 
             let configuration = ModelConfiguration(directory: dir)
             let container = try await LLMModelFactory.shared.loadContainer(
@@ -413,7 +414,7 @@ public final class MLXSleepAIService: SleepAIServiceProtocol, @unchecked Sendabl
                 container,
                 instructions: Self.systemPrompt,
                 generateParameters: GenerateParameters(
-                    maxTokens: 320,
+                    maxTokens: 220,
                     temperature: 0.25,
                     topP: 0.85
                 )

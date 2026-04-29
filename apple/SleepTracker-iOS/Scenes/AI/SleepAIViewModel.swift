@@ -198,6 +198,10 @@ final class SleepAIViewModel: ObservableObject {
         UserDefaults.standard.set(true, forKey: Self.eulaKey)
         phase = computePhase()
         Task { await refreshContext() }
+        // Now that the user has agreed, kick off the (large) weight load
+        // in the background. Without this the user's first message after
+        // accepting the EULA would still pay the multi-second cold start.
+        prewarmEngine()
     }
 
     /// Returns localized EULA markdown text, loading the bundled file
@@ -271,7 +275,15 @@ final class SleepAIViewModel: ObservableObject {
     /// appears so cold-start latency happens in the background instead of
     /// after the user hits Send. Rule-based service has a no-op default,
     /// so this is safe to call regardless of the active tier.
+    ///
+    /// We intentionally skip prewarm while the EULA gate is up: the user
+    /// hasn't agreed to run the on-device model yet, and on a fresh
+    /// install the prewarm would otherwise mmap ~2 GB of weights into
+    /// memory before they've even seen the disclaimer — which on lower
+    /// memory iPhones (no increased-memory-limit entitlement granted yet)
+    /// has been observed to push the app past jetsam.
     func prewarmEngine() {
+        guard phase != .needsEULA else { return }
         Task.detached(priority: .utility) { [service] in
             await service.prewarm()
         }
