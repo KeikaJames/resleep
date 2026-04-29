@@ -194,10 +194,22 @@ public final class AppState: ObservableObject {
         alarm.setTriggerHandler { [weak self] in
             guard let self else { return false }
             let sid = self.workout.currentSessionID
+            // Fire the phone-side audible alarm in parallel with the watch
+            // round-trip. If the watch is dead / off the wrist / out of
+            // range — the *common* case at 6 a.m. because the watch ran
+            // flat overnight — `router.sendTriggerAlarm` will time out and
+            // the user would otherwise sleep through. Phone audio +
+            // immediate UN banner closes that gap. This is idempotent and
+            // cheap; safe to fire even when the watch ack lands first.
+            IPhoneAlarmService.shared.fireNow()
             return await self.router.sendTriggerAlarm(sessionId: sid)
         }
         router.onAlarmDismissed = { [weak self] in
             self?.alarm.noteDismissedByWatch()
+            // Stop in-process audio + tear down any still-pending UN beats
+            // so a phone that just got the dismiss ack from the watch
+            // doesn't keep beeping.
+            IPhoneAlarmService.shared.cancel()
         }
         startStatusTickLoop()
         startTimelineTickLoop()
@@ -314,6 +326,15 @@ public final class AppState: ObservableObject {
         applySleepPlanForTonight()
         if alarm.isEnabled {
             _ = alarm.armIfEnabled(engine: engine)
+            // Pre-schedule UN beats at the hard target time. These survive
+            // app suspension, so even if iOS reclaims the foreground
+            // process overnight the user still wakes up. Smart trigger
+            // (engine flags a light-sleep window inside `windowMinutes`)
+            // additionally calls `fireNow()` from the trigger handler.
+            IPhoneAlarmService.shared.arm(
+                target: alarm.target,
+                windowMinutes: alarm.windowMinutes
+            )
             _ = router.sendArmAlarm(
                 sessionId: workout.currentSessionID,
                 target: alarm.target,
@@ -363,6 +384,9 @@ public final class AppState: ObservableObject {
             dismissedAtTsMs: alarm.watchAckedAt.map { Int64($0.timeIntervalSince1970 * 1000) }
         )
         alarm.clear()
+        // Tear down any in-flight phone audio + pre-scheduled UN beats so
+        // ending a session always silences the phone.
+        IPhoneAlarmService.shared.cancel()
 
         if workout.source == .remoteWatch {
             try? await Task.sleep(nanoseconds: UInt64(remoteStopFlushGraceSec * 1_000_000_000))
@@ -737,6 +761,7 @@ public final class AppState: ObservableObject {
             _ = try? await workout.stopTracking()
         }
         alarm.clear()
+        IPhoneAlarmService.shared.cancel()
         inferencePipeline.reset()
         // 3. Start a fresh session in the source the scenario expects.
         let src: TrackingSource =
@@ -773,6 +798,7 @@ public final class AppState: ObservableObject {
         activeScenario = nil
         runtimeMode = .live
         alarm.clear()
+        IPhoneAlarmService.shared.cancel()
         teardownRunningSessionHooks()
         if workout.isTracking {
             _ = try? await workout.stopTracking()
