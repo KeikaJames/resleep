@@ -73,6 +73,20 @@ enum EngineHost {
         return PersonalizationService(store: store)
     }
 
+    static func makeAdaptiveSleepModelService() -> AdaptiveSleepModelService {
+        let store = PersistentAdaptiveSleepProfileStore(
+            fileURL: PersistentAdaptiveSleepProfileStore.defaultURL()
+        )
+        return AdaptiveSleepModelService(store: store)
+    }
+
+    static func makeSleepProtocolCheckInService() -> SleepProtocolCheckInService {
+        let store = PersistentSleepProtocolCheckInStore(
+            fileURL: PersistentSleepProtocolCheckInStore.defaultURL()
+        )
+        return SleepProtocolCheckInService(store: store)
+    }
+
     private static func defaultDBPath() -> String {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory

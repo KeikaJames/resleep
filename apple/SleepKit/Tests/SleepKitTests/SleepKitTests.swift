@@ -121,8 +121,8 @@ final class SleepKitTests: XCTestCase {
         let payload = TelemetryBatchPayload(
             heartRates: [HeartRatePoint(tsMs: 1_000, bpm: 64)],
             accelWindows: [
-                AccelWindow(tsMs: 1_000, meanX: 0, meanY: 0, meanZ: 1,
-                            magnitudeMean: 1, energy: 1, sampleCount: 10)
+                AccelWindow(tsMs: 1_000, meanX: 0, meanY: 0, meanZ: 0,
+                            magnitudeMean: 0, energy: 0, sampleCount: 10)
             ]
         )
         let env = try WatchMessage.telemetryBatch(sessionId: "s1", payload: payload)
@@ -132,6 +132,16 @@ final class SleepKitTests: XCTestCase {
         XCTAssertEqual(decoded?.kind, .telemetryBatch)
         let reparsed = try decoded!.decode(TelemetryBatchPayload.self)
         XCTAssertEqual(reparsed.heartRates.first?.bpm, 64)
+    }
+
+    func testEnvelopeDictionaryOmitsNilSessionIdForWatchConnectivity() throws {
+        let env = try WatchMessage.stopTracking(sessionId: nil)
+        let dict = env.toDictionary()
+        XCTAssertNil(dict["sid"])
+        XCTAssertTrue(PropertyListSerialization.propertyList(dict, isValidFor: .binary))
+        let decoded = MessageEnvelope.fromDictionary(dict)
+        XCTAssertEqual(decoded?.sessionId, nil)
+        XCTAssertEqual(decoded?.kind, .control)
     }
 
     // MARK: - M3: mock bus routes envelopes between endpoints
@@ -179,8 +189,8 @@ final class SleepKitTests: XCTestCase {
                 HeartRatePoint(tsMs: WallClock.nowMs(), bpm: 62),
             ],
             accelWindows: [
-                AccelWindow(tsMs: WallClock.nowMs(), meanX: 0, meanY: 0, meanZ: 1,
-                            magnitudeMean: 1, energy: 1, sampleCount: 10)
+                AccelWindow(tsMs: WallClock.nowMs(), meanX: 0, meanY: 0, meanZ: 0,
+                            magnitudeMean: 0, energy: 0, sampleCount: 10)
             ]
         )
         for hr in batch.heartRates {
@@ -215,13 +225,53 @@ final class SleepKitTests: XCTestCase {
         b.addHeartRate(60, at: t0)
         b.addHeartRate(64, at: t0.addingTimeInterval(10))
         b.addHeartRate(68, at: t0.addingTimeInterval(20))
-        b.addAccelWindow(meanX: 0, meanY: 0, meanZ: 1, energy: 0.5, variance: 0.1, at: t0)
+        b.addAccelWindow(meanX: 0.2, meanY: 0, meanZ: 0,
+                         energy: 0.5, variance: 0.1, at: t0)
         let v = b.currentFeatureVector(now: t0.addingTimeInterval(20))
         XCTAssertEqual(v.count, StageInferenceHyperparameters.default.featureDim)
-        XCTAssertEqual(v[StageFeature.hrMean.rawValue], 64, accuracy: 0.001)
+        // Values are normalized: 64 bpm / 100 = 0.64; accel mag is in g.
+        XCTAssertEqual(v[StageFeature.hrMean.rawValue], 0.64, accuracy: 0.001)
         XCTAssertGreaterThan(v[StageFeature.hrSlope.rawValue], 0)
+        XCTAssertLessThanOrEqual(v[StageFeature.hrSlope.rawValue], 1.0)
         XCTAssertEqual(v[StageFeature.accelEnergy.rawValue], 0.5, accuracy: 0.001)
-        XCTAssertEqual(v[StageFeature.accelMean.rawValue], 1, accuracy: 0.001)
+        XCTAssertEqual(v[StageFeature.accelMean.rawValue], 0.2, accuracy: 0.001)
+        // All values must be in [0, 1] (slope can be in [-1, 1]).
+        for (i, x) in v.enumerated() {
+            if i == StageFeature.hrSlope.rawValue {
+                XCTAssertGreaterThanOrEqual(x, -1)
+                XCTAssertLessThanOrEqual(x, 1)
+            } else {
+                XCTAssertGreaterThanOrEqual(x, 0)
+                XCTAssertLessThanOrEqual(x, 1)
+            }
+        }
+    }
+
+    func testFeatureWindowBuilderUsesMagnitudeMeanForOscillatingMotion() {
+        var b = FeatureWindowBuilder()
+        let t0 = Date()
+        b.addAccelWindow(meanX: 0, meanY: 0, meanZ: 0,
+                         energy: 0.36, variance: 0.04,
+                         magnitudeMean: 0.6,
+                         at: t0)
+        let v = b.currentFeatureVector(now: t0)
+        XCTAssertEqual(v[StageFeature.accelMean.rawValue], 0.6, accuracy: 0.001)
+        XCTAssertEqual(v[StageFeature.accelEnergy.rawValue], 0.36, accuracy: 0.001)
+    }
+
+    func testFeatureWindowBuilderIncludesAcousticSleepEvents() {
+        var b = FeatureWindowBuilder()
+        let t0 = Date()
+        b.addAcousticEvent(at: t0.addingTimeInterval(-20))
+        b.addAcousticEvent(at: t0.addingTimeInterval(-10))
+        b.addAcousticEvent(at: t0.addingTimeInterval(-90))
+
+        let v = b.currentFeatureVector(now: t0)
+
+        XCTAssertEqual(b.acousticEventCount, 3)
+        XCTAssertEqual(v[StageFeature.eventCountLikeSnore.rawValue],
+                       Float(2) / FeatureNormalization.acousticEventFullScaleCount,
+                       accuracy: 0.001)
     }
 
     // MARK: - M5: sequence buffer fills and rolls
@@ -248,12 +298,12 @@ final class SleepKitTests: XCTestCase {
     func testHeuristicModelClassifies() throws {
         let model = FallbackHeuristicStageInferenceModel()
         let hp = model.hyperparameters
-        // High-accel → wake
+        // High-accel → wake (normalized [0, 1] scale per FeatureNormalization)
         let wakeRow: [Float] = {
             var r = Array<Float>(repeating: 0, count: hp.featureDim)
-            r[StageFeature.accelEnergy.rawValue] = 2.0
-            r[StageFeature.accelMean.rawValue] = 1.5
-            r[StageFeature.hrMean.rawValue] = 70
+            r[StageFeature.accelEnergy.rawValue] = 0.8
+            r[StageFeature.accelMean.rawValue] = 0.7
+            r[StageFeature.hrMean.rawValue] = 0.7
             return r
         }()
         let wakeWindow = Array(repeating: wakeRow, count: hp.seqLen)
@@ -263,13 +313,13 @@ final class SleepKitTests: XCTestCase {
         XCTAssertEqual(wakeOut.stage, .wake)
         XCTAssertEqual(wakeOut.probabilities.count, 4)
 
-        // Low-accel + negative HR slope → deep
+        // Low-accel + negative HR slope → deep (normalized scale)
         let deepRow: [Float] = {
             var r = Array<Float>(repeating: 0, count: hp.featureDim)
             r[StageFeature.accelEnergy.rawValue] = 0.01
             r[StageFeature.accelMean.rawValue] = 0.05
-            r[StageFeature.hrSlope.rawValue] = -1.5
-            r[StageFeature.hrMean.rawValue] = 55
+            r[StageFeature.hrSlope.rawValue] = -0.6
+            r[StageFeature.hrMean.rawValue] = 0.55
             return r
         }()
         let deepWindow = Array(repeating: deepRow, count: hp.seqLen)
@@ -277,6 +327,38 @@ final class SleepKitTests: XCTestCase {
             StageInferenceInput(window: deepWindow, seqLen: hp.seqLen, featureDim: hp.featureDim)
         )
         XCTAssertEqual(deepOut.stage, .deep)
+
+        func row(hrMean: Float, hrStd: Float, hrv: Float,
+                 accelEnergy: Float, accelMean: Float = 0,
+                 hrSlope: Float = 0) -> [Float] {
+            var r = Array<Float>(repeating: 0, count: hp.featureDim)
+            r[StageFeature.hrMean.rawValue] = hrMean
+            r[StageFeature.hrStd.rawValue] = hrStd
+            r[StageFeature.hrvLike1.rawValue] = hrv
+            r[StageFeature.hrSlope.rawValue] = hrSlope
+            r[StageFeature.accelEnergy.rawValue] = accelEnergy
+            r[StageFeature.accelMean.rawValue] = accelMean
+            return r
+        }
+        func stage(_ row: [Float]) throws -> SleepStage {
+            let window = Array(repeating: row, count: hp.seqLen)
+            return try model.predict(
+                StageInferenceInput(window: window,
+                                    seqLen: hp.seqLen,
+                                    featureDim: hp.featureDim)
+            ).stage
+        }
+
+        // Stable physiology, not just slope, should separate light/deep/REM.
+        XCTAssertEqual(try stage(row(hrMean: 0.62, hrStd: 0.04, hrv: 0.07,
+                                     accelEnergy: 0.08)),
+                       .light)
+        XCTAssertEqual(try stage(row(hrMean: 0.53, hrStd: 0.03, hrv: 0.06,
+                                     accelEnergy: 0.015)),
+                       .deep)
+        XCTAssertEqual(try stage(row(hrMean: 0.62, hrStd: 0.16, hrv: 0.43,
+                                     accelEnergy: 0.04)),
+                       .rem)
     }
 
     // MARK: - M5: factory falls back to heuristic when bundle has no model
@@ -301,8 +383,8 @@ final class SleepKitTests: XCTestCase {
         let t0 = Date()
         pipeline.ingestHeartRate(60, at: t0)
         pipeline.ingestAccelWindow(
-            AccelWindow(tsMs: UInt64(t0.timeIntervalSince1970 * 1000), meanX: 0, meanY: 0, meanZ: 1,
-                        magnitudeMean: 1, energy: 0.1, sampleCount: 10)
+            AccelWindow(tsMs: UInt64(t0.timeIntervalSince1970 * 1000), meanX: 0, meanY: 0, meanZ: 0,
+                        magnitudeMean: 0.1, energy: 0.1, sampleCount: 10)
         )
         let out = pipeline.tick(now: t0)
         XCTAssertNotNil(out)
@@ -336,8 +418,8 @@ final class SleepKitTests: XCTestCase {
         // lands on .wake (engine default is also .wake in the fake, so also
         // sanity-check confidence > 0).
         workout.ingestRemoteAccel(
-            AccelWindow(tsMs: WallClock.nowMs(), meanX: 1, meanY: 0, meanZ: 1,
-                        magnitudeMean: 1.4, energy: 3.0, sampleCount: 10)
+            AccelWindow(tsMs: WallClock.nowMs(), meanX: 1, meanY: 0, meanZ: 0,
+                        magnitudeMean: 1.0, energy: 1.0, sampleCount: 10)
         )
         workout.ingestRemoteHeartRate(72, at: Date())
         // Drive the private refresh via tick-on-pipeline and then stop.
@@ -359,6 +441,52 @@ final class SleepKitTests: XCTestCase {
         XCTAssertEqual(ModelContract.inputName, "features")
         XCTAssertEqual(ModelContract.outputName, "logits")
         XCTAssertEqual(ModelContract.resourceName, "SleepStager")
+    }
+
+    func testSleepPlanCrossMidnightDecision() throws {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0)!
+        let plan = SleepPlanConfiguration(
+            autoTrackingEnabled: true,
+            bedtimeHour: 23,
+            bedtimeMinute: 0,
+            wakeHour: 7,
+            wakeMinute: 0,
+            sleepGoalMinutes: 480,
+            smartWakeWindowMinutes: 30,
+            nightmareWakeEnabled: true
+        )
+        let now = try XCTUnwrap(cal.date(from: DateComponents(
+            timeZone: cal.timeZone, year: 2026, month: 4, day: 29, hour: 23, minute: 10
+        )))
+        let decision = plan.decision(now: now, calendar: cal)
+        XCTAssertEqual(decision.phase, .scheduledSleep)
+        XCTAssertTrue(decision.shouldAutoStart)
+        XCTAssertTrue(decision.shouldArmSmartAlarm)
+        XCTAssertEqual(cal.component(.day, from: decision.window.wakeTime), 30)
+        XCTAssertEqual(cal.component(.hour, from: decision.window.smartWakeStart), 6)
+        XCTAssertEqual(cal.component(.minute, from: decision.window.smartWakeStart), 30)
+    }
+
+    func testSleepPlanDoesNotAutoStartOutsideWindow() throws {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0)!
+        let plan = SleepPlanConfiguration(
+            autoTrackingEnabled: true,
+            bedtimeHour: 23,
+            bedtimeMinute: 0,
+            wakeHour: 7,
+            wakeMinute: 0,
+            sleepGoalMinutes: 480,
+            smartWakeWindowMinutes: 25,
+            nightmareWakeEnabled: false
+        )
+        let midday = try XCTUnwrap(cal.date(from: DateComponents(
+            timeZone: cal.timeZone, year: 2026, month: 4, day: 29, hour: 12
+        )))
+        let decision = plan.decision(now: midday, calendar: cal)
+        XCTAssertEqual(decision.phase, .idle)
+        XCTAssertFalse(decision.shouldAutoStart)
     }
 
     // MARK: - M6: descriptor surfaces for heuristic model
@@ -393,14 +521,41 @@ final class SleepKitTests: XCTestCase {
         pipeline.ingestHeartRate(62, at: t0)
         pipeline.ingestAccelWindow(
             AccelWindow(tsMs: UInt64(t0.timeIntervalSince1970 * 1000),
-                        meanX: 0, meanY: 0, meanZ: 1,
-                        magnitudeMean: 1, energy: 0.1, sampleCount: 10)
+                        meanX: 0, meanY: 0, meanZ: 0,
+                        magnitudeMean: 0.1, energy: 0.1, sampleCount: 10)
         )
         _ = pipeline.tick(now: t0)
         XCTAssertEqual(pipeline.metrics.inferenceCount, 1)
         XCTAssertGreaterThanOrEqual(pipeline.metrics.lastPredictMs, 0)
         XCTAssertGreaterThanOrEqual(pipeline.metrics.rollingAvgPredictMs, 0)
         XCTAssertNotNil(pipeline.metrics.lastInferenceAt)
+    }
+
+    @MainActor
+    func testPipelineTemporalCalibrationDampsWeakStageFlip() {
+        let model = SequencedStageModel(outputs: [
+            StageInferenceOutput(stage: .light,
+                                 confidence: 0.80,
+                                 probabilities: [0.05, 0.80, 0.10, 0.05]),
+            StageInferenceOutput(stage: .wake,
+                                 confidence: 0.40,
+                                 probabilities: [0.40, 0.37, 0.13, 0.10]),
+        ])
+        let pipeline = StageInferencePipeline(model: model)
+        let t0 = Date()
+        pipeline.ingestHeartRate(62, at: t0)
+        pipeline.ingestAccelWindow(
+            AccelWindow(tsMs: UInt64(t0.timeIntervalSince1970 * 1000),
+                        meanX: 0, meanY: 0, meanZ: 0,
+                        magnitudeMean: 0.05, energy: 0.05, sampleCount: 10)
+        )
+
+        let first = pipeline.tick(now: t0)
+        XCTAssertEqual(first?.stage, .light)
+
+        let second = pipeline.tick(now: t0.addingTimeInterval(6))
+        XCTAssertEqual(second?.stage, .light,
+                       "weak single-window wake spike should not flicker the UI")
     }
 
     // MARK: - M6: reset is idempotent and preserves load state
@@ -415,8 +570,8 @@ final class SleepKitTests: XCTestCase {
         pipeline.ingestHeartRate(60, at: t0)
         pipeline.ingestAccelWindow(
             AccelWindow(tsMs: UInt64(t0.timeIntervalSince1970 * 1000),
-                        meanX: 0, meanY: 0, meanZ: 1,
-                        magnitudeMean: 1, energy: 0.1, sampleCount: 10)
+                        meanX: 0, meanY: 0, meanZ: 0,
+                        magnitudeMean: 0.1, energy: 0.1, sampleCount: 10)
         )
         _ = pipeline.tick(now: t0)
         pipeline.reset()
@@ -611,6 +766,39 @@ private final class CountingEngine: SleepEngineClientProtocol {
         let v = triggerSequence[triggerIdx]
         triggerIdx += 1
         return v
+    }
+}
+
+private final class SequencedStageModel: StageInferenceModel, @unchecked Sendable {
+    let hyperparameters: StageInferenceHyperparameters
+    let isRealModel: Bool = false
+    let descriptor: StageModelDescriptor = .heuristic
+
+    private let lock = NSLock()
+    private let outputs: [StageInferenceOutput]
+    private var index: Int = 0
+
+    init(outputs: [StageInferenceOutput],
+         hyperparameters: StageInferenceHyperparameters = .default) {
+        self.outputs = outputs
+        self.hyperparameters = hyperparameters
+    }
+
+    func predict(_ input: StageInferenceInput) throws -> StageInferenceOutput {
+        guard input.seqLen == hyperparameters.seqLen,
+              input.featureDim == hyperparameters.featureDim else {
+            throw StageInferenceError.invalidInputShape
+        }
+        lock.lock()
+        defer { lock.unlock() }
+        guard !outputs.isEmpty else {
+            return StageInferenceOutput(stage: .wake,
+                                        confidence: 0.25,
+                                        probabilities: [0.25, 0.25, 0.25, 0.25])
+        }
+        let out = outputs[min(index, outputs.count - 1)]
+        index += 1
+        return out
     }
 }
 

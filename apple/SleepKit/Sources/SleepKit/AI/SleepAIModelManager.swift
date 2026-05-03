@@ -3,10 +3,8 @@ import Foundation
 // MARK: - Model metadata + state
 
 /// Metadata for a downloadable on-device language model. The default model
-/// pointed at by `SleepAIModelManager.defaultDescriptor` is a placeholder —
-/// Gemma weights are not yet bundled or downloaded; the manager exists so
-/// the UI flow (authorize → download → ready) is fully scaffolded and ready
-/// to swap in a real URL.
+/// points at the formal Sleep AI model; the manager remains as a scaffolded
+/// download lifecycle for future distribution options.
 public struct SleepAIModelDescriptor: Codable, Equatable, Sendable {
     public let id: String
     public let displayName: String
@@ -51,11 +49,11 @@ public final class SleepAIModelManager: ObservableObject {
     private var downloadTask: Task<Void, Never>?
 
     public nonisolated static let defaultDescriptor = SleepAIModelDescriptor(
-        id: "gemma-on-device-placeholder",
-        displayName: "Gemma (on-device)",
-        approximateMB: 480,
+        id: "circadia-formal-model",
+        displayName: "正式版模型",
+        approximateMB: 2500,
         downloadURL: nil,
-        licenseSummary: "Gemma Terms of Use"
+        licenseSummary: "Apache License 2.0"
     )
 
     public init(descriptor: SleepAIModelDescriptor = defaultDescriptor) {
@@ -92,10 +90,8 @@ public final class SleepAIModelManager: ObservableObject {
     // MARK: Internals
 
     private func runDownload() async {
-        // No real URL → simulate a believable progress curve so the UI
-        // (rainbow ring + percentage) is exercisable today. Real path
-        // (URLSession.shared.download(...)) is a one-line swap when a
-        // descriptor with `downloadURL != nil` is configured.
+        // Closed-system placeholder: exercise the local install UI without
+        // adding network model download behavior.
         let totalSteps = 100
         for step in 0...totalSteps {
             if Task.isCancelled { return }

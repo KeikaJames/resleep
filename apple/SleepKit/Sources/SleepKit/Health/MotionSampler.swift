@@ -96,30 +96,32 @@ public final class CoreMotionSampler: MotionSampling, @unchecked Sendable {
 
     public init() {
         self.motion = CMMotionManager()
-        self.motion.accelerometerUpdateInterval = 1.0 / 10.0 // 10 Hz
+        self.motion.deviceMotionUpdateInterval = 1.0 / 10.0 // 10 Hz
         self.queue = OperationQueue()
         self.queue.name = "sleepkit.motion.sampler"
         self.queue.maxConcurrentOperationCount = 1
     }
 
     public func start() throws {
-        guard motion.isAccelerometerAvailable else {
+        guard motion.isDeviceMotionAvailable else {
             throw MotionSamplerError.unavailable
         }
         if isRunning { return }
         lastFlushMs = WallClock.nowMs()
-        motion.startAccelerometerUpdates(to: queue) { [weak self] data, error in
+        // userAcceleration has gravity removed, so a still device reads ~0 g.
+        // This is what FeatureWindow expects.
+        motion.startDeviceMotionUpdates(to: queue) { [weak self] data, error in
             guard let self, let data = data, error == nil else { return }
-            self.ingest(x: data.acceleration.x,
-                        y: data.acceleration.y,
-                        z: data.acceleration.z)
+            self.ingest(x: data.userAcceleration.x,
+                        y: data.userAcceleration.y,
+                        z: data.userAcceleration.z)
         }
         isRunning = true
     }
 
     public func stop() {
         guard isRunning else { return }
-        motion.stopAccelerometerUpdates()
+        motion.stopDeviceMotionUpdates()
         isRunning = false
         // Flush partial window before shutting down.
         flushIfDue(force: true)

@@ -21,7 +21,6 @@ struct SessionDetailView: View {
                 breakdownCard
                 timelineCard
                 alarmCard
-                notesCard
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
@@ -108,16 +107,10 @@ struct SessionDetailView: View {
         }
     }
 
-    private var notesCard: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 6) {
-                CardHeader(titleKey: "detail.notes")
-                Text("detail.notes.empty")
-                    .font(.footnote)
-                    .foregroundStyle(.tertiary)
-            }
-        }
-    }
+    // notesCard intentionally removed — the data path isn't wired and
+    // showing a permanent "Nothing here yet" cell is worse than having no
+    // cell at all. Restore once `record(for:).notes` is plumbed through
+    // `LocalStoreProtocol`.
 
     // MARK: Helpers
 

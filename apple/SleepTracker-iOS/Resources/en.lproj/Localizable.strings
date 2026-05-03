@@ -1,4 +1,4 @@
-/* Sleep Tracker — English UI strings */
+/* Circadia — English UI strings */
 
 // Tabs
 "tab.home"     = "Home";
@@ -33,19 +33,32 @@
 "onboarding.back" = "Back";
 "onboarding.welcome.title" = "Sleep, on your device.";
 "onboarding.welcome.body"  = "A quiet way to understand your nights. Heart rate, motion, and breathing — analyzed locally on your iPhone.";
+"onboarding.gender.title" = "Choose how to be addressed.";
+"onboarding.gender.body" = "Used to personalize your sleep baseline. You can also choose not to say.";
+"onboarding.gender.footer" = "You can change this later in Settings.";
+"profile.gender.male" = "Man";
+"profile.gender.female" = "Woman";
+"profile.gender.notDisclosed" = "Prefer Not to Say";
 "onboarding.privacy.title" = "Your data stays here.";
 "onboarding.privacy.b1" = "All processing happens on this iPhone and Apple Watch.";
-"onboarding.privacy.b2" = "Audio is never recorded or uploaded.";
+"onboarding.privacy.b2" = "Audio stays on-device. Nothing is uploaded.";
 "onboarding.privacy.b3" = "No accounts, no servers, no tracking.";
 "onboarding.privacy.b4" = "Delete every byte from Settings at any time.";
 "onboarding.perms.title" = "Connect to Health.";
-"onboarding.perms.body" = "Sleep can read your heart rate and HRV from Health to improve stage detection. You can change this anytime.";
+"onboarding.perms.body" = "Circadia can read your heart rate and HRV from Health to improve stage detection. You can change this anytime.";
 "onboarding.perms.allow" = "Allow Health Access";
 "onboarding.perms.skip"  = "Not Now";
+"onboarding.consent.title" = "Before we begin.";
+"onboarding.consent.subtitle" = "Please review and accept the documents below to continue. Circadia is a general wellness product and is not a medical device.";
+"onboarding.consent.terms.accept" = "I have read and agree to the Circadia General Terms of Use.";
+"onboarding.consent.terms.read" = "Read the Terms of Use →";
+"onboarding.consent.privacy.accept" = "I have read and agree to the Circadia Privacy Notice.";
+"onboarding.consent.privacy.read" = "Read the Privacy Notice →";
+"common.done" = "Done";
 
 // Notifications
 "notification.bedtime.title" = "Time to wind down";
-"notification.bedtime.body"  = "A consistent bedtime helps. Open Sleep when you're ready.";
+"notification.bedtime.body"  = "A consistent bedtime helps. Open Circadia when you're ready.";
 
 // Alarm
 "alarm.shake.hint" = "Shake your iPhone to dismiss.";
@@ -59,6 +72,7 @@
 "survey.alarm.unset" = "—";
 "survey.alarm.good"  = "Yes";
 "survey.alarm.bad"   = "No";
+"survey.alarm.footer" = "Used to tune the smart alarm window.";
 "survey.times.header" = "Actual times (optional)";
 "survey.fellasleep.title" = "Fell asleep at";
 "survey.wokeup.title"     = "Woke up at";
@@ -92,7 +106,7 @@
 "home.notes"  = "Add Notes";
 
 // Home — status
-"home.title" = "Sleep";
+"home.title" = "Circadia";
 "home.eyebrow.tracking" = "Now tracking";
 "home.eyebrow.last"     = "Last night";
 "home.eyebrow.tonight"  = "Tonight";
@@ -101,14 +115,23 @@
 "home.status.tracking"  = "Tracking";
 "home.status.ended"     = "Ended";
 "home.status.recorded"  = "Recorded";
-"home.status.idle"      = "Idle";
+"home.status.idle"      = "Ready";
 "home.stage.ready"      = "Ready";
 "home.stage.ended"      = "Ended";
 "home.source.simulation" = "Simulation";
 "home.source.iphone"     = "iPhone";
 "home.source.watch"      = "Apple Watch";
+"home.source.watchWaiting" = "Waiting for Watch data";
 "home.action.start"      = "Start Tracking";
 "home.action.stop"       = "Stop Tracking";
+"home.error.watchStartQueued" = "Apple Watch is not reachable yet. Open Circadia on the Watch; this session will start there when the link wakes up.";
+"home.hero.readyTitle" = "Ready for tonight";
+"home.hero.readySubtitle" = "Your sleep plan, smart wake, and device link are gathered here.";
+"home.hero.trackingSubtitle" = "Recording sleep stage, heart rate, and motion.";
+"home.hero.lastSubtitle" = "Your latest sleep summary is ready.";
+"home.hero.scoreFormat" = "%d score";
+"home.hero.watch" = "Watch";
+"home.hero.plan" = "Plan";
 
 // Home cards
 "card.smartAlarm"     = "Smart Alarm";
@@ -122,7 +145,19 @@
 "alarm.state.armed"      = "Armed";
 "alarm.state.triggered"  = "Triggered";
 "alarm.state.dismissed"  = "Dismissed";
-"alarm.state.unreachable" = "Watch unreachable";
+"alarm.state.unreachable" = "Apple Watch unavailable";
+"card.sleepPlan" = "Sleep Plan";
+"card.sleepPlan.autoOn" = "Automatic tracking is on";
+"card.sleepPlan.autoOff" = "Automatic tracking is off";
+"card.sleepPlan.bed" = "Bed";
+"card.sleepPlan.wake" = "Wake";
+"card.sleepPlan.window" = "Window";
+"card.sleepPlan.phase.idle" = "Next night is scheduled.";
+"card.sleepPlan.phase.windDown" = "Wind-down window.";
+"card.sleepPlan.phase.sleep" = "Scheduled sleep window.";
+"card.sleepPlan.phase.wakeWindow" = "Smart wake window.";
+"card.sleepPlan.phase.postWake" = "Morning wrap-up window.";
+"card.protocolCheckIn" = "Protocol Check-in";
 
 "card.lastSession"        = "Last Session";
 "card.lastSession.total"  = "Total sleep";
@@ -134,23 +169,77 @@
 "card.deviceSync.lastSync"  = "Last sync";
 "card.deviceSync.yes"       = "Yes";
 "card.deviceSync.no"        = "No";
+"card.deviceSync.live"      = "Watch is live";
+"card.deviceSync.offline"   = "Watch unreachable";
+"card.deviceSync.region"    = "Region";
+"card.deviceSync.region.cn" = "Mainland China";
+"card.deviceSync.region.global" = "Global";
+"cycle.card.title" = "Cycle & Sleep";
+"cycle.card.badge" = "Women";
+"cycle.card.subtitle" = "Future insights can combine sleep rhythm, heart-rate trends, and temperature signals to help observe cycle-related changes.";
+"cycle.signal.sleep" = "Sleep";
+"cycle.signal.vitals" = "Heart";
+"cycle.signal.temperature" = "Temp";
+"cycle.card.disclaimer" = "For wellness trend awareness only. Not for diagnosis, contraception, or medical risk prediction.";
 
 // Settings
 "settings.title"          = "Settings";
+"settings.section.profile" = "Personal Information";
+"settings.profile.avatar" = "Photo";
+"settings.profile.avatar.subtitle" = "Optional. Stored only on this device.";
+"settings.profile.avatar.choose" = "Choose";
+"settings.profile.avatar.change" = "Change";
+"settings.profile.avatar.remove" = "Remove photo";
+"settings.profile.nickname" = "Nickname";
+"settings.profile.nickname.placeholder" = "Optional";
+"settings.profile.gender" = "How to Address You";
+"settings.profile.birthday" = "Birthday";
+"settings.profile.birthday.add" = "Add Birthday";
+"settings.profile.birthday.clear" = "Clear Birthday";
+"settings.profile.summary.empty" = "Add profile details";
+"settings.section.sleepPlan" = "Sleep Plan";
+"settings.category.sleepPlan.subtitle" = "Automatic tracking, bedtime, and wake window";
+"settings.sleepPlan.autoTracking" = "Automatic tracking";
+"settings.sleepPlan.bedtime" = "Bedtime";
+"settings.sleepPlan.wakeTime" = "Wake up";
+"settings.sleepPlan.footer" = "Apple Watch can start collecting during this schedule and sync back to iPhone later.";
+"settings.sleepPlan.tuning" = "Goal & Wake";
+"settings.sleepPlan.goalFmt" = "Sleep goal: %@";
+"settings.sleepPlan.wakeWindowFmt" = "Smart wake window: %d min";
+"settings.sleepPlan.tuning.footer" = "Circadia tries to wake during lighter sleep inside the window and still falls back to the hard wake time.";
+"settings.sleepPlan.nightmareWake" = "Experimental nightmare wake";
+"settings.sleepPlan.nightmare.footer" = "Uses movement and heart-rate spikes as a conservative signal. Not medical-grade and may be wrong.";
+"settings.category.permissions.subtitle" = "Health access and sharing";
+"settings.category.privacyInsights" = "Privacy & Insights";
+"settings.category.privacyInsights.subtitle" = "Audio, cloud sync, and local personalization";
+"settings.category.reminders.subtitle" = "Bedtime reminder schedule";
+"settings.category.deviceModel" = "Device & Model";
+"settings.category.deviceModel.subtitle" = "Watch sync and sleep-stage engine";
+"settings.category.aiAssistant.subtitle" = "Formal model status and EULA";
+"settings.category.data" = "Diagnostics & Data";
+"settings.category.data.subtitle" = "Logs and local data controls";
+"settings.category.developer.subtitle" = "Runtime mode and review notes";
+"settings.category.about.subtitle" = "Version, legal, and acknowledgments";
 "settings.section.permissions" = "Permissions";
 "settings.shareWithHealth"   = "Share with HealthKit";
+"settings.health.title"                = "HealthKit access";
+"settings.health.status.granted"       = "Heart-rate read access · Granted";
+"settings.health.status.denied"        = "Heart-rate read access · Denied — open iOS Settings to allow.";
+"settings.health.status.notDetermined" = "Heart-rate read access · Not yet requested";
+"settings.health.status.unknown"       = "Heart-rate read access · Unknown";
+"settings.health.recheck"              = "Re-check";
+"settings.health.openSettings"         = "Open iOS Settings";
 "settings.section.privacy"   = "Privacy";
-"settings.saveRawAudio"      = "Save raw audio";
-"settings.allowAudioUpload"  = "Allow audio upload";
-"settings.cloudSync"         = "Cloud sync (future)";
+"settings.privacy.audio.title" = "Audio is never recorded";
+"settings.privacy.audio.body"  = "Snore-like sounds are processed locally. Raw audio is never saved or uploaded.";
+"settings.cloudSync"         = "Cloud sync (not supported)";
 "settings.section.insights"  = "Insights";
 "settings.snoreDetection"    = "Snore detection";
 "settings.personalization"   = "On-device personalization";
-"settings.insights.footer"   = "Snore detection runs entirely on this device and never records audio. Personalization adapts the model to your wake-up surveys; updates stay on this device.";
+"settings.insights.footer"   = "All analysis runs on your iPhone.";
 "settings.section.reminders" = "Reminders";
 "settings.bedtimeReminder"   = "Daily wind-down reminder";
 "settings.bedtimeTime"       = "Reminder time";
-"settings.reminders.footer"  = "A local notification only. Sleep does not use remote push.";
 "settings.section.watch"     = "Apple Watch";
 "settings.section.model"     = "Model";
 "settings.model.backend"     = "Backend";
@@ -162,11 +251,10 @@
 "settings.diag.view"           = "View Diagnostics";
 "settings.diag.refresh"        = "Refresh Summary";
 "settings.diag.clear"          = "Clear Diagnostics";
-"settings.diag.empty"          = "No diagnostic events yet.";
-"settings.diag.footer"         = "Local diagnostic events. Used to inspect what happened during unattended overnight tests.";
+"settings.diag.empty"          = "No events.";
 "settings.section.localData"   = "Local Data";
 "settings.localData.delete"    = "Delete Local Sleep Data";
-"settings.localData.footer"    = "Removes all sessions, summaries, and timeline entries stored on this device. This cannot be undone.";
+"settings.localData.footer"    = "This cannot be undone.";
 "settings.localData.confirmTitle" = "Delete all local sleep data?";
 "settings.localData.confirmMessage" = "Sessions, summaries, and timelines stored on this device will be removed.";
 "settings.localData.confirmDelete"  = "Delete";
@@ -175,11 +263,11 @@
 "settings.dev.runtime"         = "Runtime";
 "settings.dev.simulated"       = "Simulated";
 "settings.dev.live"            = "Live";
-"settings.dev.note"            = "Simulation controls live in the Developer section on Home.";
+"settings.dev.note"            = "Simulation toggles live on Home, under Developer.";
 "settings.section.compliance"  = "Compliance";
-"settings.compliance.l1"       = "Offline-first. Health data stays on this device by default.";
-"settings.compliance.l2"       = "No raw audio is uploaded.";
-"settings.compliance.l3"       = "Not a medical device. Does not diagnose or treat sleep disorders.";
+"settings.compliance.l1"       = "Offline-first. Health data stays on this device.";
+"settings.compliance.l2"       = "Audio is never uploaded.";
+"settings.compliance.l3"       = "Not a medical device. Not for diagnosing or treating sleep disorders.";
 "settings.section.about"       = "About";
 "settings.about.appVersion"    = "App version";
 "settings.about.build"         = "Build";
@@ -193,9 +281,14 @@
 "history.empty.title" = "No sessions yet";
 "history.empty.subtitle" = "Sessions you record will appear here.";
 "history.summaryUnavailable.title" = "Summary unavailable";
-"history.summaryUnavailable.body"  = "This session has no stored summary yet.";
+"history.summaryUnavailable.body"  = "Sleep summary couldn’t be loaded.";
 "history.inProgress" = "In progress";
 "history.score"      = "Score";
+"history.passive.title" = "From Apple Watch";
+"history.passive.source.appleWatch" = "Apple Watch";
+"history.passive.source.health" = "Apple Health";
+"history.passive.asleep" = "Asleep";
+"history.evidence.confidence" = "%d%% confidence";
 
 // Session Detail
 "detail.title"           = "Session";
@@ -242,11 +335,11 @@
 "ai.hero.prompt"                   = "How can I help?";
 
 "ai.consent.title"                 = "Sleep AI";
-"ai.consent.body"                  = "Runs on this iPhone. Your sleep data never leaves the device.";
+"ai.consent.body"                  = "Runs on this iPhone. Sleep data stays on the device.";
 "ai.consent.cta"                   = "Continue";
 
-"ai.download.title"                = "Larger model";
-"ai.download.body"                 = "Optional. For richer, more natural replies.";
+"ai.download.title"                = "Formal model";
+"ai.download.body"                 = "On-device assistant for richer, more natural replies.";
 "ai.download.cta"                  = "Download";
 "ai.download.cancel"               = "Cancel";
 "ai.download.skip"                 = "Skip";
@@ -264,7 +357,11 @@
 "ai.suggestion.summarize"          = "Summarize last night";
 "ai.suggestion.deep"               = "How was my deep sleep?";
 "ai.suggestion.rem"                = "What about REM?";
+"ai.suggestion.trend"              = "What changed recently?";
+"ai.suggestion.factors"            = "What affected my sleep?";
 "ai.suggestion.advice"             = "Tips to sleep better";
+"ai.suggestion.jetLag"             = "Plan jet lag";
+"ai.suggestion.memory"             = "Memory sleep plan";
 "ai.suggestion.howItWorks"         = "How does this work?";
 "ai.suggestion.whatTracked"        = "What do you track?";
 
@@ -282,13 +379,22 @@
 Pick one and stick with it for a week.";
 "ai.reply.hello" = "Hi. How was the night?";
 "ai.reply.fallback" = "I can **summarize last night**, look at **deep / REM** balance, or share *tips* to sleep better.";
+"ai.refuse.offTopic" = "I'm built just for sleep and wellness — that one's outside my scope. Want a quick read on **last night** or a tip to wind down better?";
+"ai.refuse.unsafe"   = "I can't help with that. If this is urgent, please reach out to a qualified clinician or your local emergency services.";
+"ai.refuse.medical"  = "I'm not able to diagnose or recommend medication. For anything clinical, please talk to a qualified healthcare provider. I can still help you read your own sleep data.";
 
 "home.tracking.duration"           = "Tracking · {time}";
 "home.tracking.stop"               = "End night";
+"home.tracking.holdHint"           = "Hold to end · 1 s";
 
 // AI tab — toolbar / history / disclaimer (added in Apple‑style polish pass)
 "ai.toolbar.history"               = "Chat history";
 "ai.toolbar.newChat"               = "New chat";
+"ai.scrollToBottom"                = "Jump to latest";
+"ai.toolbar.modelPicker"           = "Formal model";
+"ai.region.blocked.title"          = "Sleep AI is not available in this region.";
+"ai.region.blocked.body"           = "The formal model is not available in this build. Continue with the on-device fallback.";
+"ai.region.blocked.switch"         = "Use on-device fallback";
 "ai.history.empty"                 = "No conversations yet.";
 "ai.history.title"                 = "History";
 "ai.history.today"                 = "Today";
@@ -300,15 +406,17 @@ Pick one and stick with it for a week.";
 "ai.eula.accept"                   = "Agree & Continue";
 "ai.eula.decline"                  = "Not now";
 "ai.eula.short"                    = "By continuing, you agree to the Sleep AI Terms of Use.";
+"ai.eula.readToEnd"                = "Please review the agreement to the end first.";
+"ai.eula.readButton"               = "Review to the End";
 "settings.section.aiAssistant"     = "AI Assistant";
 "settings.ai.eula"                 = "AI Assistant Terms";
 "settings.ai.disclaimer"           = "Content generated by the AI assistant is for reference only and is not medical advice.";
-"settings.ai.modelPath"            = "Local model";
+"settings.ai.modelPath"            = "Formal model";
 "settings.ai.modelMissing"         = "Not installed";
 "ai.reply.howItWorks" = "On your device:
 
 • Heart rate + motion → **local feature engine**
-• Rules + (soon) a small model → infer stages
+• Formal model + local rules → infer stages
 • Your data *never leaves this iPhone*.";
 "ai.reply.whatTracked" = "Right now we use:
 
@@ -317,4 +425,23 @@ Pick one and stick with it for a week.";
 • Optional **breathing** / snore events
 
 All on-device.";
-"settings.ai.modelPending" = "Gemma 3n · 4‑bit · pending on‑device runtime";
+
+"settings.about.license" = "License (MIT)";
+"settings.about.copyright" = "Copyright";
+"home.start.greeting" = "Good night";
+"settings.ai.engineProductionModel" = "Formal model · on-device (MLX)";
+"settings.ai.engineGemma" = "Formal model · on-device (MLX)";
+"settings.ai.engineRuleBased" = "Rule-based · on-device";
+"settings.about.legalHeader" = "Legal";
+"settings.about.legalFooter" = "These documents ship with the app and are also published in the open-source repository.";
+"settings.about.thirdParty" = "Third-Party Notices";
+"settings.about.acknowledgmentsHeader" = "Acknowledgments";
+"settings.about.notMedicalDevice" = "Not a Medical Device";
+"home.permission.title" = "Heart-rate access is off";
+"home.permission.body" = "Circadia uses heart-rate samples for staging. Turn on Heart Rate in iOS Settings → Health → Data Access.";
+"home.permission.open" = "Open Settings";
+"ai.engine.badge.gemma" = "Formal model · on-device";
+"ai.engine.badge.simulator" = "Rule-based · simulator (install on device for the formal model)";
+"ai.engine.badge.ruleBased" = "Rule-based · on-device";
+"ai.tab.title" = "Sleep";
+"settings.localData.deleteError" = "Couldn't delete local data. Try again.";

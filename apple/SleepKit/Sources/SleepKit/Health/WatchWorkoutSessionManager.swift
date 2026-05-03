@@ -49,6 +49,14 @@ public final class HKWatchWorkoutSessionManager: NSObject,
         }
         if isRunning { throw WatchWorkoutError.alreadyRunning }
 
+        // Watch-side authorization. The Watch process has its own HealthKit
+        // entitlement and must request its own permission set — the iPhone
+        // app's grant does not propagate. We request the minimum needed for
+        // a workout-driven heart-rate stream and the optional sleep-analysis
+        // write. A first-run user will see the system sheet here; subsequent
+        // launches return immediately.
+        try await requestAuthorization()
+
         let config = HKWorkoutConfiguration()
         config.activityType = .mindAndBody
         config.locationType = .indoor
@@ -104,10 +112,41 @@ public final class HKWatchWorkoutSessionManager: NSObject,
             }
         }
         // We don't care about the saved workout; discard.
-        builder.finishWorkout { _, _ in }
+        // Use the modern async API (the closure-based `finishWorkout(completion:)`
+        // is deprecated as of watchOS 10).
+        _ = try? await builder.finishWorkout()
         self.session = nil
         self.builder = nil
         isRunning = false
+    }
+
+    /// Watch HealthKit authorization request. Idempotent — Apple's API
+    /// returns immediately if the user has already responded. We request
+    /// read access for HR + HRV (drives the live workout stream and is
+    /// also the same set the iPhone reads) and the optional sleep-analysis
+    /// share so users who keep their watch on the wrist overnight can have
+    /// the watch write the analysis sample directly.
+    private func requestAuthorization() async throws {
+        var read: Set<HKObjectType> = []
+        if let hr = HKObjectType.quantityType(forIdentifier: .heartRate) {
+            read.insert(hr)
+        }
+        if let hrv = HKObjectType.quantityType(forIdentifier: .heartRateVariabilitySDNN) {
+            read.insert(hrv)
+        }
+        var write: Set<HKSampleType> = []
+        if let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) {
+            write.insert(sleep)
+        }
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+            store.requestAuthorization(toShare: write, read: read) { _, error in
+                if let error = error {
+                    cont.resume(throwing: WatchWorkoutError.underlying(error.localizedDescription))
+                } else {
+                    cont.resume()
+                }
+            }
+        }
     }
 }
 

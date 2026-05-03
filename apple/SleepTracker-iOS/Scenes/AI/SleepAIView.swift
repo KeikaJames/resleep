@@ -132,11 +132,39 @@ private struct IntelligenceGlow: View {
 
 // MARK: - Root view
 
+/// Preference carrying the bottom-sentinel's maxY in the chat ScrollView's
+/// coord space, so we can compare to viewport height and decide whether
+/// to show the "jump to latest" FAB.
+private struct BottomVisibilityKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct EULABottomVisibilityKey: PreferenceKey {
+    static var defaultValue: CGFloat = .greatestFiniteMagnitude
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 struct SleepAIView: View {
     @EnvironmentObject private var appState: AppState
-    @StateObject private var model = SleepAIViewModel()
+    @StateObject private var model = SleepAIViewModel(
+        serviceFactory: { tier in MLXSleepAIService(tier: tier) }
+    )
     @FocusState private var composerFocused: Bool
     @State private var historyOpen: Bool = false
+    /// Drives the dynamic composer collapse + the "scroll to latest" FAB.
+    /// Updated by the visibility of an invisible 1pt bottom sentinel.
+    @State private var scrolledAtBottom: Bool = true
+    /// User-submitted turns should stay pinned to the latest message while
+    /// the local assistant appends the user bubble and final response.
+    @State private var pinToLatestDuringReply: Bool = false
+    @State private var suppressComposerCollapseUntil: Date = .distantPast
+    @State private var eulaScrolledToBottom: Bool = false
+    @Namespace private var composerMorph
 
     var body: some View {
         NavigationStack {
@@ -146,13 +174,15 @@ struct SleepAIView: View {
                 switch model.phase {
                 case .needsEULA:
                     eulaScreen
+                case .regionBlocked:
+                    regionBlockedScreen
                 case .ready, .chatting:
                     main
                 }
 
                 // Apple Intelligence bottom glow — only when actually using
-                // the assistant (not on the EULA screen).
-                if model.phase != .needsEULA {
+                // the assistant (not on the EULA / region-block screens).
+                if model.phase == .ready || model.phase == .chatting {
                     IntelligenceGlow(active: model.isReplying)
                 }
             }
@@ -161,9 +191,14 @@ struct SleepAIView: View {
             .task {
                 model.attach(appState: appState)
                 await model.refreshContext()
+                model.prewarmEngine()
             }
             .sheet(isPresented: $historyOpen) {
                 HistorySheet(model: model, isPresented: $historyOpen)
+            }
+            .toolbarBackground(.hidden, for: .tabBar)
+            .sensoryFeedback(.success, trigger: model.isReplying) { old, new in
+                old == true && new == false
             }
         }
     }
@@ -172,28 +207,36 @@ struct SleepAIView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        if model.phase != .needsEULA {
+        if model.phase == .ready || model.phase == .chatting {
             ToolbarItem(placement: .topBarLeading) {
                 Button {
                     historyOpen = true
                 } label: {
-                    HamburgerIcon()
+                    Image(systemName: "line.3.horizontal")
+                        .font(.body.weight(.medium))
                 }
                 .accessibilityLabel(Text("ai.toolbar.history"))
             }
             ToolbarItem(placement: .principal) {
-                Text("Sleep AI")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
+                ModelPickerLabel(model: model)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    withAnimation(.easeInOut) { model.startNewChat() }
+                    withAnimation(.easeInOut) {
+                        Haptics.selection()
+                        model.startNewChat()
+                    }
                 } label: {
                     Image(systemName: "square.and.pencil")
                         .font(.body)
                 }
                 .accessibilityLabel(Text("ai.toolbar.newChat"))
+            }
+        } else if model.phase == .regionBlocked {
+            // Region-blocked state still gets a working "switch model"
+            // affordance in the principal slot so the user is never stuck.
+            ToolbarItem(placement: .principal) {
+                ModelPickerLabel(model: model)
             }
         }
     }
@@ -201,49 +244,233 @@ struct SleepAIView: View {
     // MARK: Main scene
 
     private var main: some View {
-        VStack(spacing: 0) {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(spacing: 28) {
-                        if model.messages.isEmpty {
-                            heroHeader
-                                .padding(.top, 40)
-                                .padding(.horizontal, 24)
-                            suggestionsGrid
+        ScrollViewReader { proxy in
+            GeometryReader { outer in
+                ZStack(alignment: .bottomTrailing) {
+                    ScrollView {
+                        VStack(spacing: 28) {
+                            if model.messages.isEmpty {
+                                heroHeader
+                                    .padding(.top, 40)
+                                    .padding(.horizontal, 24)
+                                if !model.summaryText.isEmpty {
+                                    contextSnapshotCard
+                                        .padding(.horizontal, 20)
+                                }
+                                suggestionsGrid
+                                    .padding(.horizontal, 20)
+                                    .padding(.top, 8)
+                            } else {
+                                VStack(alignment: .leading, spacing: 14) {
+                                    ForEach(model.messages) { msg in
+                                        ChatBubble(message: msg)
+                                            .id(msg.id)
+                                            .transition(.asymmetric(
+                                                insertion: .move(edge: .bottom).combined(with: .opacity),
+                                                removal: .opacity
+                                            ))
+                                    }
+                                    if model.isReplying {
+                                        ThinkingDots().id("__thinking__")
+                                    }
+                                }
                                 .padding(.horizontal, 20)
-                                .padding(.top, 8)
-                        } else {
-                            VStack(alignment: .leading, spacing: 14) {
-                                ForEach(model.messages) { msg in
-                                    ChatBubble(message: msg)
-                                        .id(msg.id)
-                                        .transition(.asymmetric(
-                                            insertion: .move(edge: .bottom).combined(with: .opacity),
-                                            removal: .opacity
-                                        ))
-                                }
-                                if model.isReplying {
-                                    ThinkingDots().id("__thinking__")
-                                }
+                                .padding(.top, 16)
                             }
-                            .padding(.horizontal, 20)
-                            .padding(.top, 16)
+
+                            bottomAnchor
                         }
                     }
-                    .padding(.bottom, 16)
-                }
-                .scrollDismissesKeyboard(.interactively)
-                .onChange(of: model.messages.count) { _, _ in
-                    if let last = model.messages.last {
-                        withAnimation(.easeOut(duration: 0.25)) {
-                            proxy.scrollTo(last.id, anchor: .bottom)
+                    .coordinateSpace(name: "ai.scroll")
+                    .scrollDismissesKeyboard(.interactively)
+                    .onPreferenceChange(BottomVisibilityKey.self) { sentinelY in
+                        // sentinelY is the bottom-edge Y of the 1pt sentinel
+                        // expressed in the ScrollView's coord space; the
+                        // viewport extends from 0 to `outer.size.height`.
+                        let nearBottom = model.messages.isEmpty || sentinelY <= outer.size.height + 12
+                        let suppressCollapse = Date() < suppressComposerCollapseUntil
+                            || pinToLatestDuringReply
+                        if !nearBottom && suppressCollapse {
+                            return
+                        }
+                        if scrolledAtBottom != nearBottom {
+                            // Drop focus the moment the user scrolls up so the
+                            // keyboard tucks away with the composer.
+                            if !nearBottom { composerFocused = false }
+                            withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                                scrolledAtBottom = nearBottom
+                            }
                         }
                     }
+                    .onChange(of: model.messages.count) { _, _ in
+                        guard !model.messages.isEmpty else { return }
+                        if scrolledAtBottom || composerFocused || pinToLatestDuringReply {
+                            pinComposerToLatest(proxy: proxy)
+                        }
+                    }
+                    .onChange(of: model.isReplying) { oldValue, newValue in
+                        if oldValue == true && newValue == false {
+                            pinComposerToLatest(proxy: proxy)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                                pinToLatestDuringReply = false
+                            }
+                        }
+                    }
+                    floatingComposerDock(proxy: proxy)
                 }
             }
-            disclaimer
-            composer
         }
+    }
+
+    private var chatBottomContentPadding: CGFloat {
+        168
+    }
+
+    private var showsExpandedComposer: Bool {
+        model.messages.isEmpty || scrolledAtBottom || composerFocused || pinToLatestDuringReply
+    }
+
+    private var bottomAnchor: some View {
+        VStack(spacing: 0) {
+            Color.clear
+                .frame(height: chatBottomContentPadding)
+
+            // Bottom sentinel — it intentionally sits *after* the composer
+            // spacer. Scrolling to this id keeps the latest message above the
+            // overlay instead of hiding it underneath the input bar.
+            Color.clear
+                .frame(height: 1)
+                .id("__bottom_sentinel__")
+                .background(
+                    GeometryReader { inner in
+                        Color.clear.preference(
+                            key: BottomVisibilityKey.self,
+                            value: inner.frame(in: .named("ai.scroll")).maxY
+                        )
+                    }
+                )
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func pinComposerToLatest(proxy: ScrollViewProxy) {
+        suppressComposerCollapseUntil = Date().addingTimeInterval(1.2)
+        if !scrolledAtBottom {
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                scrolledAtBottom = true
+            }
+        }
+        scrollToBottom(proxy: proxy, delay: 0)
+        scrollToBottom(proxy: proxy, delay: 0.08)
+        scrollToBottom(proxy: proxy, delay: 0.22)
+        scrollToBottom(proxy: proxy, delay: 0.45)
+    }
+
+    private func scrollToBottom(proxy: ScrollViewProxy, delay: TimeInterval) {
+        let work = {
+            withAnimation(.easeOut(duration: 0.25)) {
+                proxy.scrollTo("__bottom_sentinel__", anchor: .bottom)
+            }
+        }
+        if delay == 0 {
+            work()
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+        }
+    }
+
+    /// Floating bottom controls. This is an overlay, not a safe-area inset:
+    /// nothing here paints a full-width bottom bar.
+    @ViewBuilder
+    private func floatingComposerDock(proxy: ScrollViewProxy) -> some View {
+        ZStack(alignment: .bottomTrailing) {
+            if showsExpandedComposer {
+                expandedComposer
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.92, anchor: .bottomTrailing).combined(with: .opacity),
+                        removal: .scale(scale: 0.82, anchor: .bottomTrailing).combined(with: .opacity)
+                    ))
+            } else if !model.messages.isEmpty {
+                scrollToLatestButton(proxy: proxy)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.82, anchor: .bottomTrailing).combined(with: .opacity),
+                        removal: .scale(scale: 0.92, anchor: .bottomTrailing).combined(with: .opacity)
+                    ))
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.bottom, 10)
+        .frame(maxWidth: 640)
+        .frame(maxWidth: .infinity, alignment: .bottom)
+        .animation(.spring(response: 0.42, dampingFraction: 0.84), value: scrolledAtBottom)
+    }
+
+    private var expandedComposer: some View {
+        VStack(spacing: 8) {
+            disclaimer
+            HStack(spacing: 10) {
+                TextField(text: $model.draft, axis: .vertical) {
+                    Text("ai.chat.placeholder")
+                }
+                .focused($composerFocused)
+                .lineLimit(1...5)
+                .submitLabel(.send)
+                .onSubmit { submit() }
+                .transition(.opacity)
+
+                if !model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Button { submit() } label: {
+                        Image(systemName: "arrow.up")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(Color(.systemBackground))
+                            .padding(7)
+                            .background(Circle().fill(Color.primary))
+                    }
+                    .disabled(model.isReplying)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+        }
+        .padding(.horizontal, 10)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.18), radius: 22, y: 10)
+                .matchedGeometryEffect(id: "ai.composer.shell", in: composerMorph)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.7)
+        )
+        .appleIntelligenceStroke(cornerRadius: 30, lineWidth: 1.1)
+    }
+
+    private func scrollToLatestButton(proxy: ScrollViewProxy) -> some View {
+        Button {
+            Haptics.selection()
+            if !model.messages.isEmpty {
+                pinComposerToLatest(proxy: proxy)
+            }
+        } label: {
+            Image(systemName: "chevron.down")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.primary.opacity(0.85))
+                .frame(width: 44, height: 44)
+                .background(
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+                        .matchedGeometryEffect(id: "ai.composer.shell", in: composerMorph)
+                )
+                .overlay(
+                    Circle()
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.7)
+                )
+        }
+        .accessibilityLabel(Text("ai.scrollToBottom"))
     }
 
     private var heroHeader: some View {
@@ -258,12 +485,37 @@ struct SleepAIView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private var contextSnapshotCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.tint)
+                Text("ai.summary.title")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+            }
+            Text(model.summaryText)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+    }
+
     private var suggestionsGrid: some View {
         let cols = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
         return LazyVGrid(columns: cols, spacing: 10) {
             ForEach(Array(model.suggestionCards.enumerated()), id: \.offset) { _, card in
                 Button {
+                    pinToLatestDuringReply = true
                     composerFocused = false
+                    Haptics.tapSoft()
                     Task { await model.send(prompt: card.text) }
                 } label: {
                     SuggestionCard(card: card)
@@ -280,132 +532,146 @@ struct SleepAIView: View {
             .font(.caption2)
             .foregroundStyle(.tertiary)
             .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.horizontal, 16)
-            .padding(.top, 6)
-            .padding(.bottom, 4)
-    }
-
-    private var composer: some View {
-        HStack(spacing: 10) {
-            HStack(spacing: 8) {
-                TextField(text: $model.draft, axis: .vertical) {
-                    Text("ai.chat.placeholder")
-                }
-                .focused($composerFocused)
-                .lineLimit(1...5)
-                .submitLabel(.send)
-                .onSubmit { submit() }
-
-                if !model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Button { submit() } label: {
-                        Image(systemName: "arrow.up")
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(Color(.systemBackground))
-                            .padding(7)
-                            .background(Circle().fill(Color.primary))
-                    }
-                    .disabled(model.isReplying)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(Color(.secondarySystemGroupedBackground))
-            )
-            .appleIntelligenceStroke(cornerRadius: 22, lineWidth: 1.2)
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 10)
-        .background(
-            Color(.systemGroupedBackground)
-                .overlay(Divider(), alignment: .top)
-        )
+            .padding(.horizontal, 10)
     }
 
     private func submit() {
-        let text = model.draft
+        let text = model.draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
         model.draft = ""
+        pinToLatestDuringReply = true
+        Haptics.tapRigid()
         Task { await model.send(prompt: text) }
     }
 
     // MARK: EULA gate
 
     private var eulaScreen: some View {
-        VStack(spacing: 0) {
-            VStack(spacing: 10) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 40, weight: .semibold))
-                    .aiShimmer()
-                Text("ai.eula.title")
-                    .font(.title2.weight(.semibold))
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.top, 28)
-            .padding(.bottom, 18)
+        ScrollViewReader { proxy in
+            GeometryReader { viewport in
+                ZStack(alignment: .bottom) {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            VStack(spacing: 10) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 40, weight: .semibold))
+                                    .aiShimmer()
+                                Text("ai.eula.title")
+                                    .font(.title2.weight(.semibold))
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(.top, 28)
+                            .padding(.bottom, 18)
 
-            ScrollView {
-                Text(markdown(model.eulaMarkdown()))
-                    .font(.callout)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 22)
-                    .padding(.bottom, 24)
-                    .textSelection(.enabled)
-            }
+                            MarkdownBody(text: model.eulaMarkdown())
+                                .padding(.horizontal, 22)
+                                .textSelection(.enabled)
 
-            VStack(spacing: 10) {
-                Text("ai.eula.short")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+                            Color.clear
+                                .frame(height: 1)
+                                .id("__eula_bottom__")
+                                .background(
+                                    GeometryReader { marker in
+                                        Color.clear.preference(
+                                            key: EULABottomVisibilityKey.self,
+                                            value: marker.frame(in: .named("ai.eula.scroll")).maxY
+                                        )
+                                    }
+                                )
 
-                Button {
-                    withAnimation(.easeInOut) { model.acceptEULA() }
-                } label: {
-                    Text("ai.eula.accept")
-                        .font(.body.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
+                            Color.clear
+                                .frame(height: 148)
+                                .id("__eula_scroll_end__")
+                        }
+                    }
+                    .coordinateSpace(name: "ai.eula.scroll")
+                    .scrollIndicators(.visible)
+                    .onPreferenceChange(EULABottomVisibilityKey.self) { bottomY in
+                        let isReadableEndVisible = bottomY <= viewport.size.height - 118
+                        if eulaScrolledToBottom != isReadableEndVisible {
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                                eulaScrolledToBottom = isReadableEndVisible
+                            }
+                        }
+                    }
+
+                    EULAAcceptDock(isReady: eulaScrolledToBottom) {
+                        if eulaScrolledToBottom {
+                            Haptics.tapHeavy()
+                            withAnimation(.easeInOut) { model.acceptEULA() }
+                        } else {
+                            Haptics.selection()
+                            withAnimation(.smooth(duration: 0.32)) {
+                                proxy.scrollTo("__eula_scroll_end__", anchor: .bottom)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 18)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.primary)
-                .foregroundStyle(Color(.systemBackground))
-                .padding(.horizontal, 24)
             }
-            .padding(.bottom, 24)
+            .onAppear {
+                eulaScrolledToBottom = false
+            }
         }
-    }
-
-    private func markdown(_ raw: String) -> AttributedString {
-        if let attr = try? AttributedString(
-            markdown: raw,
-            options: AttributedString.MarkdownParsingOptions(
-                interpretedSyntax: .inlineOnlyPreservingWhitespace
-            )
-        ) {
-            return attr
-        }
-        return AttributedString(raw)
     }
 }
 
-// MARK: - Hamburger icon (varied bar lengths)
+private struct EULAAcceptDock: View {
+    let isReady: Bool
+    let action: () -> Void
 
-private struct HamburgerIcon: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            bar(width: 18)
-            bar(width: 13)
-            bar(width: 16)
-        }
-        .frame(width: 22, height: 22, alignment: .leading)
-    }
+        VStack(spacing: 10) {
+            Text(isReady ? "ai.eula.short" : "ai.eula.readToEnd")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 18)
+                .contentTransition(.opacity)
 
-    private func bar(width: CGFloat) -> some View {
-        Capsule()
-            .frame(width: width, height: 2)
-            .foregroundStyle(.primary)
+            Button(action: action) {
+                HStack(spacing: 8) {
+                    Text(isReady ? "ai.eula.accept" : "ai.eula.readButton")
+                        .font(.body.weight(.semibold))
+                    Image(systemName: isReady ? "checkmark" : "arrow.down")
+                        .font(.subheadline.weight(.bold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .foregroundStyle(isReady ? Color(.systemBackground) : Color.primary)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(isReady ? Color.primary : Color(.secondarySystemGroupedBackground))
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(isReady ? 0.08 : 0.10), lineWidth: 0.8)
+            }
+            .appleIntelligenceStroke(cornerRadius: 22, lineWidth: isReady ? 1.2 : 0.75)
+            .scaleEffect(isReady ? 1.01 : 1)
+            .animation(.spring(response: 0.34, dampingFraction: 0.82), value: isReady)
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 12)
+        .padding(.bottom, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.14), radius: 24, y: 10)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .stroke(
+                    LinearGradient(colors: [
+                        .white.opacity(0.62),
+                        Color(.separator).opacity(0.14),
+                        .white.opacity(0.08)
+                    ], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1
+                )
+        }
     }
 }
 
@@ -510,6 +776,65 @@ private struct HistorySheet: View {
         if !yLst.isEmpty { out.append((NSLocalizedString("ai.history.yesterday", comment: ""), yLst)) }
         if !earlier.isEmpty { out.append((NSLocalizedString("ai.history.title", comment: ""), earlier)) }
         return out
+    }
+}
+
+// MARK: - Model label
+
+/// Toolbar label for the single production Sleep AI model.
+private struct ModelPickerLabel: View {
+    @ObservedObject var model: SleepAIViewModel
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: model.selectedTier.symbol)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tint)
+            Text(model.selectedTier.displayName)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(
+            Capsule().fill(Color(.secondarySystemBackground))
+        )
+        .accessibilityLabel(Text(model.selectedTier.displayName))
+    }
+}
+
+// MARK: - Region-blocked screen
+
+private extension SleepAIView {
+    var regionBlockedScreen: some View {
+        VStack(spacing: 18) {
+            Spacer()
+            Image(systemName: "exclamationmark.shield")
+                .font(.system(size: 44, weight: .light))
+                .foregroundStyle(.tint)
+            Text(model.regionBlockTitle)
+                .font(.title3.weight(.semibold))
+                .multilineTextAlignment(.center)
+            Text(model.regionBlockBody)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 12)
+            Button {
+                Haptics.selection()
+                model.selectTier(model.regionFallbackTier.kind)
+            } label: {
+                Text(model.regionBlockSwitchCTA)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .padding(.top, 4)
+            Spacer()
+        }
+        .padding(.horizontal, 32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

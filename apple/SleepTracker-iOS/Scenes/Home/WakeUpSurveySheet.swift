@@ -23,32 +23,25 @@ struct WakeUpSurveySheet: View {
         NavigationStack {
             Form {
                 Section {
-                    HStack(spacing: 12) {
+                    HStack(spacing: 14) {
                         ForEach(1...5, id: \.self) { v in
                             Button {
+                                UISelectionFeedbackGenerator().selectionChanged()
                                 quality = v
                             } label: {
-                                ZStack {
-                                    Circle()
-                                        .fill(v <= quality ? Color.accentColor
-                                                          : Color(.systemGray5))
-                                        .frame(width: 36, height: 36)
-                                    Text("\(v)")
-                                        .foregroundStyle(v <= quality ? .white : .primary)
-                                        .font(.body.weight(.semibold))
-                                }
+                                Image(systemName: v <= quality ? "star.fill" : "star")
+                                    .font(.system(size: 28, weight: .regular))
+                                    .foregroundStyle(v <= quality ? .yellow : Color(.systemGray3))
+                                    .symbolEffect(.bounce, value: quality)
                             }
                             .buttonStyle(.plain)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 8)
                 } header: {
                     Text("survey.quality.title", bundle: .main,
                          comment: "Wake-up survey: quality header")
-                } footer: {
-                    Text("survey.quality.footer", bundle: .main,
-                         comment: "1 = poor, 5 = excellent")
                 }
 
                 Section {
@@ -87,7 +80,7 @@ struct WakeUpSurveySheet: View {
                 }
             }
             .navigationTitle(Text("survey.title"))
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("survey.skip") { onDone() }
@@ -102,6 +95,7 @@ struct WakeUpSurveySheet: View {
                             alarmFeltGood: alarmFeltGood,
                             note: trimmed.isEmpty ? nil : trimmed
                         )
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
                         Task {
                             await appState.submitWakeSurvey(sessionId: sessionId, survey: s)
                             onDone()

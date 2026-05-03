@@ -6,6 +6,7 @@ final class HistoryViewModel: ObservableObject {
     @Published private(set) var sessions: [SleepSession] = []
     @Published private(set) var summaries: [String: SessionSummary] = [:]
     @Published private(set) var records: [String: StoredSessionRecord] = [:]
+    @Published private(set) var loadError: String?
 
     func load(appState: AppState) async {
         do {
@@ -23,8 +24,9 @@ final class HistoryViewModel: ObservableObject {
             }
             self.summaries = resolvedSummaries
             self.records = resolvedRecords
+            self.loadError = nil
         } catch {
-            print("listSessions failed: \(error)")
+            self.loadError = String(describing: error)
         }
     }
 

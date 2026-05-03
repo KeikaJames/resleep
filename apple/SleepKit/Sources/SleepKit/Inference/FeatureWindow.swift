@@ -1,11 +1,66 @@
 import Foundation
 
+/// Maps raw sensor units (bpm, g) to the [0, 1]-ish scale that the
+/// training synthetic dataset (`python/training/data/dataset.py`) emits.
+///
+/// Training-time per-stage means are documented inline in the dataset,
+/// e.g. `hr_mean ≈ 0.85` for wake (target ~85 bpm) and `≈ 0.40` for deep
+/// (~40 bpm baseline). The runtime side must scale into the same range
+/// or the Core ML stage classifier produces near-uniform softmax noise.
+///
+/// Constants live here, not in `FeatureWindowBuilder`, so they can be
+/// reused by tests, calibration tooling, and future re-trains.
+public enum FeatureNormalization {
+    /// HR mean/min/max scaling. ~100 bpm → 1.0, 50 bpm → 0.5.
+    public static let hrFullScaleBpm: Float = 100
+
+    /// HR std-dev scaling (sample std over a 60 s window). Wake-tier
+    /// std target ≈ 0.25 (≈ 7 bpm), so divide by ~28 bpm.
+    public static let hrStdFullScaleBpm: Float = 28
+
+    /// HR slope: training dataset uses ≈ 0.15 for REM, ≈ 0.05 for wake;
+    /// per-step (≈ per-second) bpm slope rarely exceeds 1 bpm/s in practice.
+    public static let hrSlopeFullScaleBpmPerStep: Float = 5
+
+    /// Accel magnitude in g. Quiet sleep is ≈ 0.02 g; wake bursts can hit
+    /// 0.5–1 g. Normalizing by 1 g gives the dataset-aligned 0.05–0.65 band.
+    public static let accelMagFullScaleG: Float = 1
+
+    /// Accel std-dev / energy on the same g scale (already non-negative).
+    public static let accelEnergyFullScaleG: Float = 1
+
+    /// Range-based HRV proxy (max−min HR over the window). Training uses
+    /// ≈ 0.75 for REM (high HRV-like), so ~22 bpm range maps to ~0.78.
+    public static let hrvRangeFullScaleBpm: Float = 28
+
+    /// Sample-count proxy. The training synthetic set never sees more than
+    /// the seq_len, so we scale by the configured HR window length.
+    public static let hrvCountFullScaleSamples: Float = 60
+
+    /// Acoustic event count over the feature window. We cap at 12 events per
+    /// minute so occasional classifier bursts cannot dominate physiology.
+    public static let acousticEventFullScaleCount: Float = 12
+
+    @inline(__always)
+    public static func clamp01(_ x: Float) -> Float {
+        if x.isNaN || x.isInfinite { return 0 }
+        if x < 0 { return 0 }
+        if x > 1 { return 1 }
+        return x
+    }
+}
+
 /// Builds a single feature vector for the current inference window from
 /// recent HR + accel samples.
 ///
 /// The builder keeps two small ring buffers of raw inputs and, when
 /// `currentFeatureVector(now:)` is called, summarizes them into the
 /// `StageFeature`-ordered vector padded up to `featureDim`.
+///
+/// All emitted values are scaled by `FeatureNormalization` so that they
+/// match the [0, 1]-ish scale used by the training dataset. Without this
+/// normalization the Core ML classifier produces near-uniform softmax
+/// (it was trained on normalized features).
 ///
 /// Time semantics:
 /// - `hrWindowSec` bounds how far back HR contributes.
@@ -22,6 +77,7 @@ public struct FeatureWindowBuilder {
 
     private var hrSamples: [(ts: Date, bpm: Float)] = []
     private var accelWindows: [(ts: Date, mag: Float, energy: Float, variance: Float)] = []
+    private var acousticEvents: [Date] = []
 
     public init(featureDim: Int = StageInferenceHyperparameters.default.featureDim) {
         self.featureDim = featureDim
@@ -36,21 +92,30 @@ public struct FeatureWindowBuilder {
 
     public mutating func addAccelWindow(meanX: Float, meanY: Float, meanZ: Float,
                                         energy: Float, variance: Float,
+                                        magnitudeMean: Float? = nil,
                                         at date: Date) {
-        let mag = (meanX * meanX + meanY * meanY + meanZ * meanZ).squareRoot()
-        accelWindows.append((date, mag, energy, variance))
+        let meanVectorMag = (meanX * meanX + meanY * meanY + meanZ * meanZ).squareRoot()
+        let mag = magnitudeMean ?? meanVectorMag
+        accelWindows.append((date, max(0, mag), max(0, energy), max(0, variance)))
+        trim(now: date)
+    }
+
+    public mutating func addAcousticEvent(at date: Date) {
+        acousticEvents.append(date)
         trim(now: date)
     }
 
     public mutating func reset() {
         hrSamples.removeAll(keepingCapacity: true)
         accelWindows.removeAll(keepingCapacity: true)
+        acousticEvents.removeAll(keepingCapacity: true)
     }
 
     // MARK: Query
 
     /// Summarize the current buffers into a fixed-width feature vector. The
-    /// returned array has length == `featureDim` (zero-padded).
+    /// returned array has length == `featureDim` (zero-padded). All scalars
+    /// are normalized to roughly [0, 1] to match training-time scaling.
     public func currentFeatureVector(now: Date = Date()) -> [Float] {
         var v = Array<Float>(repeating: 0, count: featureDim)
 
@@ -64,13 +129,17 @@ public struct FeatureWindowBuilder {
             let mean = hr.reduce(0, +) / Float(hr.count)
             let variance = hr.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / Float(hr.count)
             let std = variance.squareRoot()
-            // Slope: simple last-minus-first normalized by sample count.
             let slope = hr.count >= 2
                 ? (hr.last! - hr.first!) / Float(max(hr.count - 1, 1))
                 : 0
-            write(&v, .hrMean, mean)
-            write(&v, .hrStd, std)
-            write(&v, .hrSlope, slope)
+            write(&v, .hrMean,
+                  FeatureNormalization.clamp01(mean / FeatureNormalization.hrFullScaleBpm))
+            write(&v, .hrStd,
+                  FeatureNormalization.clamp01(std / FeatureNormalization.hrStdFullScaleBpm))
+            // Slope is signed; scale into [-1, 1] then leave as-is so the
+            // model can learn direction. Training data uses ≈ ±0.15.
+            let slopeScaled = slope / FeatureNormalization.hrSlopeFullScaleBpmPerStep
+            write(&v, .hrSlope, max(-1, min(1, slopeScaled)))
         }
 
         if !ac.isEmpty {
@@ -83,20 +152,30 @@ public struct FeatureWindowBuilder {
                 return v.squareRoot()
             }()
             let accelEnergy = energies.reduce(0, +) / Float(energies.count)
-            write(&v, .accelMean, accelMean)
-            write(&v, .accelStd, accelStd)
-            write(&v, .accelEnergy, accelEnergy)
+            write(&v, .accelMean,
+                  FeatureNormalization.clamp01(accelMean / FeatureNormalization.accelMagFullScaleG))
+            write(&v, .accelStd,
+                  FeatureNormalization.clamp01(accelStd / FeatureNormalization.accelMagFullScaleG))
+            write(&v, .accelEnergy,
+                  FeatureNormalization.clamp01(accelEnergy / FeatureNormalization.accelEnergyFullScaleG))
         }
 
-        // No audio events yet; keep slot at zero.
-        write(&v, .eventCountLikeSnore, 0)
-        // HRV-like proxies: coarse range-based placeholder (real HRV needs RR
-        // intervals, not BPM samples).
+        let eventCount = acousticEvents
+            .filter { now.timeIntervalSince($0) <= accelWindowSec }
+            .count
+        write(&v, .eventCountLikeSnore,
+              FeatureNormalization.clamp01(Float(eventCount)
+                  / FeatureNormalization.acousticEventFullScaleCount))
+        // HRV-like proxies: range and sample density (real HRV needs RR
+        // intervals, not BPM samples). Both scaled into [0, 1].
         if hr.count >= 2 {
             let minHR = hr.min() ?? 0
             let maxHR = hr.max() ?? 0
-            write(&v, .hrvLike1, maxHR - minHR)
-            write(&v, .hrvLike2, Float(hr.count))
+            let range = maxHR - minHR
+            write(&v, .hrvLike1,
+                  FeatureNormalization.clamp01(range / FeatureNormalization.hrvRangeFullScaleBpm))
+            write(&v, .hrvLike2,
+                  FeatureNormalization.clamp01(Float(hr.count) / FeatureNormalization.hrvCountFullScaleSamples))
         }
 
         return v
@@ -104,6 +183,7 @@ public struct FeatureWindowBuilder {
 
     public var hrSampleCount: Int { hrSamples.count }
     public var accelWindowCount: Int { accelWindows.count }
+    public var acousticEventCount: Int { acousticEvents.count }
 
     // MARK: - Internals
 
@@ -116,6 +196,10 @@ public struct FeatureWindowBuilder {
         if let firstFresh = accelWindows.firstIndex(where: { $0.ts >= accelCutoff }),
            firstFresh > 0 {
             accelWindows.removeFirst(firstFresh)
+        }
+        if let firstFresh = acousticEvents.firstIndex(where: { $0 >= accelCutoff }),
+           firstFresh > 0 {
+            acousticEvents.removeFirst(firstFresh)
         }
     }
 

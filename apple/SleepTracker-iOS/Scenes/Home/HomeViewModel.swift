@@ -56,9 +56,21 @@ final class HomeViewModel: ObservableObject {
         } catch {
             lastError = "HealthKit permission: \(error)"
         }
+        // After the system prompt closes, probe with a real query so we
+        // know whether READ access was granted (HealthKit refuses to
+        // tell us this through `authorizationStatus(for:)`).
+        await appState.health.probeHeartRateReadAccess()
+        // Republish the latest status immediately so the UI reflects
+        // the new state without waiting for a foreground bounce.
+        appState.refreshHealthAuthorization()
 
-        let useWatch = appState.connectivity.isReachable && appState.connectivity.isWatchAppInstalled
-        let source: TrackingSource = useWatch ? .remoteWatch : .localPhone
+        if appState.interruptedSessionStart != nil {
+            await appState.finishInterruptedAndSave()
+        }
+
+        let hasInstalledWatch =
+            appState.connectivity.isPaired && appState.connectivity.isWatchAppInstalled
+        let source: TrackingSource = hasInstalledWatch ? .remoteWatch : .localPhone
 
         do {
             try await appState.workout.startTracking(source: source)
@@ -69,6 +81,7 @@ final class HomeViewModel: ObservableObject {
             )
             return
         }
+        appState.router.resetSessionTelemetry()
 
         // Install trigger/dismiss/1Hz-status hooks — same set the simulation
         // path uses, so live and simulated exercise the identical product loop.
@@ -87,6 +100,9 @@ final class HomeViewModel: ObservableObject {
             )
         }
 
+        // Sleep Plan owns nightly alarm timing when automatic tracking is on.
+        appState.applySleepPlanForTonight()
+
         // Arm the Rust engine if the user enabled the alarm; also echo the
         // arm to the Watch as a hint.
         if appState.alarm.isEnabled {
@@ -98,9 +114,9 @@ final class HomeViewModel: ObservableObject {
             )
         }
 
-        if let sessionId = appState.workout.currentSessionID, useWatch {
+        if let sessionId = appState.workout.currentSessionID, hasInstalledWatch {
             if !appState.router.sendStart(sessionId: sessionId) {
-                lastError = "Watch unreachable — enqueued start for guaranteed delivery."
+                lastError = NSLocalizedString("home.error.watchStartQueued", comment: "")
             }
         }
         appState.publishSnapshot()
@@ -127,9 +143,13 @@ final class HomeViewModel: ObservableObject {
         )
         appState.alarm.clear()
 
-        if appState.workout.source == .remoteWatch {
+        let shouldNotifyWatch =
+            appState.connectivity.isPaired && appState.connectivity.isWatchAppInstalled
+        if shouldNotifyWatch {
             _ = appState.router.sendStop(sessionId: sessionId)
-            try? await Task.sleep(nanoseconds: UInt64(stopFlushGraceSec * 1_000_000_000))
+            if appState.workout.source == .remoteWatch {
+                try? await Task.sleep(nanoseconds: UInt64(stopFlushGraceSec * 1_000_000_000))
+            }
         }
 
         // Drain timeline buffer *before* tearing down hooks (which also
@@ -167,6 +187,9 @@ final class HomeViewModel: ObservableObject {
             )
             await appState.clearActiveMarker()
             appState.publishSnapshot()
+            if shouldNotifyWatch {
+                _ = appState.router.sendStop(sessionId: sessionId)
+            }
         } catch {
             lastError = "Stop failed: \(error)"
             await appState.diagnostics.append(
@@ -175,6 +198,10 @@ final class HomeViewModel: ObservableObject {
                                 error: "\(error)")
             )
             await appState.clearActiveMarker()
+            appState.publishSnapshot()
+            if shouldNotifyWatch {
+                _ = appState.router.sendStop(sessionId: sessionId)
+            }
         }
     }
 }

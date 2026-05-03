@@ -10,9 +10,11 @@ developer account, App Store Connect record, code signing) is manual.
 
 - [ ] **Apple Developer Program** ($99/yr): https://developer.apple.com/programs/enroll/. Individual is fine for private TestFlight; switch to Organization later if you want a brand name on the listing. Approval can take 24–48 hours; sometimes longer for new accounts.
 - [ ] **macOS Xcode 15+** with the iOS 17 / watchOS 10 simulator runtimes installed.
-- [ ] **Hosted Privacy URL.** App Store Connect requires a public privacy policy URL. The repo ships `docs/PRIVACY_POLICY.md`. Easiest hosting:
-    - GitHub Pages: enable Pages on this repo (Settings → Pages → Deploy from a branch → main, `/docs` folder). The published URL becomes `https://<user>.github.io/<repo>/PRIVACY_POLICY.html`. Convert the `.md` to `.html` with any static-site tool, or rename to `index.md` and let Jekyll render.
-    - Or any web host. Just don't link to a 404.
+- [ ] **Privacy policy URL.** App Store Connect requires a public URL. You don't need a server — pick one of:
+    - **GitHub Pages (free):** in this repo, Settings → Pages → Deploy from `main` / `/docs`. Rename `docs/PRIVACY_POLICY.md` → `docs/index.md` (or add an `index.md` that links to it) and the URL becomes `https://<user>.github.io/<repo>/`.
+    - **Gist (free):** paste `docs/PRIVACY_POLICY.md` into a public Gist; use the Gist's permalink.
+    - **Notion / Telegraph / any free static host.** Just paste the policy text and use the public URL.
+    - Whatever you pick, the URL must be reachable without a login.
 
 ## 1. Configure local signing
 
@@ -53,7 +55,7 @@ Tip: enable HealthKit on both. Watch needs it because the Watch target reads hea
 
 On https://appstoreconnect.apple.com/apps:
 
-- [ ] New App → iOS, Bundle ID `com.<your>.sleep.ios`, Primary Language English, name "Sleep" (must be unique on the store; if taken, pick a free alternative — you can change later).
+- [ ] New App → iOS, Bundle ID `com.<your>.sleep.ios`, Primary Language English, name "Circadia" (must be unique on the store; if taken, pick a free alternative — you can change later).
 - [ ] App Privacy section: paste the data-collection answers from `docs/M8_TESTFLIGHT_CHECKLIST.md` → "App Privacy answers" below.
 - [ ] Privacy Policy URL: paste the URL you hosted in step 0.
 
@@ -71,7 +73,7 @@ to run if `DEVELOPMENT_TEAM` is missing.
 
 Pick one:
 
-- **Transporter.app** (Mac App Store): drag `build/export/Sleep.ipa` in.
+- **Transporter.app** (Mac App Store): drag `build/export/Circadia.ipa` in.
 - Command line:
   ```bash
   xcrun altool --upload-app -f build/export/*.ipa --type ios \
@@ -95,21 +97,24 @@ minutes (and "Processing" for ~10 more).
 - [ ] Reviewer notes (paste into App Store Connect → TestFlight → Test Information):
 
 ```
-This app tracks sleep using Apple Watch heart rate, HRV, and motion. To
-review without sleeping for a real night:
+Circadia tracks sleep using Apple Watch heart rate, HRV, and motion. To
+review without sleeping a real night:
 
-1. Launch the app, tap Settings → Developer → Runtime → ensure "Live" or
-   "Simulated" depending on whether the reviewer wears a paired Watch.
-2. On Home, tap "Start Tracking" to begin a fake-data simulated session.
-   The hypnogram fills in within ~30 seconds.
-3. Tap "Stop Tracking". A summary appears under History.
+1. Launch the app. The first run shows the legal-consent screen — accept
+   the Terms of Use and Privacy Statement to enter Home.
+2. On Home, tap **Start Tracking**. The tracking hero appears with a
+   hold-to-end CTA. If no Apple Watch is paired the iPhone falls back to
+   HealthKit-only sampling, so live HR may be sparse during a short demo;
+   the summary card and hypnogram still render at end.
+3. Press and hold **End** for one second to stop. A summary card slides
+   into History.
 
 HealthKit usage: the app reads heart rate and HRV to classify sleep stages.
 Microphone usage: optional breathing-event detection. Audio is processed
 on-device and never uploaded; the buffer is discarded after detection.
 
 No backend, no analytics, no third-party SDKs. Privacy policy:
-https://<your-hosted-privacy-url>/
+https://<your-github-username>.github.io/<repo>/  (or whichever free host you used in step 0)
 ```
 
 ## App Privacy answers
@@ -127,7 +132,7 @@ Paste these into App Store Connect → App Privacy.
 
 Hand them this short note:
 
-> Install Sleep from the TestFlight invite. Pair your Apple Watch. Tap Start
+> Install Circadia from the TestFlight invite. Pair your Apple Watch. Tap Start
 > Tracking before bed and Stop Tracking when you wake. In the morning, open
 > Settings → Diagnostics, tap the copy icon, and paste the diagnostic dump
 > into a reply.

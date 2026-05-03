@@ -33,6 +33,7 @@ public final class StageInferencePipeline: ObservableObject {
     private var featureBuilder: FeatureWindowBuilder
     private var buffer: SequenceBuffer
     private var lastInferenceAt: Date?
+    private var smoothedProbabilities: [Float]?
     /// Monotonic start epoch used to detect stale `reset()` calls across
     /// app-state rebinds (M6 overnight reliability).
     private var startEpoch: UInt64 = 0
@@ -43,6 +44,13 @@ public final class StageInferencePipeline: ObservableObject {
     /// Whether the user has personalization enabled (default true; toggle
     /// from Settings).
     public var personalizationEnabled: Bool = true
+
+    /// How much of the newest model output to mix into the rolling probability
+    /// estimate. Lower values reduce stage flicker from transient motion.
+    private let smoothingAlpha: Float = 0.45
+    /// Require a modest margin before switching stages at low confidence.
+    private let switchMargin: Float = 0.10
+    private let lowConfidenceSwitchThreshold: Float = 0.48
 
     public init(model: StageInferenceModel, modelLoadMs: Double = 0) {
         self.model = model
@@ -70,6 +78,7 @@ public final class StageInferencePipeline: ObservableObject {
             meanX: Float(w.meanX), meanY: Float(w.meanY), meanZ: Float(w.meanZ),
             energy: Float(w.energy),
             variance: Float(w.energy),
+            magnitudeMean: Float(w.magnitudeMean),
             at: ts
         )
     }
@@ -83,6 +92,13 @@ public final class StageInferencePipeline: ObservableObject {
             variance: 0,
             at: date
         )
+    }
+
+    /// Privacy-safe microphone signal. The detector passes only a local
+    /// event timestamp, never raw audio or spectrograms. This fills the
+    /// `event_count_like_snore` feature slot used by the model contract.
+    public func ingestAcousticSleepEvent(at date: Date = Date()) {
+        featureBuilder.addAcousticEvent(at: date)
     }
 
     // MARK: Tick / inference
@@ -113,6 +129,7 @@ public final class StageInferencePipeline: ObservableObject {
             if personalizationEnabled, !out.probabilities.isEmpty {
                 out = applyPersonalization(to: out, features: vector)
             }
+            out = applyTemporalCalibration(to: out)
             let predictMs = Date().timeIntervalSince(predictStart) * 1000.0
             latest = out
             inferenceCount += 1
@@ -135,6 +152,7 @@ public final class StageInferencePipeline: ObservableObject {
         featureBuilder.reset()
         buffer.reset()
         latest = nil
+        smoothedProbabilities = nil
         lastInferenceAt = nil
         inferenceCount = 0
         lastError = nil
@@ -180,5 +198,65 @@ public final class StageInferencePipeline: ObservableObject {
             probabilities: exps,
             producedAt: base.producedAt
         )
+    }
+
+    /// Smooths model probabilities over time and gates low-confidence stage
+    /// flips. Sleep stages are physiologically slow-moving; without this, a
+    /// single restless second can make the UI bounce between wake/light/deep.
+    private func applyTemporalCalibration(to raw: StageInferenceOutput) -> StageInferenceOutput {
+        guard raw.probabilities.count == hyperparameters.numClasses else {
+            return raw
+        }
+
+        let blended: [Float]
+        if let previous = smoothedProbabilities,
+           previous.count == raw.probabilities.count {
+            blended = zip(previous, raw.probabilities).map {
+                (1 - smoothingAlpha) * $0 + smoothingAlpha * $1
+            }
+        } else {
+            blended = raw.probabilities
+        }
+
+        var calibrated = StageInferenceOutput.fromProbabilities(
+            normalize(blended),
+            producedAt: raw.producedAt
+        )
+
+        if let last = latest,
+           calibrated.stage != last.stage,
+           calibrated.probabilities.indices.contains(calibrated.stage.rawValue),
+           calibrated.probabilities.indices.contains(last.stage.rawValue) {
+            let candidateIdx = calibrated.stage.rawValue
+            let previousIdx = last.stage.rawValue
+            let candidateProb = calibrated.probabilities[candidateIdx]
+            let previousProb = calibrated.probabilities[previousIdx]
+            let weakSwitch = candidateProb < lowConfidenceSwitchThreshold
+                && (candidateProb - previousProb) < switchMargin
+
+            if weakSwitch {
+                var gated = calibrated.probabilities
+                let shift = min(switchMargin, gated[candidateIdx])
+                gated[candidateIdx] -= shift
+                gated[previousIdx] += shift
+                calibrated = StageInferenceOutput.fromProbabilities(
+                    normalize(gated),
+                    producedAt: raw.producedAt
+                )
+            }
+        }
+
+        smoothedProbabilities = calibrated.probabilities
+        return calibrated
+    }
+
+    private func normalize(_ probabilities: [Float]) -> [Float] {
+        let clipped = probabilities.map { max(0, $0.isFinite ? $0 : 0) }
+        let sum = clipped.reduce(0, +)
+        guard sum > 1e-6 else {
+            return Array(repeating: 1 / Float(max(1, hyperparameters.numClasses)),
+                         count: hyperparameters.numClasses)
+        }
+        return clipped.map { $0 / sum }
     }
 }

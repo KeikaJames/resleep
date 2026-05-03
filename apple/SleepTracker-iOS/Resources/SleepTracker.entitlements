@@ -4,7 +4,16 @@
 <dict>
   <key>com.apple.developer.healthkit</key>
   <true/>
-  <key>com.apple.developer.healthkit.access</key>
-  <array/>
+  <!--
+    Required to load the on-device LLM weights without iOS jetsam
+    SIGKILL. The Circadia AI tier ships ~2 GB of 4-bit weights that
+    are mmap'd by MLX; together with Metal cache + KV cache + the
+    Swift runtime + UI this exceeds the default ~3 GB budget on
+    most iPhones. This entitlement is documented and free to use
+    on iOS 15+; App Review allows it as long as the elevated memory
+    is genuinely needed by an on-device ML feature, which it is.
+  -->
+  <key>com.apple.developer.kernel.increased-memory-limit</key>
+  <true/>
 </dict>
 </plist>

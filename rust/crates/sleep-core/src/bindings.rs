@@ -52,7 +52,7 @@ mod ffi {
         fn current_confidence(&self) -> f32;
 
         fn arm_smart_alarm(&mut self, target_ms: u64, window_minutes: u32) -> Result<(), String>;
-        fn check_alarm_trigger(&self, now_ms: u64) -> bool;
+        fn check_alarm_trigger(&mut self, now_ms: u64) -> bool;
     }
 }
 
@@ -111,7 +111,7 @@ impl FfiSleepEngine {
         Ok(())
     }
 
-    fn check_alarm_trigger(&self, now_ms: u64) -> bool {
+    fn check_alarm_trigger(&mut self, now_ms: u64) -> bool {
         self.inner.check_alarm_trigger(now_ms)
     }
 }

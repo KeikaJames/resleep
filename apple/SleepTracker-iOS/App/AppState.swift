@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import SleepKit
 
 /// Runtime mode: live data vs scripted scenario replay.
@@ -17,8 +18,13 @@ public final class AppState: ObservableObject {
     public let connectivity: ConnectivityManagerProtocol
     public let health: HealthPermissionServiceProtocol
     public let healthWriter: HealthKitSleepWriting
+    /// Backfills sleep nights from HealthKit when Circadia did not actively
+    /// track. Read-only fallback path; never writes back to HealthKit.
+    public let passiveImporter: PassiveSleepImporterProtocol
     public let snoreDetector: SnoreDetectorProtocol
     public let personalization: PersonalizationService
+    public let adaptiveSleepModel: AdaptiveSleepModelService
+    public let protocolCheckIns: SleepProtocolCheckInService
     public let heartRateStream: HeartRateStreaming
     public let workout: WorkoutSessionManager
     public let router: TelemetryRouter
@@ -35,11 +41,31 @@ public final class AppState: ObservableObject {
     public let diagnostics: DiagnosticsStoreProtocol
     /// Active-session crash/interruption marker.
     public let markerStore: ActiveSessionMarkerStoreProtocol
+    public let sleepPlanStore: SleepPlanUserDefaultsStore
 
     @Published public var latestSummary: SessionSummary?
+    @Published public private(set) var sleepPlan: SleepPlanConfiguration
+    @Published public private(set) var activeProtocolCheckInPlan: SleepProtocolCheckInPlan?
     /// Set when the app launches and finds a stale active-session marker.
     /// `nil` once the user finishes-and-saves or discards.
     @Published public private(set) var interruptedSessionStart: ActiveSessionMarker?
+
+    /// Latest snapshot of HealthKit heart-rate authorization. Updated on
+    /// app launch, foreground (so granting in iOS Settings.app and returning
+    /// reflects immediately), and after every explicit `requestAuthorization`.
+    @Published public private(set) var healthAuthorization: HealthAuthorizationStatus = .unknown
+
+    /// Sleep nights backfilled from HealthKit's first-party sleep analysis
+    /// (Apple Watch's own classifier, since watchOS 9). These are the
+    /// "user forgot to start Circadia, but the Watch still recorded the
+    /// night" fallback. Always presented as read-only and clearly badged
+    /// as passive in History so the user knows the score did not come
+    /// from Circadia's engine.
+    @Published public private(set) var passiveNights: [PassiveSleepNight] = []
+    /// `nil` until first import attempt completes — lets History tell the
+    /// difference between "no Apple Watch nights yet" and "we haven't
+    /// asked HealthKit yet" so the empty state copy is honest.
+    @Published public private(set) var passiveImportLastRunAt: Date?
 
     // MARK: Simulation
     /// Replay harness. Always instantiated so its `@Published` state is
@@ -54,7 +80,10 @@ public final class AppState: ObservableObject {
 
     /// 1 Hz status snapshot cadence — matches the watch-facing spec.
     private let statusTickSec: Double = 1.0
+    /// Gives the Watch a chance to flush tail telemetry before the phone closes the engine session.
+    private let remoteStopFlushGraceSec: Double = 2.5
     private var statusTickTask: Task<Void, Never>?
+    private var objectChangeBag: Set<AnyCancellable> = []
 
     /// Timeline sampling. Every `timelineTickSec` we record the current
     /// (stage, time) into a flat buffer; at session-stop we collapse
@@ -74,10 +103,13 @@ public final class AppState: ObservableObject {
         healthWriter: HealthKitSleepWriting? = nil,
         snoreDetector: SnoreDetectorProtocol? = nil,
         personalization: PersonalizationService? = nil,
+        adaptiveSleepModel: AdaptiveSleepModelService? = nil,
+        protocolCheckIns: SleepProtocolCheckInService? = nil,
         inferenceModel: StageInferenceModel? = nil,
         inferenceFallbackReason: String? = nil,
         diagnostics: DiagnosticsStoreProtocol = InMemoryDiagnosticsStore(),
-        markerStore: ActiveSessionMarkerStoreProtocol = InMemoryActiveSessionMarkerStore()
+        markerStore: ActiveSessionMarkerStoreProtocol = InMemoryActiveSessionMarkerStore(),
+        passiveImporter: PassiveSleepImporterProtocol = PassiveSleepImporter()
     ) {
         self.engine = engine
         self.engineFallbackReason = engineFallbackReason
@@ -87,10 +119,16 @@ public final class AppState: ObservableObject {
         self.health = health
         self.heartRateStream = heartRateStream
         self.healthWriter = healthWriter ?? EngineHost.makeHealthKitSleepWriter()
+        self.passiveImporter = passiveImporter
         self.snoreDetector = snoreDetector ?? EngineHost.makeSnoreDetector()
         self.personalization = personalization ?? EngineHost.makePersonalizationService()
+        self.adaptiveSleepModel = adaptiveSleepModel ?? EngineHost.makeAdaptiveSleepModelService()
+        self.protocolCheckIns = protocolCheckIns ?? EngineHost.makeSleepProtocolCheckInService()
         self.diagnostics = diagnostics
         self.markerStore = markerStore
+        let sleepPlanStore = SleepPlanUserDefaultsStore()
+        self.sleepPlanStore = sleepPlanStore
+        self.sleepPlan = sleepPlanStore.load()
 
         let resolvedModel: StageInferenceModel
         let resolvedReason: String?
@@ -116,8 +154,12 @@ public final class AppState: ObservableObject {
             inferencePipeline: pipeline
         )
         self.workout = workout
-        self.router = TelemetryRouter(connectivity: connectivity, workout: workout)
+        self.router = TelemetryRouter(connectivity: connectivity,
+                                      workout: workout,
+                                      diagnostics: diagnostics)
         self.alarm = SmartAlarmController()
+        wireNestedObjectChanges()
+        wireWatchLifecycleRequests()
         wireScenarioRunner()
     }
 
@@ -152,10 +194,22 @@ public final class AppState: ObservableObject {
         alarm.setTriggerHandler { [weak self] in
             guard let self else { return false }
             let sid = self.workout.currentSessionID
+            // Fire the phone-side audible alarm in parallel with the watch
+            // round-trip. If the watch is dead / off the wrist / out of
+            // range — the *common* case at 6 a.m. because the watch ran
+            // flat overnight — `router.sendTriggerAlarm` will time out and
+            // the user would otherwise sleep through. Phone audio +
+            // immediate UN banner closes that gap. This is idempotent and
+            // cheap; safe to fire even when the watch ack lands first.
+            IPhoneAlarmService.shared.fireNow()
             return await self.router.sendTriggerAlarm(sessionId: sid)
         }
         router.onAlarmDismissed = { [weak self] in
             self?.alarm.noteDismissedByWatch()
+            // Stop in-process audio + tear down any still-pending UN beats
+            // so a phone that just got the dismiss ack from the watch
+            // doesn't keep beeping.
+            IPhoneAlarmService.shared.cancel()
         }
         startStatusTickLoop()
         startTimelineTickLoop()
@@ -177,9 +231,222 @@ public final class AppState: ObservableObject {
         snoreDetector.stop()
     }
 
+    private func wireWatchLifecycleRequests() {
+        router.onWatchStartRequested = { [weak self] requestedSessionId in
+            Task { @MainActor [weak self] in
+                await self?.startSessionFromWatch(requestedSessionId: requestedSessionId)
+            }
+        }
+        router.onWatchStopRequested = { [weak self] requestedSessionId in
+            Task { @MainActor [weak self] in
+                await self?.stopSessionFromWatch(requestedSessionId: requestedSessionId)
+            }
+        }
+    }
+
+    private func wireNestedObjectChanges() {
+        workout.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &objectChangeBag)
+
+        router.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &objectChangeBag)
+
+        alarm.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &objectChangeBag)
+    }
+
+    private func startSessionFromWatch(requestedSessionId: String?) async {
+        guard OnboardingGate.hasCompleted else {
+            _ = router.sendStop(sessionId: requestedSessionId)
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStart,
+                                sessionId: requestedSessionId,
+                                message: "watch-origin start rejected: onboarding incomplete")
+            )
+            publishSnapshot()
+            return
+        }
+
+        if interruptedSessionStart != nil {
+            await finishInterruptedAndSave()
+        }
+
+        guard runtimeMode == .live else {
+            publishSnapshot()
+            return
+        }
+
+        if workout.isTracking {
+            if workout.source == .remoteWatch, let sid = workout.currentSessionID {
+                _ = router.sendStart(sessionId: sid)
+            }
+            publishSnapshot()
+            return
+        }
+
+        do {
+            try await workout.startTracking(source: .remoteWatch)
+        } catch {
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStart,
+                                sessionId: requestedSessionId,
+                                message: "watch-origin start failed",
+                                error: "\(error)")
+            )
+            publishSnapshot()
+            return
+        }
+
+        router.resetSessionTelemetry()
+        installRunningSessionHooks()
+
+        let startedAt = workout.sessionStartedAt ?? Date()
+        if let sid = workout.currentSessionID {
+            await writeActiveMarker(sessionId: sid,
+                                    startedAt: startedAt,
+                                    source: .remoteWatch,
+                                    mode: runtimeMode)
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStart,
+                                sessionId: sid,
+                                message: "source=\(TrackingSource.remoteWatch.rawValue) origin=watch")
+            )
+            _ = router.sendStart(sessionId: sid)
+        }
+
+        applySleepPlanForTonight()
+        if alarm.isEnabled {
+            _ = alarm.armIfEnabled(engine: engine)
+            // Pre-schedule UN beats at the hard target time. These survive
+            // app suspension, so even if iOS reclaims the foreground
+            // process overnight the user still wakes up. Smart trigger
+            // (engine flags a light-sleep window inside `windowMinutes`)
+            // additionally calls `fireNow()` from the trigger handler.
+            IPhoneAlarmService.shared.arm(
+                target: alarm.target,
+                windowMinutes: alarm.windowMinutes
+            )
+            _ = router.sendArmAlarm(
+                sessionId: workout.currentSessionID,
+                target: alarm.target,
+                windowMinutes: alarm.windowMinutes
+            )
+        }
+
+        publishSnapshot()
+    }
+
+    private func stopSessionFromWatch(requestedSessionId: String?) async {
+        if runtimeMode == .simulated {
+            await stopSimulation()
+            return
+        }
+        guard workout.isTracking else {
+            publishSnapshot()
+            return
+        }
+
+        if let requestedSessionId,
+           let activeSessionId = workout.currentSessionID,
+           requestedSessionId != activeSessionId {
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStop,
+                                sessionId: requestedSessionId,
+                                message: "watch-origin stop ignored: stale session active=\(activeSessionId)")
+            )
+            publishSnapshot()
+            return
+        }
+
+        let sessionId = workout.currentSessionID ?? requestedSessionId
+
+        if alarm.state == .triggered || alarm.state == .failedWatchUnreachable {
+            _ = router.sendStopAlarm(sessionId: sessionId)
+        }
+
+        let alarmMeta = StoredAlarmMeta(
+            enabled: alarm.isEnabled,
+            finalStateRaw: alarm.state.rawValue,
+            targetTsMs: alarm.isEnabled
+                ? Int64(alarm.target.timeIntervalSince1970 * 1000)
+                : nil,
+            windowMinutes: alarm.windowMinutes,
+            triggeredAtTsMs: alarm.triggeredAt.map { Int64($0.timeIntervalSince1970 * 1000) },
+            dismissedAtTsMs: alarm.watchAckedAt.map { Int64($0.timeIntervalSince1970 * 1000) }
+        )
+        alarm.clear()
+        // Tear down any in-flight phone audio + pre-scheduled UN beats so
+        // ending a session always silences the phone.
+        IPhoneAlarmService.shared.cancel()
+
+        if workout.source == .remoteWatch {
+            try? await Task.sleep(nanoseconds: UInt64(remoteStopFlushGraceSec * 1_000_000_000))
+        }
+
+        let endedAt = Date()
+        let timeline = drainTimelineEntries(endedAt: endedAt)
+        let source = workout.source
+        let mode = runtimeMode
+        let startedAt = workout.sessionStartedAt
+
+        teardownRunningSessionHooks()
+
+        do {
+            let summary = try await workout.stopTracking()
+            if let summary {
+                await archiveCompletedSession(
+                    summary: summary,
+                    startedAt: startedAt
+                        ?? Date().addingTimeInterval(-TimeInterval(summary.durationSec)),
+                    endedAt: endedAt,
+                    timeline: timeline,
+                    alarm: alarmMeta,
+                    source: source,
+                    runtimeMode: mode
+                )
+                await diagnostics.append(
+                    DiagnosticEvent(type: .localStoreWrite,
+                                    sessionId: summary.sessionId,
+                                    message: "session record persisted from watch stop")
+                )
+            }
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStop,
+                                sessionId: sessionId,
+                                message: "origin=watch")
+            )
+            await clearActiveMarker()
+            publishSnapshot()
+        } catch {
+            await diagnostics.append(
+                DiagnosticEvent(type: .sessionStop,
+                                sessionId: sessionId,
+                                message: "watch-origin stop failed",
+                                error: "\(error)")
+            )
+            await clearActiveMarker()
+            publishSnapshot()
+        }
+    }
+
     private func startSnoreDetectorIfEnabled() {
         let enabled = UserDefaults.standard.bool(forKey: "settings.enableSnoreDetection")
         guard enabled else { return }
+        snoreDetector.onEvent { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.workout.isTracking else { return }
+                self.inferencePipeline.ingestAcousticSleepEvent()
+            }
+        }
         do { try snoreDetector.start() }
         catch { /* graceful: detector simply stays inactive */ }
     }
@@ -260,6 +527,7 @@ public final class AppState: ObservableObject {
         )
         try? await localStore.recordSessionRecord(record)
         latestSummary = summary
+        await adaptiveSleepModel.ingest(record: record, plan: sleepPlan)
 
         if let survey {
             await ingestSurveyAsLabels(sessionId: summary.sessionId,
@@ -306,6 +574,7 @@ public final class AppState: ObservableObject {
         await ingestSurveyAsLabels(sessionId: sessionId,
                                    timeline: rec.timeline,
                                    survey: survey)
+        await adaptiveSleepModel.ingest(record: rec, plan: sleepPlan)
     }
 
     /// Persist Sleep Notes (tags + free text) for an already-archived session.
@@ -389,8 +658,57 @@ public final class AppState: ObservableObject {
             alarmTarget: alarm.isEnabled ? alarm.target : nil,
             alarmWindowMinutes: alarm.isEnabled ? alarm.windowMinutes : nil,
             alarmTriggeredAt: alarm.triggeredAt,
+            sleepPlan: currentSleepPlan(),
             runtimeModeRaw: runtimeMode.rawValue
         )
+    }
+
+    public func currentSleepPlan() -> SleepPlanConfiguration {
+        sleepPlan
+    }
+
+    public func reloadSleepPlan() {
+        sleepPlan = sleepPlanStore.load()
+    }
+
+    public func saveSleepPlan(_ plan: SleepPlanConfiguration) {
+        sleepPlanStore.save(plan)
+        sleepPlan = plan
+        applySleepPlanForTonight()
+        publishSnapshot()
+    }
+
+    public func reloadProtocolCheckInPlan() async {
+        let plan = await protocolCheckIns.activePlan()
+        await MainActor.run { self.activeProtocolCheckInPlan = plan }
+    }
+
+    public func activateProtocolCheckInPlan(_ plan: SleepProtocolCheckInPlan) async {
+        let saved = await protocolCheckIns.activate(plan)
+        await MainActor.run { self.activeProtocolCheckInPlan = saved }
+    }
+
+    public func completeProtocolCheckInTask(id taskID: String) async {
+        let updated = await protocolCheckIns.completeTask(id: taskID)
+        await MainActor.run { self.activeProtocolCheckInPlan = updated }
+    }
+
+    public func clearProtocolCheckInPlan() async {
+        await protocolCheckIns.clear()
+        await MainActor.run { self.activeProtocolCheckInPlan = nil }
+    }
+
+    /// Sleep plan is the product-level source of truth for nightly alarm
+    /// timing. Manual alarm edits still work when automatic tracking is off.
+    public func applySleepPlanForTonight(now: Date = Date()) {
+        reloadSleepPlan()
+        let plan = sleepPlan
+        guard plan.autoTrackingEnabled else { return }
+        let decision = plan.decision(now: now)
+        guard decision.shouldArmSmartAlarm else { return }
+        alarm.isEnabled = true
+        alarm.target = decision.window.wakeTime
+        alarm.windowMinutes = plan.smartWakeWindowMinutes
     }
 
     private func wireScenarioRunner() {
@@ -443,6 +761,7 @@ public final class AppState: ObservableObject {
             _ = try? await workout.stopTracking()
         }
         alarm.clear()
+        IPhoneAlarmService.shared.cancel()
         inferencePipeline.reset()
         // 3. Start a fresh session in the source the scenario expects.
         let src: TrackingSource =
@@ -454,6 +773,7 @@ public final class AppState: ObservableObject {
             activeScenario = nil
             return
         }
+        router.resetSessionTelemetry()
         runtimeMode = .simulated
         activeScenario = scenario
         lastScenarioMark = nil
@@ -478,6 +798,7 @@ public final class AppState: ObservableObject {
         activeScenario = nil
         runtimeMode = .live
         alarm.clear()
+        IPhoneAlarmService.shared.cancel()
         teardownRunningSessionHooks()
         if workout.isTracking {
             _ = try? await workout.stopTracking()
@@ -497,12 +818,63 @@ public final class AppState: ObservableObject {
             inferencePipeline.personalizationEnabled = stored
         }
         await diagnostics.append(DiagnosticEvent(type: .appLaunch))
+        await health.probeHeartRateReadAccess()
+        refreshHealthAuthorization()
+        await reloadProtocolCheckInPlan()
         await detectInterruptedSession()
+        publishSnapshot()
     }
 
     public func appForeground() {
+        publishSnapshot()
         Task { [diagnostics] in
             await diagnostics.append(DiagnosticEvent(type: .appForeground))
+        }
+        // Re-poll HealthKit each time the user returns from background.
+        // Crucially this runs after the user grants permission in iOS
+        // Settings.app and switches back to Circadia — without it the
+        // start button stays gated on a stale "denied" state.
+        //
+        // We MUST run a real sample-query probe here because
+        // `authorizationStatus(for:)` only reflects WRITE permission;
+        // for read-only types it returns `.sharingDenied` even after the
+        // user grants access (Apple privacy design).
+        Task { [weak self] in
+            guard let self else { return }
+            await self.health.probeHeartRateReadAccess()
+            await self.reloadProtocolCheckInPlan()
+            await MainActor.run { self.refreshHealthAuthorization() }
+        }
+    }
+
+    /// Re-reads the latest HealthKit authorization status and republishes
+    /// it. Cheap; callers may invoke freely.
+    public func refreshHealthAuthorization() {
+        healthAuthorization = health.heartRateAuthorization()
+        // Once we believe the user has granted Health read access, kick off
+        // a passive-night backfill. The importer is a no-op when access
+        // isn't actually granted, so being optimistic here is safe.
+        if healthAuthorization == .sharingAuthorized {
+            Task { [weak self] in await self?.refreshPassiveNights() }
+        }
+    }
+
+    /// Pulls Apple Watch's first-party sleep analysis from HealthKit for
+    /// roughly the last 30 nights and republishes them as `passiveNights`.
+    /// Idempotent and cheap: HealthKit caches its own queries and we
+    /// over-write the published array atomically. Throws nothing — errors
+    /// degrade silently to "leave passiveNights as-is".
+    public func refreshPassiveNights() async {
+        let end = Date()
+        let start = end.addingTimeInterval(-30 * 86_400)
+        do {
+            let nights = try await passiveImporter.importNights(start: start, end: end)
+            await MainActor.run {
+                self.passiveNights = nights.sorted { $0.startedAt > $1.startedAt }
+                self.passiveImportLastRunAt = Date()
+            }
+        } catch {
+            await MainActor.run { self.passiveImportLastRunAt = Date() }
         }
     }
 

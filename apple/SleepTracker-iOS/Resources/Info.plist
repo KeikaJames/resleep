@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleDisplayName</key><string>Sleep</string>
+  <key>CFBundleDisplayName</key><string>Circadia</string>
   <key>CFBundleName</key><string>$(PRODUCT_NAME)</string>
   <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
   <key>CFBundlePackageType</key><string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
@@ -19,14 +19,18 @@
   <key>LSRequiresIPhoneOS</key><true/>
   <key>UILaunchScreen</key><dict/>
   <key>UIRequiredDeviceCapabilities</key>
-  <array><string>armv7</string></array>
+  <array><string>arm64</string></array>
   <key>NSHealthShareUsageDescription</key>
-  <string>Sleep reads heart rate and HRV locally on-device to classify sleep stages. Data never leaves your device.</string>
+  <string>Circadia reads heart rate and HRV locally on-device to classify sleep stages. Data never leaves your device.</string>
   <key>NSHealthUpdateUsageDescription</key>
-  <string>Sleep can optionally write sleep analysis back to HealthKit.</string>
+  <string>Circadia can optionally write sleep analysis back to HealthKit.</string>
   <key>NSMicrophoneUsageDescription</key>
-  <string>If enabled, Sleep listens for breathing events on-device. Audio is never uploaded and not saved by default.</string>
+  <string>If enabled, Circadia listens for breathing events on-device. Audio is never uploaded or saved.</string>
   <key>NSMotionUsageDescription</key>
-  <string>Sleep uses motion to detect restlessness while you sleep.</string>
+  <string>Circadia uses motion to detect restlessness while you sleep.</string>
+  <key>UIBackgroundModes</key>
+  <array>
+    <string>audio</string>
+  </array>
 </dict>
 </plist>

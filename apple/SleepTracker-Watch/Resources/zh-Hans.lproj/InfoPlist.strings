@@ -1,5 +1,5 @@
-/* Sleep Tracker (Watch) — 简体中文 InfoPlist localization */
-"CFBundleDisplayName" = "睡眠";
-"NSHealthShareUsageDescription" = "Sleep 在睡眠期间于本机读取心率。";
-"NSHealthUpdateUsageDescription" = "Sleep 可以将睡眠分析写回「健康」（可选）。";
-"NSMotionUsageDescription" = "Sleep 通过运动数据感知夜间翻身和清醒。";
+/* Circadia Tracker (Watch) — 简体中文 InfoPlist localization */
+"CFBundleDisplayName" = "Circadia";
+"NSHealthShareUsageDescription" = "Circadia 在睡眠期间于本机读取心率。";
+"NSHealthUpdateUsageDescription" = "Circadia 可以将睡眠分析写回「健康」（可选）。";
+"NSMotionUsageDescription" = "Circadia 通过运动数据感知夜间翻身和清醒。";

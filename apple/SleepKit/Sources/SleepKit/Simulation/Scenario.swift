@@ -102,7 +102,7 @@ public enum ScenarioScripts {
     private static func accelFlat(energy: Double, sec: Int, startT: Double) -> [ScenarioStep] {
         (0..<sec).map { i in
             .accelWindow(offsetSec: startT + Double(i),
-                         meanX: 0, meanY: 0, meanZ: 1, energy: energy)
+                         meanX: 0, meanY: 0, meanZ: 0, energy: energy)
         }
     }
 
@@ -115,7 +115,7 @@ public enum ScenarioScripts {
             let denom = Double(max(1, 60 - 1))
             let energy = 0.8 - (0.75 * Double(i) / denom)
             out.append(.accelWindow(offsetSec: Double(i),
-                                    meanX: 0, meanY: 0, meanZ: 1, energy: energy))
+                                    meanX: 0, meanY: 0, meanZ: 0, energy: energy))
         }
         out.append(.mark(offsetSec: 60, label: "asleep"))
         return out

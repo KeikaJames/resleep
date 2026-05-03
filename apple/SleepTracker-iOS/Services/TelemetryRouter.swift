@@ -21,6 +21,10 @@ public final class TelemetryRouter: ObservableObject {
 
     /// Fires when the Watch tells us the alarm was dismissed.
     public var onAlarmDismissed: (@MainActor () -> Void)?
+    /// Fires when the Watch requests ownership of a live sleep session.
+    public var onWatchStartRequested: (@MainActor (_ requestedSessionId: String?) -> Void)?
+    /// Fires when the Watch requests the active sleep session to stop.
+    public var onWatchStopRequested: (@MainActor (_ requestedSessionId: String?) -> Void)?
 
     // MARK: Trigger-ack tracking (app-level delivery confirmation)
 
@@ -39,11 +43,14 @@ public final class TelemetryRouter: ObservableObject {
     // MARK: Dependencies
 
     private let connectivity: ConnectivityManagerProtocol
+    private let diagnostics: DiagnosticsStoreProtocol?
     private weak var workout: WorkoutSessionManager?
 
     public init(connectivity: ConnectivityManagerProtocol,
-                workout: WorkoutSessionManager) {
+                workout: WorkoutSessionManager,
+                diagnostics: DiagnosticsStoreProtocol? = nil) {
         self.connectivity = connectivity
+        self.diagnostics = diagnostics
         self.workout = workout
         self.watchReachable = connectivity.isReachable
         self.watchAppInstalled = connectivity.isWatchAppInstalled
@@ -62,6 +69,15 @@ public final class TelemetryRouter: ObservableObject {
         }
     }
 
+    /// Clears per-session telemetry state when a new sleep session starts.
+    /// Without this, the UI can show yesterday's Watch sync as if the current
+    /// session is actively receiving data.
+    public func resetSessionTelemetry() {
+        lastBatchAt = nil
+        lastBatchHRCount = 0
+        lastBatchAccelCount = 0
+    }
+
     // MARK: Inbound dispatch
 
     private func handle(_ envelope: MessageEnvelope) {
@@ -76,12 +92,14 @@ public final class TelemetryRouter: ObservableObject {
         case .control:
             guard let ctrl = try? envelope.decode(ControlPayload.self) else { return }
             switch ctrl.command {
+            case .startTracking:
+                onWatchStartRequested?(envelope.sessionId)
+            case .stopTracking:
+                onWatchStopRequested?(envelope.sessionId)
             case .dismissAlarm:
                 lastAlarmAckAt = Date()
                 onAlarmDismissed?()
             default:
-                // iPhone is the engine host — it does not accept startTracking/
-                // stopTracking from the Watch. Log and ignore.
                 NSLog("[TelemetryRouter] received control=\(ctrl.command.rawValue)")
             }
 
@@ -107,6 +125,12 @@ public final class TelemetryRouter: ObservableObject {
             NSLog("[TelemetryRouter] batch dropped — no active session")
             return
         }
+        if let incoming = sessionId,
+           let active = workout.currentSessionID,
+           incoming != active {
+            NSLog("[TelemetryRouter] batch dropped — stale session \(incoming), active \(active)")
+            return
+        }
         for point in batch.heartRates {
             workout.ingestRemoteHeartRate(point.bpm, at: WallClock.date(ms: point.tsMs))
         }
@@ -116,6 +140,14 @@ public final class TelemetryRouter: ObservableObject {
         lastBatchAt = Date()
         lastBatchHRCount = batch.heartRates.count
         lastBatchAccelCount = batch.accelWindows.count
+        if let diagnostics {
+            let event = DiagnosticEvent(
+                type: .telemetryBatchReceived,
+                sessionId: sessionId ?? workout.currentSessionID,
+                message: "hr=\(batch.heartRates.count) accel=\(batch.accelWindows.count)"
+            )
+            Task { await diagnostics.append(event) }
+        }
     }
 
     // MARK: Outbound control
@@ -129,7 +161,18 @@ public final class TelemetryRouter: ObservableObject {
     @discardableResult
     public func sendStop(sessionId: String?) -> Bool {
         guard let env = try? WatchMessage.stopTracking(sessionId: sessionId) else { return false }
-        return trySendImmediateWithFallback(env)
+        // Stop is idempotent and safety-critical: a delayed duplicate is
+        // harmless, but a missed stop leaves the Watch recording after the
+        // phone has ended the session. Queue a guaranteed copy even when the
+        // low-latency path appears reachable, because `WCSession.sendMessage`
+        // can still fail asynchronously after our synchronous preflight.
+        connectivity.sendGuaranteedMessage(env)
+        do {
+            try connectivity.sendImmediateMessage(env)
+            return true
+        } catch {
+            return false
+        }
     }
 
     @discardableResult
@@ -233,6 +276,7 @@ public final class TelemetryRouter: ObservableObject {
                                    alarmTarget: Date?,
                                    alarmWindowMinutes: Int?,
                                    alarmTriggeredAt: Date?,
+                                   sleepPlan: SleepPlanConfiguration? = nil,
                                    runtimeModeRaw: String? = nil) {
         let snap = StatusSnapshotPayload(
             isTracking: isTracking,
@@ -245,6 +289,7 @@ public final class TelemetryRouter: ObservableObject {
             alarmTargetTsMs: alarmTarget.map { UInt64($0.timeIntervalSince1970 * 1000) },
             alarmWindowMinutes: alarmWindowMinutes,
             alarmTriggeredAtTsMs: alarmTriggeredAt.map { UInt64($0.timeIntervalSince1970 * 1000) },
+            sleepPlan: sleepPlan,
             runtimeModeRaw: runtimeModeRaw
         )
         try? connectivity.updateStatusSnapshot(snap, sessionId: sessionId)
